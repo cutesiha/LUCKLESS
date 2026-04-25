@@ -83,11 +83,39 @@ public class BattleManager : MonoBehaviour
     public CardData[] startingCards;
 
     [Header("Deck")]
-    public int drawCount = 3;
+    public int drawCount = 4;
     public List<CardData> drawPile = new List<CardData>();
     public List<CardData> hand = new List<CardData>();
     public List<CardData> discardPile = new List<CardData>();
 
+    [Header("Card Extra")]
+    public int selfDamage;
+    public int gambleSuccessChance = 50;
+    public bool canOnlyUseInPoverty;
+    public bool isGambleCard;
+
+    private Coroutine handRoutine;
+    public int povertyStack = 0;
+
+    [Header("Turn Control")]
+    public bool enemyStunned = false;
+    public bool playerStunned = false;
+
+    private enum LuxState
+    {
+        Poverty,
+        Normal,
+        Lucky,
+        Overflow
+    }
+
+    private LuxState GetLuxState()
+    {
+        if (lux <= 25) return LuxState.Poverty;
+        if (lux <= 60) return LuxState.Normal;
+        if (lux <= 85) return LuxState.Lucky;
+        return LuxState.Overflow;
+    }
 
     private void Start()
     {
@@ -108,10 +136,15 @@ public class BattleManager : MonoBehaviour
         StartCoroutine(RefreshHandUIRoutine());
     }
 
+
     private void RefreshHandUI()
 {
-    StopAllCoroutines();
-    StartCoroutine(RefreshHandUIRoutine());
+    if (handRoutine != null)
+    {
+        StopCoroutine(handRoutine);
+    }
+
+    handRoutine = StartCoroutine(RefreshHandUIRoutine());
 }
 
     private IEnumerator CreateStartingHandRoutine()
@@ -174,6 +207,8 @@ public class BattleManager : MonoBehaviour
         }
 
         battleStarted = true;
+        lux -= selectedBet;
+        lux = Mathf.Clamp(lux, 0, 100);
 
         if (bettingPanel != null) bettingPanel.SetActive(false);
         if (battlePanel != null) battlePanel.SetActive(true);
@@ -209,20 +244,55 @@ private int CalculateRewardLux(int bet)
     return Mathf.RoundToInt(bet * multiplier);
 }
 
+    private bool CanUseCard(CardData card)
+{
+    if (card == null)
+    {
+        WriteLog("카드 데이터가 없습니다.");
+        return false;
+    }
+
+    if (lux < card.luxCost)
+    {
+        WriteLog($"{card.cardName} 사용 불가. LUX가 부족합니다. 필요 LUX: {card.luxCost}, 현재 LUX: {lux}");
+        return false;
+    }
+
+    if (card.cardType == CardType.House)
+    {
+        LuxState state = GetLuxState();
+
+        if (state != LuxState.Lucky && state != LuxState.Overflow)
+        {
+            WriteLog($"{card.cardName} 사용 불가. 하우스 카드는 행운/폭주 구간에서만 사용할 수 있습니다.");
+            return false;
+        }
+    }
+
+    if (card.cardType == CardType.Poverty)
+    {
+        if (GetLuxState() != LuxState.Poverty)
+        {
+            WriteLog($"{card.cardName} 사용 불가. 빈곤 카드는 불운 구간에서만 사용할 수 있습니다.");
+            return false;
+        }
+    }
+
+    return true;
+}
+
     public void UseCard(CardData card)
     {
         if (!battleStarted) return;
         if (battleEnded) return;
-
-        if (lux < card.luxCost)
+        if (playerStunned)
         {
-            WriteLog("LUX가 부족합니다.");
+            WriteLog("제로는 행동 불가 상태입니다. 이번 턴 카드를 사용할 수 없습니다.");
             return;
         }
 
-        if (card.cardType == CardType.Poverty && lux > 25)
+        if (!CanUseCard(card))
         {
-            WriteLog("빈곤 카드는 LUX가 25 이하일 때만 사용할 수 있습니다.");
             return;
         }
 
@@ -236,7 +306,22 @@ private int CalculateRewardLux(int bet)
         enemyHP = Mathf.Clamp(enemyHP, 0, enemyMaxHP);
 
         enemyEmotion += card.emotionGain;
+        if (!card.isGambleCard && card.selfDamage > 0)
+        {
+            playerHP -= card.selfDamage;
+            playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
+        }
         enemyEmotion = Mathf.Clamp(enemyEmotion, 0, maxEmotion);
+
+        if (card.stunEnemyNextTurn)
+        {
+            enemyStunned = true;
+        }
+
+        if (card.stunPlayerNextTurn)
+        {
+            playerStunned = true;
+        }
 
         string logMessage = $"<color=yellow>{card.cardName}</color> 사용!";
 
@@ -273,12 +358,52 @@ private int CalculateRewardLux(int bet)
     {
         int damage = card.damage;
 
+        LuxState state = GetLuxState();
+
+        if (card.canOnlyUseInPoverty)
+        {
+            damage = povertyStack * card.povertyStackMultiplier;
+
+            povertyStack = 0;
+
+            return damage;
+        }
+
+        if (card.isGambleCard)
+        {
+            int chance = card.gambleSuccessChance;
+
+            if (state == LuxState.Lucky)
+            {
+                chance += 10;
+            }
+            else if (state == LuxState.Poverty)
+            {
+                chance -= 10;
+            }
+
+            chance = Mathf.Clamp(chance, 5, 95);
+
+            int roll = Random.Range(1, 101);
+
+            if (roll > chance)
+            {
+                playerHP -= card.selfDamage;
+                playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
+
+                WriteLog($"<color=red>{card.cardName} 실패!</color> ({roll}/{chance}) 제로가 {card.selfDamage} 피해를 받았습니다.");
+                return 0;
+            }
+
+            WriteLog($"<color=yellow>{card.cardName} 성공!</color> ({roll}/{chance})");
+        }
+
         if (damage <= 0)
         {
             return 0;
         }
 
-        if (lux <= 25 && card.cardType == CardType.Deal)
+        if (state == LuxState.Poverty && card.cardType == CardType.Deal)
         {
             if (Random.value < 0.2f)
             {
@@ -290,18 +415,15 @@ private int CalculateRewardLux(int bet)
             }
         }
 
-        if (lux >= 61 && lux <= 85)
+        if (state == LuxState.Lucky)
         {
             damage += 4;
         }
 
-        if (lux >= 86)
+        if (state == LuxState.Overflow)
         {
             damage *= 2;
-            lux -= 30;
-            lux = Mathf.Clamp(lux, 0, 100);
-
-            WriteLog("<color=cyan>폭주 상태 발동!</color> 카드 효과가 강화되었습니다.");
+            WriteLog("<color=cyan>폭주 상태!</color> 피해가 2배가 됩니다.");
         }
 
         return damage;
@@ -342,21 +464,56 @@ private int CalculateRewardLux(int bet)
         if (!battleStarted) return;
         if (battleEnded) return;
 
-        int roll = Random.Range(1, 101);
+        string resultLog;
 
-        if (roll <= enemyActionChance)
+        if (enemyStunned)
         {
-            playerHP -= enemyDamage;
-            playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
-
-            WriteLog($"적의 공격 발동. 제로가 {enemyDamage} 피해를 받았습니다. ({roll}/{enemyActionChance})");
+            resultLog = "적은 행동 불가 상태입니다. 이번 턴 아무 행동도 하지 못했습니다.";
+            enemyStunned = false;
         }
         else
         {
-            WriteLog($"역베팅 성공. 적의 공격이 빗나갔습니다. ({roll}/{enemyActionChance})");
+            int roll = Random.Range(1, 101);
+
+            if (roll <= enemyActionChance)
+            {
+                playerHP -= enemyDamage;
+                playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
+
+                resultLog = $"적의 공격 발동. 제로가 {enemyDamage} 피해를 받았습니다. ({roll}/{enemyActionChance})";
+            }
+            else
+            {
+                resultLog = $"역베팅 성공. 적의 공격이 빗나갔습니다. ({roll}/{enemyActionChance})";
+            }
+        }
+
+        WriteLog(resultLog);
+
+        if (playerStunned)
+        {
+            WriteLog("제로는 행동 불가 상태입니다. 이번 턴 아무 행동도 할 수 없습니다.");
+            playerStunned = false;
         }
 
         turn++;
+
+        if (GetLuxState() == LuxState.Poverty)
+        {
+            povertyStack++;
+        }
+        else
+        {
+            povertyStack = 0;
+        }
+
+        if (GetLuxState() == LuxState.Overflow)
+        {
+            lux -= 30;
+            lux = Mathf.Clamp(lux, 0, 100);
+
+            WriteLog("<color=cyan>폭주 반동:</color> 턴 종료 시 LUX -30.");
+        }
 
         enemyActionChance = 70;
         usedReverseBetThisTurn = false;
@@ -371,6 +528,11 @@ private int CalculateRewardLux(int bet)
         {
             LoseBattle();
             return;
+        }
+
+        if (playerStunned)
+        {
+            playerStunned = false;
         }
 
         UpdateUI();
@@ -391,7 +553,7 @@ private int CalculateRewardLux(int bet)
         battleEnded = true;
 
         int negotiationReward = Mathf.RoundToInt(rewardLux * 0.5f);
-        lux += negotiationReward;
+        lux += Mathf.RoundToInt(selectedBet * 0.5f) + negotiationReward;
         lux = Mathf.Clamp(lux, 0, 100);
 
         WriteLog($"협상으로 전투를 종료했습니다. 보상 +{negotiationReward} LUX. THE HOUSE 신뢰도 하락.");
@@ -408,7 +570,7 @@ private int CalculateRewardLux(int bet)
     {
         battleEnded = true;
 
-        lux += rewardLux;
+        lux += selectedBet + rewardLux;
         lux = Mathf.Clamp(lux, 0, 100);
 
         WriteLog($"표적 제압 완료. 베팅 성공! 보상 +{rewardLux} LUX. 현재 LUX: {lux}");
@@ -426,11 +588,11 @@ private int CalculateRewardLux(int bet)
     {
         battleEnded = true;
 
-        int loss = selectedBet * 2;
-        lux -= loss;
+        int extraLoss = selectedBet;
+        lux -= extraLoss;
         lux = Mathf.Clamp(lux, 0, 100);
 
-        WriteLog($"제로가 쓰러졌습니다. 베팅 실패. LUX -{loss}. 현재 LUX: {lux}");
+        WriteLog($"제로가 쓰러졌습니다. 베팅 실패. 추가 손실 -{extraLoss} LUX. 현재 LUX: {lux}");
 
         if (endPanel != null)
         {
@@ -466,14 +628,31 @@ private int CalculateRewardLux(int bet)
     }
 
     private void SetupDeck()
+    {
+        drawPile.Clear();
+        hand.Clear();
+        discardPile.Clear();
+
+        drawPile = startingCards.ToList();
+
+        Shuffle(drawPile);
+    }
+
+private bool CanDrawCardInCurrentLuxState(CardData card)
 {
-    drawPile.Clear();
-    hand.Clear();
-    discardPile.Clear();
+    LuxState state = GetLuxState();
 
-    drawPile = startingCards.ToList();
+    if (card.cardType == CardType.House)
+    {
+        return state == LuxState.Lucky || state == LuxState.Overflow;
+    }
 
-    Shuffle(drawPile);
+    if (card.cardType == CardType.Poverty)
+    {
+        return state == LuxState.Poverty;
+    }
+
+    return true;
 }
 
 private void DrawCards(int count)
@@ -490,8 +669,38 @@ private void DrawCards(int count)
             return;
         }
 
-        CardData drawnCard = drawPile[0];
-        drawPile.RemoveAt(0);
+        CardData drawnCard = null;
+
+        for (int j = 0; j < drawPile.Count; j++)
+        {
+            if (CanDrawCardInCurrentLuxState(drawPile[j]))
+            {
+                drawnCard = drawPile[j];
+                drawPile.RemoveAt(j);
+                break;
+            }
+        }
+
+        if (drawnCard == null)
+        {
+            ReshuffleDiscardIntoDeck();
+
+            for (int j = 0; j < drawPile.Count; j++)
+            {
+                if (CanDrawCardInCurrentLuxState(drawPile[j]))
+                {
+                    drawnCard = drawPile[j];
+                    drawPile.RemoveAt(j);
+                    break;
+                }
+            }
+        }
+
+        if (drawnCard == null)
+        {
+            return;
+        }
+
         hand.Add(drawnCard);
     }
 }
@@ -507,7 +716,6 @@ private void ReshuffleDiscardIntoDeck()
     discardPile.Clear();
     Shuffle(drawPile);
 
-    WriteLog("버림더미를 섞어 새 덱을 만들었습니다.");
 }
 
 private void Shuffle(List<CardData> list)
@@ -527,8 +735,9 @@ private IEnumerator RefreshHandUIRoutine()
     {
         Destroy(child.gameObject);
     }
+    List<CardData> handSnapshot = new List<CardData>(hand);
 
-    foreach (CardData card in hand)
+    foreach (CardData card in handSnapshot)
     {
         GameObject newCard = Instantiate(cardPrefab, handPanel);
         newCard.name = card.cardName;

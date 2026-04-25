@@ -10,20 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8b038437caf200d4eb5692d2b89128df, type: 3}
-  m_Name: Silence
+  m_Name: Coin Filp
   m_EditorClassIdentifier: Assembly-CSharp::CardData
-  cardName: Silence
-  description: "\uC801\uC758 \uAC10\uC815 \uAC8C\uC774\uC9C0 +10. \uC774\uBC88 \uD134
-    \uACF5\uACA9 \uBD88\uAC00"
-  damage: 0
-  luxCost: 0
+  cardName: Coin Flip
+  description: "50% \uD655\uB960\uB85C \uD53C\uD574 20. \uC2E4\uD328 \uC2DC \uC81C\uB85C\uAC00
+    \uD53C\uD574 10."
+  damage: 20
+  luxCost: 5
   luxGain: 0
-  emotionGain: 10
-  selfDamage: 0
-  gambleSuccessChance: 0
+  emotionGain: 0
+  selfDamage: 10
+  gambleSuccessChance: 50
   canOnlyUseInPoverty: 0
-  isGambleCard: 0
-  stunEnemyNextTurn: 0
-  stunPlayerNextTurn: 1
-  cardType: 4
-  povertyStackMultiplier: 0
+  isGambleCard: 1
+  cardType: 2

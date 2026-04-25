@@ -13,8 +13,13 @@ MonoBehaviour:
   m_Name: House Call
   m_EditorClassIdentifier: Assembly-CSharp::CardData
   cardName: House Call
-  description: "\uD53C\uD574 15. THE HOUSE \uC2E0\uB8B0\uB3C4 +10"
-  damage: 15
+  description: "\uD53C\uD574 13. THE HOUSE \uC2E0\uB8B0\uB3C4 +10"
+  damage: 13
   luxCost: 0
   luxGain: 8
+  emotionGain: 0
+  selfDamage: 0
+  gambleSuccessChance: 0
+  canOnlyUseInPoverty: 0
+  isGambleCard: 0
   cardType: 1
