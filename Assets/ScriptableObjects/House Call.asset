@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8b038437caf200d4eb5692d2b89128df, type: 3}
+  m_Name: House Call
+  m_EditorClassIdentifier: Assembly-CSharp::CardData
+  cardName: House Call
+  description: "\uD53C\uD574 15. THE HOUSE \uC2E0\uB8B0\uB3C4 +10"
+  damage: 15
+  luxCost: 0
+  luxGain: 8
+  cardType: 1
