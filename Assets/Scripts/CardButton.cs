@@ -1,7 +1,8 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
-public class CardButton : MonoBehaviour
+public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 {
     public CardData cardData;
     public BattleManager battleManager;
@@ -57,4 +58,20 @@ public class CardButton : MonoBehaviour
 
     battleManager.UseCard(cardData);
 }
+
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        if (battleManager != null && cardData != null)
+        {
+            battleManager.ShowCardTooltip(cardData);
+        }
+    }
+
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        if (battleManager != null)
+        {
+            battleManager.HideCardTooltip();
+        }
+    }
 }

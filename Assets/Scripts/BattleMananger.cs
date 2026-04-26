@@ -101,6 +101,10 @@ public class BattleManager : MonoBehaviour
     public bool enemyStunned = false;
     public bool playerStunned = false;
 
+    [Header("Tooltip")]
+    public GameObject tooltipPanel;
+    public TMP_Text tooltipDescriptionText;
+
     private enum LuxState
     {
         Poverty,
@@ -116,6 +120,19 @@ public class BattleManager : MonoBehaviour
         if (lux <= 85) return LuxState.Lucky;
         return LuxState.Overflow;
     }
+
+    public void ShowCardTooltip(CardData card)
+    {
+        if (card == null) return;
+
+        tooltipPanel.SetActive(true);
+        tooltipDescriptionText.text = card.description;
+}
+
+public void HideCardTooltip()
+{
+    tooltipPanel.SetActive(false);
+}
 
     private void Start()
     {
@@ -213,6 +230,8 @@ public class BattleManager : MonoBehaviour
         if (bettingPanel != null) bettingPanel.SetActive(false);
         if (battlePanel != null) battlePanel.SetActive(true);
 
+        hand.Clear();
+        DrawCards(drawCount);
         RefreshHandUI();
 
         WriteLog($"전투 시작. {selectedBet} LUX가 베팅되었습니다.");
@@ -657,8 +676,12 @@ private bool CanDrawCardInCurrentLuxState(CardData card)
 
 private void DrawCards(int count)
 {
-    for (int i = 0; i < count; i++)
+    int safety = 0;
+
+    while (hand.Count < count && safety < 100)
     {
+        safety++;
+
         if (drawPile.Count <= 0)
         {
             ReshuffleDiscardIntoDeck();
@@ -669,39 +692,17 @@ private void DrawCards(int count)
             return;
         }
 
-        CardData drawnCard = null;
+        CardData card = drawPile[0];
+        drawPile.RemoveAt(0);
 
-        for (int j = 0; j < drawPile.Count; j++)
+        if (CanDrawCardInCurrentLuxState(card))
         {
-            if (CanDrawCardInCurrentLuxState(drawPile[j]))
-            {
-                drawnCard = drawPile[j];
-                drawPile.RemoveAt(j);
-                break;
-            }
+            hand.Add(card);
         }
-
-        if (drawnCard == null)
+        else
         {
-            ReshuffleDiscardIntoDeck();
-
-            for (int j = 0; j < drawPile.Count; j++)
-            {
-                if (CanDrawCardInCurrentLuxState(drawPile[j]))
-                {
-                    drawnCard = drawPile[j];
-                    drawPile.RemoveAt(j);
-                    break;
-                }
-            }
+            discardPile.Add(card);
         }
-
-        if (drawnCard == null)
-        {
-            return;
-        }
-
-        hand.Add(drawnCard);
     }
 }
 
