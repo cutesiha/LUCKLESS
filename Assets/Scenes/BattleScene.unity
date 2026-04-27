@@ -2754,7 +2754,7 @@ MonoBehaviour:
   enemyName: "\uCE74\uB9BC \uD558\uC0B0"
   enemyMaxHP: 100
   enemyHP: 100
-  enemyDamage: 15
+  enemyDamage: 5
   enemyEmotion: 0
   maxEmotion: 100
   negotiationNeedEmotion: 80
@@ -4290,7 +4290,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1203978486
 RectTransform:
   m_ObjectHideFlags: 0
