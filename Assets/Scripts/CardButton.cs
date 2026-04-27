@@ -8,7 +8,6 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     public BattleManager battleManager;
 
     public TMP_Text cardNameText;
-    public TMP_Text descriptionText;
 
     private void Start()
     {
@@ -32,14 +31,7 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
             return;
         }
 
-        if (descriptionText == null)
-        {
-            Debug.LogWarning("DescriptionText가 연결되지 않았습니다.", gameObject);
-            return;
-        }
-
         cardNameText.text = cardData.cardName;
-        descriptionText.text = cardData.description;
     }
 
     public void OnClickCard()
