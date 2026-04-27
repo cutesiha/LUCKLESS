@@ -24,6 +24,19 @@ public class CardData : ScriptableObject
 
     public CardType cardType;
     public int povertyStackMultiplier;
+
+    [Header("Advanced Stats")]
+    public int houseTrustChange;
+    public bool ignoreEnemyDamage;
+    public int shieldAmount;
+    public int damageReduction;
+    public int healAmount;
+
+    [Header("Reflect")]
+    public bool reflectNextEnemyDamage;
+
+    [Header("Reroll")]
+    public bool rerollOtherCards;
 }
 
 public enum CardType
@@ -32,5 +45,8 @@ public enum CardType
     House,
     Gamble,
     Poverty,
-    Negotiation
+    Negotiation,
+    Manipulation,
+    Flux,
+    Barrier
 }

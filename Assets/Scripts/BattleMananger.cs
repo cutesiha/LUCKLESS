@@ -12,6 +12,15 @@ public class BattleManager : MonoBehaviour
     public int playerHP = 80;
     public int lux = 60;
 
+    [Header("Healing")]
+    public int healAmount;
+
+    [Header("Player Extra Stats")]
+    public int houseTrust = 0;
+    public int shield = 0;
+    public int damageReduction = 0;
+    public bool ignoreNextDamage = false;
+
     [Header("Enemy")]
     public string enemyName = "카림 하산";
     public int enemyMaxHP = 100;
@@ -56,6 +65,7 @@ public class BattleManager : MonoBehaviour
     public TMP_Text luxText;
     public TMP_Text luxStateText;
     public Slider luxBar;
+    public TMP_Text shieldText;
 
     [Header("UI - Enemy")]
     public TMP_Text enemyNameText;
@@ -104,6 +114,9 @@ public class BattleManager : MonoBehaviour
     [Header("Tooltip")]
     public GameObject tooltipPanel;
     public TMP_Text tooltipDescriptionText;
+    public TMP_Text tooltipNameText;
+
+    public bool reflectNextDamage = false;
 
     private enum LuxState
     {
@@ -126,13 +139,22 @@ public class BattleManager : MonoBehaviour
         if (card == null) return;
 
         tooltipPanel.SetActive(true);
-        tooltipDescriptionText.text = card.description;
-}
 
-public void HideCardTooltip()
-{
-    tooltipPanel.SetActive(false);
-}
+        if (tooltipNameText != null)
+        {
+            tooltipNameText.text = card.cardName;
+        }
+
+        if (tooltipDescriptionText != null)
+        {
+            tooltipDescriptionText.text = card.description;
+        }
+    }
+
+    public void HideCardTooltip()
+    {
+        tooltipPanel.SetActive(false);
+    }
 
     private void Start()
     {
@@ -319,6 +341,20 @@ private int CalculateRewardLux(int bet)
         lux += card.luxGain;
         lux = Mathf.Clamp(lux, 0, 100);
 
+        if (card.reflectNextEnemyDamage)
+        {
+            reflectNextDamage = true;
+        }
+
+        // 체력 회복
+        if (card.healAmount > 0)
+        {
+            playerHP += card.healAmount;
+            playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
+
+            WriteLog($"{card.cardName} 사용 → HP {card.healAmount} 회복");
+        }
+
         int finalDamage = CalculateDamage(card);
 
         enemyHP -= finalDamage;
@@ -331,6 +367,33 @@ private int CalculateRewardLux(int bet)
             playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
         }
         enemyEmotion = Mathf.Clamp(enemyEmotion, 0, maxEmotion);
+
+        if (card.rerollOtherCards)
+        {
+            RerollOtherCards(card);
+            return;
+        }
+
+        // 하우스 신뢰도
+        houseTrust += card.houseTrustChange;
+
+        // 쉴드
+        if (card.shieldAmount > 0)
+        {
+            shield += card.shieldAmount;
+        }
+
+        // 데미지 경감
+        if (card.damageReduction > 0)
+        {
+            damageReduction += card.damageReduction;
+        }
+
+        // 다음 공격 무시
+        if (card.ignoreEnemyDamage)
+        {
+            ignoreNextDamage = true;
+        }
 
         if (card.stunEnemyNextTurn)
         {
@@ -496,10 +559,43 @@ private int CalculateRewardLux(int bet)
 
             if (roll <= enemyActionChance)
             {
-                playerHP -= enemyDamage;
-                playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
+                int finalDamage = enemyDamage;
 
-                resultLog = $"적의 공격 발동. 제로가 {enemyDamage} 피해를 받았습니다. ({roll}/{enemyActionChance})";
+                // 공격 무시
+                if (ignoreNextDamage)
+                {
+                    resultLog = "공격을 완전히 무시했습니다.";
+                    ignoreNextDamage = false;
+                }
+                else
+                {
+                    // 데미지 감소
+                    finalDamage -= damageReduction;
+                    finalDamage = Mathf.Max(finalDamage, 0);
+
+                    // 쉴드 먼저 적용
+                    if (shield > 0)
+                    {
+                        int absorbed = Mathf.Min(shield, finalDamage);
+                        shield -= absorbed;
+                        finalDamage -= absorbed;
+                    }
+
+                    playerHP -= finalDamage;
+                    playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
+
+                    resultLog = $"적의 공격 발동. 제로가 {finalDamage} 피해를 받았습니다. ({roll}/{enemyActionChance})";
+
+                    if (reflectNextDamage && finalDamage > 0)
+                    {
+                        enemyHP -= finalDamage;
+                        enemyHP = Mathf.Clamp(enemyHP, 0, enemyMaxHP);
+
+                        resultLog += $"\n반사 발동! 적에게 {finalDamage} 피해를 되돌렸습니다.";
+
+                        reflectNextDamage = false;
+                    }
+                }
             }
             else
             {
@@ -556,6 +652,8 @@ private int CalculateRewardLux(int bet)
 
         UpdateUI();
         UpdateEnemyDialogue();
+
+        damageReduction = 0;
     }
 
     public void NegotiateEndBattle()
@@ -753,11 +851,35 @@ private IEnumerator RefreshHandUIRoutine()
 
 }
 
+private void RerollOtherCards(CardData usedCard)
+{
+    hand.Remove(usedCard);
+    discardPile.Add(usedCard);
+
+    foreach (CardData card in hand)
+    {
+        discardPile.Add(card);
+    }
+
+    hand.Clear();
+
+    DrawCards(drawCount);
+    RefreshHandUI();
+
+    WriteLog($"{usedCard.cardName} 사용. 나머지 카드들을 전부 리롤했습니다.");
+}
+
     private void UpdateUI()
     {
         if (playerHPText != null)
         {
             playerHPText.text = $"HP {playerHP}/{playerMaxHP}";
+        }
+
+        if (shieldText != null)
+        {
+            shieldText.gameObject.SetActive(shield > 0);
+            shieldText.text = $"SHIELD {shield}";
         }
 
         if (luxText != null)

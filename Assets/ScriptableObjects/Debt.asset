@@ -10,12 +10,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8b038437caf200d4eb5692d2b89128df, type: 3}
-  m_Name: Blood Debt
+  m_Name: Debt
   m_EditorClassIdentifier: Assembly-CSharp::CardData
-  cardName: Blood Debt
+  cardName: Debt
   description: "\uBD88\uC6B4 \uAD6C\uAC04\uC5D0\uC11C\uB9CC \uC0AC\uC6A9 \uAC00\uB2A5.
-    \uD53C\uD574 10. LUX \uC18C\uBAA8 \uC5C6\uC74C."
-  damage: 10
+    \uD53C\uD574 5. LUX \uC18C\uBAA8 \uC5C6\uC74C."
+  damage: 5
   luxCost: 0
   luxGain: 0
   emotionGain: 0
@@ -27,3 +27,7 @@ MonoBehaviour:
   stunPlayerNextTurn: 0
   cardType: 3
   povertyStackMultiplier: 0
+  houseTrustChange: 0
+  ignoreEnemyDamage: 0
+  shieldAmount: 0
+  damageReduction: 0
