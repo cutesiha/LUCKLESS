@@ -15,7 +15,8 @@ public class CardData : ScriptableObject
     [Header("Card Extra")]
     public int selfDamage;
     public int gambleSuccessChance = 50;
-    public bool canOnlyUseInPoverty;
+    public 
+    bool canOnlyUseInPoverty;
     public bool isGambleCard;
 
     [Header("Turn Control")]
