@@ -31,3 +31,6 @@ MonoBehaviour:
   ignoreEnemyDamage: 0
   shieldAmount: 0
   damageReduction: 0
+  healAmount: 0
+  reflectNextEnemyDamage: 0
+  rerollOtherCards: 0

@@ -2744,7 +2744,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BattleManager
   playerMaxHP: 100
-  playerHP: 80
+  playerHP: 100
   lux: 60
   healAmount: 0
   houseTrust: 50
@@ -2754,7 +2754,7 @@ MonoBehaviour:
   enemyName: "\uCE74\uB9BC \uD558\uC0B0"
   enemyMaxHP: 100
   enemyHP: 100
-  enemyDamage: 5
+  enemyDamage: 8
   enemyEmotion: 0
   maxEmotion: 100
   negotiationNeedEmotion: 80
@@ -2818,6 +2818,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: bc816e327df4f4d49a690bf2e4ebacd2, type: 2}
   - {fileID: 11400000, guid: f181d6283bbad734bb5eaf4ad3136c95, type: 2}
   - {fileID: 11400000, guid: eef657e33c855eb43a07e49ca71fed8b, type: 2}
+  - {fileID: 11400000, guid: 8de7f081e2e5c424e8ebee1c5ba16d0d, type: 2}
   drawCount: 4
   drawPile: []
   hand: []

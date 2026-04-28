@@ -1,10 +1,19 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using System.Collections;
 
 public class StartButton : MonoBehaviour
 {
-    public void GoToBattleScene()
+    public FadeController fadeController;
+
+    public void StartGame()
     {
-        SceneManager.LoadScene("BattleScene");
+        StartCoroutine(LoadPrologue());
+    }
+
+    IEnumerator LoadPrologue()
+    {
+        yield return StartCoroutine(fadeController.FadeOut());
+        SceneManager.LoadScene("Prologue");
     }
 }
