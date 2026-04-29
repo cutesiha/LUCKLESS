@@ -9,6 +9,8 @@ public class DialogueLine
 
     [TextArea(2, 5)]
     public string line;
+
+    public Sprite characterSprite;
 }
 
 [System.Serializable]
@@ -26,6 +28,7 @@ public class TypewriterCanvasDialogue : MonoBehaviour
     [Header("Text")]
     public TMP_Text dialogueText;
     public TMP_Text nameText;
+    public UnityEngine.UI.Image characterImage;
 
     [Header("Typing")]
     public float typingSpeed = 0.04f;
@@ -99,7 +102,19 @@ public class TypewriterCanvasDialogue : MonoBehaviour
         if (typingCoroutine != null)
             StopCoroutine(typingCoroutine);
 
-        nameText.text = canvasDialogues[canvasIndex].lines[lineIndex].speakerName;
+        var line = canvasDialogues[canvasIndex].lines[lineIndex];
+
+        nameText.text = line.speakerName;
+
+        if (line.characterSprite != null)
+        {
+            characterImage.sprite = line.characterSprite;
+            characterImage.gameObject.SetActive(true);
+        }
+        else
+        {
+            characterImage.gameObject.SetActive(false);
+        }
 
         typingCoroutine = StartCoroutine(
             TypeLine(canvasDialogues[canvasIndex].lines[lineIndex].line)

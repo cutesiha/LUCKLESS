@@ -273,6 +273,81 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 123029854}
   m_CullTransparentMesh: 1
+--- !u!1 &210900942
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 210900943}
+  - component: {fileID: 210900945}
+  - component: {fileID: 210900944}
+  m_Layer: 5
+  m_Name: CharacterImage
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &210900943
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 210900942}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 580629888}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: -110}
+  m_SizeDelta: {x: 698.42, y: 1164.03}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &210900944
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 210900942}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 21300000, guid: 7f51ccf3236d4ad4f8e31798cd329839, type: 3}
+  m_Type: 0
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
+--- !u!222 &210900945
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 210900942}
+  m_CullTransparentMesh: 1
 --- !u!1 &291615534
 GameObject:
   m_ObjectHideFlags: 0
@@ -695,6 +770,7 @@ RectTransform:
   m_LocalScale: {x: 0, y: 0, z: 0}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 210900943}
   - {fileID: 1632990271}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -951,65 +1027,86 @@ MonoBehaviour:
     - speakerName: 
       line: "2209\uB144 \uC0C8\uBCBD 4\uC2DC, \uB274 \uCE74\uB974\uD0C0\uACE0 \uC9C0\uD558\uB3C4\uC2DC
         17\uAD6C\uC5ED."
+      characterSprite: {fileID: 0}
     - speakerName: 
       line: "\uC881\uC740 \uACE8\uBAA9. \uB179\uC2A8 \uBC30\uAD00 \uC704\uB85C \uD640\uB85C\uADF8\uB7A8
         \uAD11\uACE0\uAC00 \uAE5C\uBE61\uC778\uB2E4.\r\n\"LUX\uB97C \uD30C\uC138\uC694.
         \uB2F9\uC2E0\uC758 \uD589\uC6B4\uC774 \uB204\uAD70\uAC00\uC758 \uBBF8\uB798\uAC00
         \uB429\uB2C8\uB2E4.\""
+      characterSprite: {fileID: 0}
     - speakerName: "\uD558\uC6B0\uC2A4\uB9C8\uC2A4\uD130"
       line: "...23\uBC88. \uC624\uB298 \uC5C5\uBB34 \uD655\uC778\uD588\uB098."
+      characterSprite: {fileID: 0}
     - speakerName: "\uC81C\uB85C"
       line: "\uD655\uC778\uD588\uC2B5\uB2C8\uB2E4."
+      characterSprite: {fileID: 0}
     - speakerName: "\uD558\uC6B0\uC2A4\uB9C8\uC2A4\uD130"
       line: "17\uAD6C\uC5ED 23\uD638 -- \uC774\uB2E4 \uD39C, 78\uC138. LUX \uBBF8\uB0A9
         3\uD68C. \uAC15\uC81C \uCD94\uCD9C \uB300\uC0C1\uC774\uC57C.\r\n\uC624\uB298
         \uC548\uC73C\uB85C \uCC98\uB9AC\uD574."
+      characterSprite: {fileID: 0}
     - speakerName: "\uC81C\uB85C"
       line: "\uC54C\uACA0\uC2B5\uB2C8\uB2E4."
+      characterSprite: {fileID: 0}
   - canvasObject: {fileID: 1511353782}
     lines:
     - speakerName: "\uC774\uB2E4 \uD39C"
       line: "...\uC5B4\uBA38. \uC774 \uC2DC\uAC04\uC5D0."
+      characterSprite: {fileID: 21300000, guid: 1a0a4b2c72811a945b126e1d9c0d8e07, type: 3}
     - speakerName: "\uC81C\uB85C"
       line: "\uC774\uB2E4 \uD39C \uC528. THE HOUSE\uC5D0\uC11C \uC654\uC2B5\uB2C8\uB2E4."
+      characterSprite: {fileID: 21300000, guid: 1a0a4b2c72811a945b126e1d9c0d8e07, type: 3}
     - speakerName: "\uC81C\uB85C"
       line: "LUX \uBBF8\uB0A9 3\uD68C\uCC28\uC774\uBBC0\uB85C \uAC15\uC81C \uCD94\uCD9C
         \uC808\uCC28\uB97C \uC2DC\uC791\uD558\uACA0\uC2B5\uB2C8\uB2E4."
+      characterSprite: {fileID: 21300000, guid: 1a0a4b2c72811a945b126e1d9c0d8e07, type: 3}
     - speakerName: "\uC774\uB2E4 \uD39C"
       line: "...\uC54C\uACE0 \uC788\uC5B4\uC694. \uB2E4\uB9CC, \uC190\uB140\uAC00
         \uC544\uD30C\uC11C. \uC218\uC220\uBE44\uAC00 \uD544\uC694\uD588\uAC70\uB4E0\uC694.\n\uD55C
         \uBC88\uB9CC \uB354 \uC2DC\uAC04\uC744 \uC8FC\uC2DC\uBA74..."
+      characterSprite: {fileID: 21300000, guid: 1a0a4b2c72811a945b126e1d9c0d8e07, type: 3}
     - speakerName: "\uC81C\uB85C"
       line: "\uADDC\uC815\uC785\uB2C8\uB2E4. \uBA85\uB839\uC5D0 \uBD88\uBCF5\uC885\uD560
         \uC2DC \uCC98\uB9AC\uB300\uC0C1\uC774 \uB420 \uC218 \uC788\uC2B5\uB2C8\uB2E4."
+      characterSprite: {fileID: 21300000, guid: 1a0a4b2c72811a945b126e1d9c0d8e07, type: 3}
     - speakerName: "\uC774\uB2E4 \uD39C"
       line: ...
+      characterSprite: {fileID: 21300000, guid: 1a0a4b2c72811a945b126e1d9c0d8e07, type: 3}
     - speakerName: 
       line: "\uC774\uB2E4 \uD39C\uC774 \uB9D0\uC5C6\uC774 \uD314\uC744 \uB0B4\uBBFC\uB2E4.
         \uC18C\uB9E4\uB97C \uAC77\uC5B4\uC62C\uB9AC\uC790,\n\uB0A1\uC740 \uD3EC\uB974\uD22C\uB098
         \uCF54\uC5B4 \uB2E8\uC790\uAC00 \uB4DC\uB7EC\uB09C\uB2E4."
+      characterSprite: {fileID: 21300000, guid: 1a0a4b2c72811a945b126e1d9c0d8e07, type: 3}
     - speakerName: 
       line: "\uADF8 \uB54C. \uACE8\uBAA9\uC5D0\uC11C \uB204\uAD70\uAC00 \uB2EC\uB824\uC628\uB2E4."
+      characterSprite: {fileID: 21300000, guid: a44d40da3a428b34d9cb7edfdf57f8df, type: 3}
     - speakerName: "17\uAD6C\uC5ED \uACBD\uBE44"
       line: "\uB2F9\uC2E0 \uBB61\uB2C8\uAE4C. \uD560\uBA38\uB2C8\uAED8 \uC190\uB300\uC9C0
         \uB9C8\uC138\uC694."
+      characterSprite: {fileID: 21300000, guid: 7f51ccf3236d4ad4f8e31798cd329839, type: 3}
     - speakerName: "\uC81C\uB85C"
       line: "\uBE44\uCF1C\uC694."
+      characterSprite: {fileID: 21300000, guid: 7f51ccf3236d4ad4f8e31798cd329839, type: 3}
     - speakerName: "17\uAD6C\uC5ED \uACBD\uBE44"
       line: "\uB9C9\uC744 \uAC81\uB2C8\uB2E4. \uB3CC\uC544\uAC00\uC138\uC694."
+      characterSprite: {fileID: 21300000, guid: 7f51ccf3236d4ad4f8e31798cd329839, type: 3}
   - canvasObject: {fileID: 1511353782}
     lines:
     - speakerName: "\uC774\uB2E4 \uD39C"
       line: "...\uC5B4\uBA38. \uC774 \uC2DC\uAC04\uC5D0."
+      characterSprite: {fileID: 0}
     - speakerName: "\uC81C\uB85C"
       line: "\uC774\uB2E4 \uD39C \uC528. THE HOUSE\uC785\uB2C8\uB2E4. \nLUX \uBBF8\uB0A9
         3\uD68C\uCC28. \uAC15\uC81C \uCD94\uCD9C \uC808\uCC28\uB97C \uC2DC\uC791\uD569\uB2C8\uB2E4."
+      characterSprite: {fileID: 0}
     - speakerName: "\uC774\uB2E4 \uD39C"
       line: "...\uC54C\uACE0 \uC788\uC5B4\uC694. \uB2E4\uB9CC, \uC190\uB140\uAC00
         \uC544\uD30C\uC11C. \uC218\uC220\uBE44\uAC00 \uD544\uC694\uD588\uAC70\uB4E0\uC694.\n\uD55C
         \uBC88\uB9CC \uB354 \uC2DC\uAC04\uC744 \uC8FC\uC2DC\uBA74..."
+      characterSprite: {fileID: 0}
   dialogueText: {fileID: 291615536}
   nameText: {fileID: 1447886323}
+  characterImage: {fileID: 210900944}
   typingSpeed: 0.04
   lineDelay: 0.2
 --- !u!4 &1025379467
