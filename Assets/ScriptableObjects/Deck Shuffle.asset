@@ -26,7 +26,7 @@ MonoBehaviour:
   isGambleCard: 1
   stunEnemyNextTurn: 0
   stunPlayerNextTurn: 0
-  cardType: 7
+  cardType: 5
   povertyStackMultiplier: 0
   houseTrustChange: 0
   ignoreEnemyDamage: 0
