@@ -646,7 +646,7 @@ private int CalculateRewardLux(int bet)
             }
             else
             {
-                resultLog = $"역베팅 성공. 적의 공격이 빗나갔습니다. ({roll}/{enemyActionChance})";
+                resultLog = $" 적의 공격이 빗나갔습니다. ({roll}/{enemyActionChance})";
             }
         }
 
@@ -676,8 +676,6 @@ private int CalculateRewardLux(int bet)
 
             WriteLog("<color=cyan>폭주 반동:</color> 턴 종료 시 LUX -30.");
         }
-
-        enemyActionChance = 70;
 
         discardPile.AddRange(hand);
         hand.Clear();
@@ -839,6 +837,17 @@ private void DrawCards(int count)
         CardData card = drawPile[0];
         drawPile.RemoveAt(0);
 
+        // 잭팟 카드 확률 제한 
+        
+        if (card.isJackpot)
+        {
+            if (Random.value > 0.3f)
+            {
+                discardPile.Add(card);
+                continue;
+            }
+        }
+
         if (CanDrawCardInCurrentLuxState(card))
         {
             hand.Add(card);
@@ -847,6 +856,7 @@ private void DrawCards(int count)
         {
             discardPile.Add(card);
         }
+
     }
 }
 

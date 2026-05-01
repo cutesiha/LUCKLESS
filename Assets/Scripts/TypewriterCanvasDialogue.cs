@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using TMPro;
+using UnityEngine.UI;
 
 [System.Serializable]
 public class DialogueLine
@@ -25,14 +26,17 @@ public class TypewriterCanvasDialogue : MonoBehaviour
     [Header("Dialogue Order")]
     public CanvasDialogue[] canvasDialogues;
 
+    [Header("Common Dialogue UI")]
+    public GameObject dialogueCanvas;
+
     [Header("Text")]
     public TMP_Text dialogueText;
     public TMP_Text nameText;
-    public UnityEngine.UI.Image characterImage;
+    public Image characterImage;
 
     [Header("Typing")]
     public float typingSpeed = 0.04f;
-    public float lineDelay = 0.2f; // 줄바꿈 딜레이
+    public float lineDelay = 0.2f;
 
     private int canvasIndex = 0;
     private int lineIndex = 0;
@@ -75,21 +79,41 @@ public class TypewriterCanvasDialogue : MonoBehaviour
             lineIndex = 0;
 
             if (canvasIndex < canvasDialogues.Length)
-            {
-                ShowCanvas(canvasIndex);
-                StartLine();
-            }
+                {
+                    StartCoroutine(ChangeCanvasWithFade());
+                }
             else
             {
                 dialogueText.text = "";
                 nameText.text = "";
+                characterImage.gameObject.SetActive(false);
                 Debug.Log("모든 대화 종료");
             }
         }
     }
 
+    public Animator fadeAnimator;
+    public float fadeTime = 0.5f;
+
+    IEnumerator ChangeCanvasWithFade()
+    {
+        fadeAnimator.SetTrigger("FadeOut");
+
+        yield return new WaitForSeconds(fadeTime);
+
+        ShowCanvas(canvasIndex);
+        StartLine();
+
+        fadeAnimator.SetTrigger("FadeIn");
+    }
+    
     void ShowCanvas(int index)
     {
+        if (dialogueCanvas != null)
+        {
+            dialogueCanvas.SetActive(true);
+        }
+
         for (int i = 0; i < canvasDialogues.Length; i++)
         {
             if (canvasDialogues[i].canvasObject != null)
@@ -116,9 +140,7 @@ public class TypewriterCanvasDialogue : MonoBehaviour
             characterImage.gameObject.SetActive(false);
         }
 
-        typingCoroutine = StartCoroutine(
-            TypeLine(canvasDialogues[canvasIndex].lines[lineIndex].line)
-        );
+        typingCoroutine = StartCoroutine(TypeLine(line.line));
     }
 
     IEnumerator TypeLine(string line)

@@ -38,6 +38,9 @@ public class CardData : ScriptableObject
 
     [Header("Reroll")]
     public bool rerollOtherCards;
+
+    [Header("Special")]
+    public bool isJackpot;
 }
 
 public enum CardType

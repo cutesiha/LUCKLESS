@@ -4,7 +4,7 @@ using System.Collections;
 
 public class StartButton : MonoBehaviour
 {
-    public FadeController fadeController;
+    /*public FadeController fadeController;
 
     public void StartGame()
     {
@@ -15,5 +15,5 @@ public class StartButton : MonoBehaviour
     {
         yield return StartCoroutine(fadeController.FadeOut());
         SceneManager.LoadScene("Prologue");
-    }
+    }*/
 }
