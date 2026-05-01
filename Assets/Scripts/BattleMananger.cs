@@ -11,6 +11,7 @@ public class BattleManager : MonoBehaviour
     public int playerMaxHP = 100;
     public int playerHP = 80;
     public int lux = 60;
+    public string playerName = "ZERO";
 
     [Header("Rage")]
     public int rageThreshold = 80;
@@ -22,6 +23,9 @@ public class BattleManager : MonoBehaviour
     public Image enemyCharacterImage;
     public Sprite enemyNormalSprite;
     public Sprite enemyRageSprite;
+    public Sprite enemySprite100;
+    public Sprite enemySprite50;
+    public Sprite enemySprite20;
 
     [Header("Healing")]
     public int healAmount;
@@ -65,11 +69,7 @@ public class BattleManager : MonoBehaviour
     public TMP_Text bettingLogText;
 
     [Header("Reverse Betting")]
-    public int enemyActionChance = 70;
-    public int reverseBetCost = 10;
-    public int reverseBetReduceAmount = 25;
-    public int minEnemyActionChance = 10;
-    public bool usedReverseBetThisTurn = false;
+    public int enemyActionChance = 100;
 
     [Header("UI - Player")]
     public TMP_Text playerHPText;
@@ -77,6 +77,8 @@ public class BattleManager : MonoBehaviour
     public TMP_Text luxStateText;
     public Slider luxBar;
     public TMP_Text shieldText;
+    public TMP_Text playerNameText;
+    public Slider playerHPBar;
 
     [Header("UI - Enemy")]
     public TMP_Text enemyNameText;
@@ -176,15 +178,35 @@ public class BattleManager : MonoBehaviour
         if (battlePanel != null) battlePanel.SetActive(false);
         if (endPanel != null) endPanel.SetActive(false);
         if (negotiationButton != null) negotiationButton.gameObject.SetActive(false);
-        if (reverseBetButton != null) reverseBetButton.interactable = false;
 
         UpdateBettingUI();
         UpdateUI();
         UpdateEnemyDialogue();
+        UpdateEnemySprite();
         SetupDeck();
         DrawCards(drawCount);
         StartCoroutine(RefreshHandUIRoutine());
     }
+
+    private void UpdateEnemySprite()
+{
+    if (enemyCharacterImage == null) return;
+
+    float hpRate = (float)enemyHP / enemyMaxHP;
+
+    if (hpRate <= 0.2f)
+    {
+        enemyCharacterImage.sprite = enemySprite20;
+    }
+    else if (hpRate <= 0.5f)
+    {
+        enemyCharacterImage.sprite = enemySprite50;
+    }
+    else
+    {
+        enemyCharacterImage.sprite = enemySprite100;
+    }
+}
 
 
     private void RefreshHandUI()
@@ -530,7 +552,7 @@ private int CalculateRewardLux(int bet)
         return damage;
     }
 
-    public void ReverseBet()
+    /*public void ReverseBet()
 {
     if (!battleStarted) return;
     if (battleEnded) return;
@@ -558,7 +580,7 @@ private int CalculateRewardLux(int bet)
     WriteLog($"역베팅 실행. LUX -{reverseBetCost}. 적 공격 확률이 {enemyActionChance}%로 감소했습니다.");
 
     UpdateUI();
-}
+}*/
 
     public void EndTurn()
     {
@@ -656,7 +678,6 @@ private int CalculateRewardLux(int bet)
         }
 
         enemyActionChance = 70;
-        usedReverseBetThisTurn = false;
 
         discardPile.AddRange(hand);
         hand.Clear();
@@ -924,6 +945,20 @@ private void CheckEnemyRage()
             shieldText.text = $"SHIELD {shield}";
         }
 
+        // 이름
+        if (playerNameText != null)
+        {
+            playerNameText.text = playerName;
+        }
+
+        // HP Bar
+        if (playerHPBar != null)
+        {
+            playerHPBar.maxValue = playerMaxHP;
+            playerHPBar.value = playerHP;
+        }
+
+
         if (luxText != null)
         {
             luxText.text = $"LUX {lux}/100";
@@ -967,11 +1002,6 @@ private void CheckEnemyRage()
         if (enemyActionChanceText != null)
         {
             enemyActionChanceText.text = $"적 공격 확률: {enemyActionChance}%";
-        }
-
-        if (reverseBetButton != null)
-        {
-            reverseBetButton.interactable = battleStarted && !battleEnded && !usedReverseBetThisTurn && lux >= reverseBetCost;
         }
 
         UpdateLuxState();
@@ -1024,23 +1054,31 @@ private void CheckEnemyRage()
 
         if (enemyHP <= 0)
         {
-            enemyDialogueText.text = "카림은 쓰러졌지만, 그의 기록 장치는 아직 깜빡이고 있다.";
+            enemyDialogueText.text = "카림은 쓰러졌지만, 그녀의 기록 장치는 아직 깜빡이고 있다.";
         }
-        else if (hpRate <= 0.25f)
+        else if (hpRate <= 0.15f)
         {
-            enemyDialogueText.text = "“부탁입니다. 영상만 올리게 해주세요. 그게 전부입니다.”";
+            enemyDialogueText.text = "하하… 하하하… 재미있네요. 같은 피해자끼리 비극을 만들다니.";
         }
-        else if (hpRate <= 0.5f)
+        else if (hpRate <= 0.30f)
         {
-            enemyDialogueText.text = "“당신도 23번이잖아요. 당신도 피해자잖아요.”";
+            enemyDialogueText.text = "“당신이 날 죽여도 영상은 업로드될 겁니다. 무얼 위해서 날 처리하려는 거죠?”";
         }
-        else if (hpRate <= 0.75f)
+        else if (hpRate <= 0.45f)
+        {
+            enemyDialogueText.text = "“당신도 같은 피해자입니다. 안타깝게도.”";
+        }
+        else if (hpRate <= 0.60f)
+        {
+            enemyDialogueText.text = "“당신도 저 벽에 있어요. 23번.”";
+        }
+        else if (hpRate <= 0.80f)
         {
             enemyDialogueText.text = "“내 아내는 LUX를 팔고 죽었습니다. 당신들 때문에.”";
         }
         else
         {
-            enemyDialogueText.text = "“당신 같은 사람이 올 줄 알았습니다. 이미 각오했습니다.”";
+            enemyDialogueText.text = "“당신 같은 사람이 올 줄 알았습니다. 난 이미 각오했습니다.”";
         }
     }
 

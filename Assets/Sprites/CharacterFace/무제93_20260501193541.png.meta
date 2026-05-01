@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 0f53751d13dd9044d817de971445d8a8
+guid: 01702b28370fbc844868364b6afde23b
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 8027836837754888808
-    second: pixel-large-null-1777189898987_0
+      213: -618462476688173540
+    second: "\u1106\u116E\u110C\u116693_20260501193541_0"
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -37,7 +37,7 @@ TextureImporter:
   maxTextureSize: 2048
   textureSettings:
     serializedVersion: 2
-    filterMode: 0
+    filterMode: 1
     aniso: 1
     mipBias: 0
     wrapU: 1
@@ -46,7 +46,7 @@ TextureImporter:
   nPOTScale: 0
   lightmap: 0
   compressionQuality: 50
-  spriteMode: 1
+  spriteMode: 2
   spriteExtrude: 1
   spriteMeshType: 1
   alignment: 0
@@ -75,7 +75,7 @@ TextureImporter:
     maxTextureSize: 2048
     resizeAlgorithm: 0
     textureFormat: -1
-    textureCompression: 0
+    textureCompression: 1
     compressionQuality: 50
     crunchedCompression: 0
     allowsAlphaSplitting: 0
@@ -100,12 +100,12 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: pixel-large-null-1777189898987_0
+      name: "\u1106\u116E\u110C\u116693_20260501193541_0"
       rect:
         serializedVersion: 2
-        x: 171
+        x: 0
         y: 0
-        width: 886
+        width: 768
         height: 1273
       alignment: 0
       pivot: {x: 0, y: 0}
@@ -115,8 +115,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 862ec25121b986f60800000000000000
-      internalID: 8027836837754888808
+      spriteID: c16d71a77a7ca67f0800000000000000
+      internalID: -618462476688173540
       vertices: []
       indices: 
       edges: []
@@ -125,7 +125,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 5e97eb03825dee720800000000000000
+    spriteID: 
     internalID: 0
     vertices: []
     indices: 
@@ -135,7 +135,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      pixel-large-null-1777189898987_0: 8027836837754888808
+      "\u1106\u116E\u110C\u116693_20260501193541_0": -618462476688173540
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
