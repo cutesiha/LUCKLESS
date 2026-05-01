@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: Clean Shot
   m_EditorClassIdentifier: Assembly-CSharp::CardData
   cardName: Clean Shot
-  description: "\uD53C\uD574 7. \uD589\uC6B4 \uAD6C\uAC04\uC774\uBA74 \uAD00\uD1B5
-    \uCD94\uAC00 (\uBC29\uC5B4 \uBB34\uC2DC)"
-  damage: 7
-  luxCost: 5
+  description: "Lux Cost: 6. \uD53C\uD574 5. \uD589\uC6B4 \uAD6C\uAC04\uC774\uBA74
+    \uAD00\uD1B5 \uCD94\uAC00 (\uBC29\uC5B4 \uBB34\uC2DC)"
+  damage: 5
+  luxCost: 6
   luxGain: 0
   emotionGain: 0
   selfDamage: 0

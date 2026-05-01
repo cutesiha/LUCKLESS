@@ -13,11 +13,12 @@ MonoBehaviour:
   m_Name: Dealer's Authority
   m_EditorClassIdentifier: Assembly-CSharp::CardData
   cardName: Dealer's Authority
-  description: "\uD53C\uD574 9. THE HOUSE \uC2E0\uB8B0\uB3C4 -10"
-  damage: 10
+  description: "Lux Cost: 0. \uD53C\uD574 9. THE HOUSE \uC2E0\uB8B0\uB3C4 -10. \uBD84\uB178
+    \uAC8C\uC774\uC9C0 +10."
+  damage: 9
   luxCost: 0
   luxGain: 0
-  emotionGain: 0
+  emotionGain: 10
   selfDamage: 0
   gambleSuccessChance: 0
   canOnlyUseInPoverty: 0

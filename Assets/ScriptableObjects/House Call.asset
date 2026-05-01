@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: House Call
   m_EditorClassIdentifier: Assembly-CSharp::CardData
   cardName: House Call
-  description: "\uD53C\uD574 13. THE HOUSE \uC2E0\uB8B0\uB3C4 -15. \uAC10\uC815\uAC8C\uC774\uC9C0
-    -5."
-  damage: 10
+  description: "Lux Cost: 0. \uD53C\uD574 13. THE HOUSE \uC2E0\uB8B0\uB3C4 -15. \uBD84\uB178\uAC8C\uC774\uC9C0
+    +10."
+  damage: 13
   luxCost: 0
   luxGain: 0
   emotionGain: 5
@@ -32,3 +32,5 @@ MonoBehaviour:
   shieldAmount: 0
   damageReduction: 0
   healAmount: 0
+  reflectNextEnemyDamage: 0
+  rerollOtherCards: 0

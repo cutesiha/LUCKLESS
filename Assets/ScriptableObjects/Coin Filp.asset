@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: Coin Filp
   m_EditorClassIdentifier: Assembly-CSharp::CardData
   cardName: Coin Flip
-  description: "50% \uD655\uB960\uB85C \uD53C\uD574 20. \uC2E4\uD328 \uC2DC \uC81C\uB85C\uAC00
-    \uD53C\uD574 10."
+  description: "Lux Cost: 9. 50% \uD655\uB960\uB85C \uC801\uC5D0\uAC8C \uD53C\uD574
+    20. \uC2E4\uD328 \uC2DC \uC81C\uB85C\uAC00 \uD53C\uD574 10."
   damage: 20
   luxCost: 9
   luxGain: 0
@@ -31,3 +31,6 @@ MonoBehaviour:
   ignoreEnemyDamage: 0
   shieldAmount: 0
   damageReduction: 0
+  healAmount: 0
+  reflectNextEnemyDamage: 0
+  rerollOtherCards: 0

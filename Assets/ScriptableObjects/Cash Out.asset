@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Cash Out
   m_EditorClassIdentifier: Assembly-CSharp::CardData
   cardName: Cash Out
-  description: "\uB7ED\uC2A4 10\uC744 \uCCB4\uB825\uC73C\uB85C \uD658\uC0B0"
+  description: "Lux 10\uC744 Hp\uB85C \uD658\uC0B0"
   damage: 0
   luxCost: 10
   luxGain: 0

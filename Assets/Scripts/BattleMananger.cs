@@ -12,6 +12,17 @@ public class BattleManager : MonoBehaviour
     public int playerHP = 80;
     public int lux = 60;
 
+    [Header("Rage")]
+    public int rageThreshold = 80;
+    public bool enemyRaged = false;
+    public int rageBonusDamage = 5;
+    public int rageAttackReduction = 2;
+
+    [Header("Enemy Image")]
+    public Image enemyCharacterImage;
+    public Sprite enemyNormalSprite;
+    public Sprite enemyRageSprite;
+
     [Header("Healing")]
     public int healAmount;
 
@@ -357,8 +368,16 @@ private int CalculateRewardLux(int bet)
 
         int finalDamage = CalculateDamage(card);
 
+        // 분노 상태일 때 플레이어의 공격력 감소
+        if (enemyRaged && finalDamage > 0)
+        {
+            finalDamage -= rageAttackReduction;
+            finalDamage = Mathf.Max(finalDamage, 0);
+        }
+
         enemyHP -= finalDamage;
         enemyHP = Mathf.Clamp(enemyHP, 0, enemyMaxHP);
+        CheckEnemyRage();
 
         enemyEmotion += card.emotionGain;
         if (!card.isGambleCard && card.selfDamage > 0)
@@ -560,6 +579,12 @@ private int CalculateRewardLux(int bet)
             if (roll <= enemyActionChance)
             {
                 int finalDamage = enemyDamage;
+                
+                // 분노 상태일 때 추가 피해
+                if (enemyRaged)
+                {
+                    finalDamage += rageBonusDamage;
+                }
 
                 // 공격 무시
                 if (ignoreNextDamage)
@@ -869,6 +894,23 @@ private void RerollOtherCards(CardData usedCard)
     WriteLog($"{usedCard.cardName} 사용. 나머지 카드들을 전부 리롤했습니다.");
 }
 
+private void CheckEnemyRage()
+{
+    if (enemyEmotion >= rageThreshold)
+    {
+        enemyRaged = true;
+    }
+    else
+    {
+        enemyRaged = false;
+    }
+
+    if (enemyCharacterImage != null)
+    {
+        enemyCharacterImage.sprite = enemyRaged ? enemyRageSprite : enemyNormalSprite;
+    }
+}
+
     private void UpdateUI()
     {
         if (playerHPText != null)
@@ -909,7 +951,7 @@ private void RerollOtherCards(CardData usedCard)
 
         if (emotionText != null)
         {
-            emotionText.text = $"감정 {enemyEmotion}/{maxEmotion}";
+            emotionText.text = enemyRaged ? $"분노 {enemyEmotion}/{maxEmotion} - 분노 상태" : $"분노 {enemyEmotion}/{maxEmotion}";
         }
 
         if (emotionBar != null)
@@ -933,8 +975,9 @@ private void RerollOtherCards(CardData usedCard)
         }
 
         UpdateLuxState();
-        UpdateNegotiationButton();
+        //UpdateNegotiationButton();
         UpdateBettingUI();
+        CheckEnemyRage();
     }
 
     private void UpdateLuxState()
@@ -959,7 +1002,7 @@ private void RerollOtherCards(CardData usedCard)
         }
     }
 
-    private void UpdateNegotiationButton()
+    /* private void UpdateNegotiationButton()
     {
         if (negotiationButton == null) return;
 
@@ -971,7 +1014,7 @@ private void RerollOtherCards(CardData usedCard)
         {
             negotiationButton.gameObject.SetActive(false);
         }
-    }
+    }*/
 
     private void UpdateEnemyDialogue()
     {

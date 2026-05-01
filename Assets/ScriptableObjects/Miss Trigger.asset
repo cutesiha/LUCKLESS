@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Miss Trigger
   m_EditorClassIdentifier: Assembly-CSharp::CardData
   cardName: Miss Trigger
-  description: "\uACF5\uACA9\uC744 \uD55C \uBC88 \uD68C\uD53C. \uB7ED\uC2A4 -5"
+  description: "Lux Cost: 5. \uACF5\uACA9\uC744 \uD55C \uBC88 \uD68C\uD53C."
   damage: 0
   luxCost: 5
   luxGain: 0

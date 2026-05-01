@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Vital Gamble
   m_EditorClassIdentifier: Assembly-CSharp::CardData
   cardName: Vital Gamble
-  description: "\uCCB4\uB825 10\uC744 \uB7ED\uC2A4\uB85C \uD658\uC0B0"
+  description: "Hp 10\uC744 Lux\uB85C \uD658\uC0B0"
   damage: 0
   luxCost: 0
   luxGain: 10

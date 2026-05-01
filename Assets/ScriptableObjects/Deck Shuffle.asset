@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: Deck Shuffle
   m_EditorClassIdentifier: Assembly-CSharp::CardData
   cardName: Deck Shuffle
-  description: "\uC774 \uCE74\uB4DC\uB97C \uC0AC\uC6A9\uD558\uBA74 \uB098\uBA38\uC9C0
+  description: "Lux Cost: 1. \uC774 \uCE74\uB4DC\uB97C \uC0AC\uC6A9\uD558\uBA74 \uB098\uBA38\uC9C0
     \uC190\uD328\uB97C \uC804\uBD80 \uBC84\uB9AC\uACE0 \uC0C8 \uCE74\uB4DC 4\uC7A5\uC744
-    \uBF51\uB294\uB2E4. \uB7ED\uC2A4 -1."
+    \uBF51\uB294\uB2E4."
   damage: 0
   luxCost: 1
   luxGain: 0

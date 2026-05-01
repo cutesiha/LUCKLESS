@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: Debt
   m_EditorClassIdentifier: Assembly-CSharp::CardData
   cardName: Debt
-  description: "\uBD88\uC6B4 \uAD6C\uAC04\uC5D0\uC11C\uB9CC \uC0AC\uC6A9 \uAC00\uB2A5.
-    \uD53C\uD574 5. LUX \uC18C\uBAA8 \uC5C6\uC74C."
+  description: "Lux Cost: 0. \uD53C\uD574 5. (\uBD88\uC6B4 \uAD6C\uAC04\uC5D0\uC11C\uB9CC
+    \uC0AC\uC6A9 \uAC00\uB2A5)"
   damage: 5
   luxCost: 0
   luxGain: 0
@@ -31,3 +31,6 @@ MonoBehaviour:
   ignoreEnemyDamage: 0
   shieldAmount: 0
   damageReduction: 0
+  healAmount: 0
+  reflectNextEnemyDamage: 0
+  rerollOtherCards: 0
