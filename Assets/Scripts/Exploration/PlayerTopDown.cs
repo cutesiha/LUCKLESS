@@ -1,17 +1,14 @@
-// PlayerTopDown.cs
 using UnityEngine;
 
 public class PlayerTopDown : MonoBehaviour
 {
-    public float moveSpeed = 3.5f;
-    public Animator animator;
+    public float moveSpeed = 2f;
+    public bool isLocked = false;
 
     private Rigidbody2D rb;
     private Vector2 inputDir;
-    public bool isLocked = false;  // 대화/이벤트 중 이동 잠금
-
-    // 마지막으로 바라본 방향 (상호작용용)
-    public Vector2 lastDir = Vector2.down;
+    private Vector2 mouseTarget;
+    private bool moveToMouse = false;
 
     void Awake()
     {
@@ -26,49 +23,45 @@ public class PlayerTopDown : MonoBehaviour
             return;
         }
 
+        // 마우스 클릭하면 그 위치로 이동
+        if (Input.GetMouseButtonDown(0))
+        {
+            mouseTarget = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+            moveToMouse = true;
+        }
+
+        // 키보드 누르면 마우스 이동 취소
         float h = Input.GetAxisRaw("Horizontal");
         float v = Input.GetAxisRaw("Vertical");
 
-        // RPG Maker 느낌: 대각선 이동 없음
-        if (h != 0) v = 0;
-
-        inputDir = new Vector2(h, v);
-
-        if (inputDir != Vector2.zero)
-            lastDir = inputDir;
-
-        // 애니메이터에 방향 전달
-        if (animator != null)
+        if (h != 0 || v != 0)
         {
-            animator.SetFloat("MoveX", inputDir.x);
-            animator.SetFloat("MoveY", inputDir.y);
-            animator.SetBool("IsMoving", inputDir != Vector2.zero);
+            moveToMouse = false;
+            inputDir = new Vector2(h, v).normalized;
         }
+        else if (moveToMouse)
+        {
+            Vector2 dir = mouseTarget - rb.position;
 
-        // Z키 or Enter 상호작용
-        if (Input.GetKeyDown(KeyCode.Z) || Input.GetKeyDown(KeyCode.Return))
-            TryInteract();
+            // 목표 지점에 거의 도달하면 멈춤
+            if (dir.magnitude < 0.1f)
+            {
+                moveToMouse = false;
+                inputDir = Vector2.zero;
+            }
+            else
+            {
+                inputDir = dir.normalized;
+            }
+        }
+        else
+        {
+            inputDir = Vector2.zero;
+        }
     }
 
     void FixedUpdate()
     {
         rb.MovePosition(rb.position + inputDir * moveSpeed * Time.fixedDeltaTime);
-    }
-
-    void TryInteract()
-    {
-        // 플레이어 앞 방향으로 짧게 레이캐스트
-        RaycastHit2D hit = Physics2D.Raycast(
-            rb.position + lastDir * 0.3f,
-            lastDir,
-            0.8f,
-            LayerMask.GetMask("Interactable")
-        );
-
-        if (hit.collider != null)
-        {
-            var obj = hit.collider.GetComponent<InteractableBase>();
-            if (obj != null) obj.Interact(this);
-        }
     }
 }

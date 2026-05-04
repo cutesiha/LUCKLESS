@@ -1641,16 +1641,18 @@ MonoBehaviour:
       line: "\uD3EC\uB974\uD22C\uB098 \uCF54\uC5B4 -- \uB1CC\uC758 \uD655\uB960 \uCC98\uB9AC
         \uC2E0\uACBD\uB9DD -- \uC5D0\uC11C \uBC29\uCD9C\uB418\uB294 \uC2E0\uD638\uAC00
         \uD655\uB960\uC744 \uB4A4\uD2C0\uACE0, \uC0AC\uB78C\uC758 \uC6B4\uBA85\uC744
-        \uBC14\uAFBC\uB2E4."
+        \uBC14\uAFBC\uB2E4\uB294 \uAC83\uC774\uB2E4."
       characterSprite: {fileID: 0}
     - speakerName: 
       line: "\uC774 \uD589\uC6B4\uC740 \uCD94\uCD9C\uB418\uACE0, \uC774\uC2DD\uB418\uBA70,
-        \uAC70\uB798\uB41C\uB2E4.\n\uC0AC\uB78C\uB4E4\uC740 \uADF8\uAC83\uC744 LUX\uB77C
-        \uBD80\uB978\uB2E4."
+        \uAC70\uB798\uB41C\uB2E4."
+      characterSprite: {fileID: 0}
+    - speakerName: 
+      line: "\uC0AC\uB78C\uB4E4\uC740 \uADF8\uAC83\uC744 LUX\uB77C \uBD80\uB978\uB2E4."
       characterSprite: {fileID: 0}
     - speakerName: 
       line: "\uBD80\uC790\uB4E4\uC740 \uB354 \uB9CE\uC740 LUX\uB97C \uC0AC\uB4E4\uC5EC
-        \uC0B4\uC544\uB0A8\uACE0,\n\uAC00\uB09C\uD55C \uC0AC\uB78C\uB4E4\uC740 LUX\uB97C
+        \uC0B4\uC544\uB0A8\uACE0, \uAC00\uB09C\uD55C \uC0AC\uB78C\uB4E4\uC740 LUX\uB97C
         \uD314\uC218\uB85D \uBD88\uC6B4\uD574\uC9C4\uB2E4."
       characterSprite: {fileID: 0}
   - canvasObject: {fileID: 551853360}
@@ -1742,7 +1744,7 @@ MonoBehaviour:
   nameText: {fileID: 1447886323}
   characterImage: {fileID: 210900944}
   typingSpeed: 0.04
-  lineDelay: 0.35
+  lineDelay: 0.4
   fadeAnimator: {fileID: 1642370656}
   fadeTime: 0
 --- !u!4 &1025379467
