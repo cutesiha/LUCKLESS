@@ -8,9 +8,19 @@ public class SaveData
     public string sceneName;
 }
 
+[System.Serializable]
+public class PermanentData
+{
+    public int totalRunsCompleted = 0;
+    public bool char_vanta_unlocked = false;
+    public bool char_lena_unlocked = false;
+}
+
 public class SaveLoadManager : MonoBehaviour
 {
     string path => Application.persistentDataPath + "/save.json";
+
+    public PermanentData permanentData = new PermanentData();
 
     public void SaveGame(string sceneName)
     {
@@ -35,6 +45,22 @@ public class SaveLoadManager : MonoBehaviour
         else
         {
             Debug.Log("세이브 없음");
+        }
+    }
+
+    public void SavePermanent()
+    {
+        string json = JsonUtility.ToJson(permanentData);
+        PlayerPrefs.SetString("PermanentData", json);
+        PlayerPrefs.Save();
+    }
+
+    public void LoadPermanent()
+    {
+        if (PlayerPrefs.HasKey("PermanentData"))
+        {
+            string json = PlayerPrefs.GetString("PermanentData");
+            permanentData = JsonUtility.FromJson<PermanentData>(json);
         }
     }
 }
