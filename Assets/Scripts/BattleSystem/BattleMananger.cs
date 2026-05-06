@@ -1,9 +1,11 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 public class BattleManager : MonoBehaviour
 {
@@ -46,9 +48,22 @@ public class BattleManager : MonoBehaviour
     public TMP_Text diceTotalText;
     public Sprite[] diceFaceSprites = new Sprite[6];
     public float diceRollDuration = 1.25f;
-    public float diceSecondDelay = 0.45f;
     public float diceResultHoldDuration = 1.3f;
     public float diceFaceChangeInterval = 0.05f;
+    public Color diceHoverColor = new Color(0.85f, 0.35f, 0.65f, 1f);
+
+    [Header("Coin Toss Effect")]
+    public GameObject coinTossPanel;
+    public Image coinFirstImage;
+    public Image coinSecondImage;
+    public Image coinThirdImage;
+    public TMP_Text coinTotalText;
+    public Sprite coinIdleSprite;
+    public Sprite[] coinFaceSprites = new Sprite[2];
+    public float coinRollDuration = 0.9f;
+    public float coinResultHoldDuration = 1.2f;
+    public float coinFaceChangeInterval = 0.02f;
+    public Color coinHoverColor = new Color(1f, 0.55f, 0.9f, 1f);
 
     [Header("Healing")]
     public int healAmount;
@@ -179,6 +194,8 @@ public class BattleManager : MonoBehaviour
     private Coroutine playerHitEffectRoutine;
     private Vector2 playerHitOriginalPosition;
     private bool isCardResolving = false;
+    private int currentCardLuxCost = 0;
+    private int currentCardLuxGain = 0;
     private readonly List<FailedGambleRecord> failedGambleRecordsThisTurn = new List<FailedGambleRecord>();
 
     private struct FailedGambleRecord
@@ -216,7 +233,8 @@ public class BattleManager : MonoBehaviour
 
         if (tooltipDescriptionText != null)
         {
-            tooltipDescriptionText.text = card.description;
+            tooltipDescriptionText.richText = true;
+            tooltipDescriptionText.text = FormatCardDescription(card.description);
         }
     }
 
@@ -237,6 +255,7 @@ public class BattleManager : MonoBehaviour
 
         InitializePlayerHitEffect();
         InitializeDiceRollEffect();
+        InitializeCoinTossEffect();
         UpdateBettingUI();
         UpdateUI();
         UpdateEnemyDialogue();
@@ -309,16 +328,16 @@ public class BattleManager : MonoBehaviour
             enemyHitEffectActive = false;
         }
 
+        enemyHitOriginalColor = enemyCharacterImage.color;
+        enemyHitEffectActive = true;
+        enemyCharacterImage.color = enemyHitFlashColor;
         enemyHitEffectRoutine = StartCoroutine(EnemyHitEffectRoutine());
     }
 
     private IEnumerator EnemyHitEffectRoutine()
     {
-        enemyHitEffectActive = true;
-
         RectTransform rectTransform = enemyCharacterImage.rectTransform;
         enemyHitOriginalPosition = rectTransform.anchoredPosition;
-        enemyHitOriginalColor = enemyCharacterImage.color;
 
         Sprite angrySprite = enemyRageSprite != null ? enemyRageSprite : GetEnemyCurrentSprite();
         enemyCharacterImage.sprite = angrySprite;
@@ -330,8 +349,10 @@ public class BattleManager : MonoBehaviour
             float t = Mathf.Clamp01(elapsed / enemyHitEffectDuration);
             float shake = enemyHitShakeStrength * (1f - t);
 
-            rectTransform.anchoredPosition = enemyHitOriginalPosition + Random.insideUnitCircle * shake;
-            enemyCharacterImage.color = Color.Lerp(enemyHitOriginalColor, enemyHitFlashColor, 1f - t);
+            float xShake = Mathf.Sin(elapsed * 90f) * shake;
+            float yShake = Mathf.Cos(elapsed * 65f) * shake * 0.45f;
+            rectTransform.anchoredPosition = enemyHitOriginalPosition + new Vector2(xShake, yShake);
+            enemyCharacterImage.color = Color.Lerp(enemyHitFlashColor, enemyHitOriginalColor, t);
 
             yield return null;
         }
@@ -575,43 +596,15 @@ public class BattleManager : MonoBehaviour
             diceTotalText.text = string.Empty;
         }
 
-        float elapsed = 0f;
-        float nextFaceChange = 0f;
-        float rollDuration = Mathf.Max(0.01f, diceRollDuration);
+        SetDiceImage(diceLeftImage, 1);
+        SetDiceImage(diceRightImage, 1);
 
-        while (elapsed < rollDuration)
-        {
-            elapsed += Time.deltaTime;
-            nextFaceChange -= Time.deltaTime;
-            if (nextFaceChange <= 0f)
-            {
-                SetDiceImage(diceLeftImage, Random.Range(1, 7));
-                SetDiceImage(diceRightImage, Random.Range(1, 7));
-                nextFaceChange = Mathf.Max(0.01f, diceFaceChangeInterval);
-            }
+        bool leftResolved = false;
+        bool rightResolved = false;
+        StartClickableDice(diceLeftImage, leftResult, () => leftResolved = true);
+        StartClickableDice(diceRightImage, rightResult, () => rightResolved = true);
 
-            yield return null;
-        }
-
-        SetDiceImage(diceLeftImage, leftResult);
-
-        elapsed = 0f;
-        nextFaceChange = 0f;
-        float secondDelay = Mathf.Max(0f, diceSecondDelay);
-        while (elapsed < secondDelay)
-        {
-            elapsed += Time.deltaTime;
-            nextFaceChange -= Time.deltaTime;
-            if (nextFaceChange <= 0f)
-            {
-                SetDiceImage(diceRightImage, Random.Range(1, 7));
-                nextFaceChange = Mathf.Max(0.01f, diceFaceChangeInterval);
-            }
-
-            yield return null;
-        }
-
-        SetDiceImage(diceRightImage, rightResult);
+        yield return new WaitUntil(() => leftResolved && rightResolved);
 
         if (diceTotalText != null)
         {
@@ -636,6 +629,425 @@ public class BattleManager : MonoBehaviour
         {
             targetImage.sprite = diceFaceSprites[index];
         }
+    }
+
+    private void StartClickableDice(Image diceImage, int result, System.Action onResolved)
+    {
+        Button button = GetOrCreateDiceClickButton(diceImage);
+        if (button == null)
+        {
+            onResolved?.Invoke();
+            return;
+        }
+
+        button.onClick.RemoveAllListeners();
+        button.interactable = true;
+        diceImage.color = Color.white;
+        UnityEngine.Events.UnityAction clickAction = null;
+        clickAction = () =>
+        {
+            button.onClick.RemoveListener(clickAction);
+            button.interactable = false;
+            diceImage.color = Color.white;
+            StartCoroutine(RollDiceImageRoutine(diceImage, result, onResolved));
+        };
+        button.onClick.AddListener(clickAction);
+    }
+
+    private IEnumerator RollDiceImageRoutine(Image diceImage, int result, System.Action onResolved)
+    {
+        float elapsed = 0f;
+        float nextFaceChange = 0f;
+        float rollDuration = Mathf.Max(0.01f, diceRollDuration);
+
+        while (elapsed < rollDuration)
+        {
+            elapsed += Time.deltaTime;
+            nextFaceChange -= Time.deltaTime;
+            if (nextFaceChange <= 0f)
+            {
+                SetDiceImage(diceImage, Random.Range(1, 7));
+                nextFaceChange = Mathf.Max(0.01f, diceFaceChangeInterval);
+            }
+
+            yield return null;
+        }
+
+        SetDiceImage(diceImage, result);
+        onResolved?.Invoke();
+    }
+
+    private void InitializeCoinTossEffect()
+    {
+        if (coinTossPanel == null)
+        {
+            Canvas canvas = null;
+            if (battlePanel != null)
+            {
+                canvas = battlePanel.GetComponentInParent<Canvas>(true);
+            }
+
+            if (canvas == null)
+            {
+                canvas = GetComponentInParent<Canvas>(true);
+            }
+
+            if (canvas != null)
+            {
+                coinTossPanel = new GameObject("CoinTossPanel", typeof(RectTransform));
+                coinTossPanel.transform.SetParent(canvas.transform, false);
+
+                RectTransform panelTransform = coinTossPanel.GetComponent<RectTransform>();
+                panelTransform.anchorMin = new Vector2(0.5f, 0.5f);
+                panelTransform.anchorMax = new Vector2(0.5f, 0.5f);
+                panelTransform.pivot = new Vector2(0.5f, 0.5f);
+                panelTransform.sizeDelta = new Vector2(500f, 220f);
+                panelTransform.anchoredPosition = Vector2.zero;
+
+                coinFirstImage = CreateCoinImage("FirstCoin", coinTossPanel.transform, new Vector2(-130f, 30f));
+                coinSecondImage = CreateCoinImage("SecondCoin", coinTossPanel.transform, new Vector2(0f, 30f));
+                coinThirdImage = CreateCoinImage("ThirdCoin", coinTossPanel.transform, new Vector2(130f, 30f));
+                coinTotalText = CreateCoinTotalText(coinTossPanel.transform);
+            }
+        }
+
+        if (coinTossPanel != null)
+        {
+            if (coinFirstImage == null)
+            {
+                coinFirstImage = CreateCoinImage("FirstCoin", coinTossPanel.transform, new Vector2(-130f, 30f));
+            }
+
+            if (coinSecondImage == null)
+            {
+                coinSecondImage = CreateCoinImage("SecondCoin", coinTossPanel.transform, new Vector2(0f, 30f));
+            }
+
+            if (coinThirdImage == null)
+            {
+                coinThirdImage = CreateCoinImage("ThirdCoin", coinTossPanel.transform, new Vector2(130f, 30f));
+            }
+
+            if (coinTotalText == null)
+            {
+                coinTotalText = CreateCoinTotalText(coinTossPanel.transform);
+            }
+
+            coinTossPanel.SetActive(false);
+        }
+
+        if (coinTotalText != null)
+        {
+            coinTotalText.text = string.Empty;
+        }
+    }
+
+    private Image CreateCoinImage(string objectName, Transform parent, Vector2 anchoredPosition)
+    {
+        GameObject imageObject = new GameObject(objectName, typeof(RectTransform), typeof(Image));
+        imageObject.transform.SetParent(parent, false);
+
+        RectTransform rectTransform = imageObject.GetComponent<RectTransform>();
+        rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+        rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+        rectTransform.pivot = new Vector2(0.5f, 0.5f);
+        rectTransform.sizeDelta = new Vector2(96f, 96f);
+        rectTransform.anchoredPosition = anchoredPosition;
+
+        Image image = imageObject.GetComponent<Image>();
+        image.raycastTarget = false;
+        image.preserveAspect = true;
+        return image;
+    }
+
+    private TMP_Text CreateCoinTotalText(Transform parent)
+    {
+        GameObject textObject = new GameObject("CoinTotalText", typeof(RectTransform), typeof(TextMeshProUGUI));
+        textObject.transform.SetParent(parent, false);
+
+        RectTransform rectTransform = textObject.GetComponent<RectTransform>();
+        rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+        rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+        rectTransform.pivot = new Vector2(0.5f, 0.5f);
+        rectTransform.sizeDelta = new Vector2(420f, 60f);
+        rectTransform.anchoredPosition = new Vector2(0f, -70f);
+
+        TextMeshProUGUI text = textObject.GetComponent<TextMeshProUGUI>();
+        text.alignment = TextAlignmentOptions.Center;
+        text.fontSize = 34f;
+        text.color = Color.white;
+        text.raycastTarget = false;
+        return text;
+    }
+
+    private IEnumerator PlayCoinTossRoutine(bool[] results)
+    {
+        if (coinTossPanel == null || coinFirstImage == null || coinSecondImage == null || coinThirdImage == null)
+        {
+            yield break;
+        }
+
+        coinTossPanel.SetActive(true);
+        coinTossPanel.transform.SetAsLastSibling();
+
+        if (coinTotalText != null)
+        {
+            coinTotalText.text = string.Empty;
+        }
+
+        SetCoinIdleImage(coinFirstImage);
+        SetCoinIdleImage(coinSecondImage);
+        SetCoinIdleImage(coinThirdImage);
+
+        bool firstResolved = false;
+        bool secondResolved = false;
+        bool thirdResolved = false;
+        StartClickableCoin(coinFirstImage, results[0], () => firstResolved = true);
+        StartClickableCoin(coinSecondImage, results[1], () => secondResolved = true);
+        StartClickableCoin(coinThirdImage, results[2], () => thirdResolved = true);
+
+        yield return new WaitUntil(() => firstResolved && secondResolved && thirdResolved);
+
+        int heads = 0;
+        for (int i = 0; i < results.Length; i++)
+        {
+            if (results[i]) heads++;
+        }
+
+        if (coinTotalText != null)
+        {
+            coinTotalText.text = $"총합: 앞면 {heads}/3";
+        }
+
+        yield return new WaitForSeconds(coinResultHoldDuration);
+
+        if (coinTossPanel != null)
+        {
+            coinTossPanel.SetActive(false);
+        }
+    }
+
+    private IEnumerator RollSingleCoinRoutine(Image coinImage, bool resultIsHeads)
+    {
+        yield return RollCoinImageRoutine(coinImage, resultIsHeads);
+    }
+
+    private void StartClickableCoin(Image coinImage, bool resultIsHeads, System.Action onResolved)
+    {
+        Button button = GetOrCreateCoinClickButton(coinImage);
+        if (button == null)
+        {
+            onResolved?.Invoke();
+            return;
+        }
+
+        button.onClick.RemoveAllListeners();
+        button.interactable = true;
+        coinImage.color = Color.white;
+        UnityEngine.Events.UnityAction clickAction = null;
+        clickAction = () =>
+        {
+            button.onClick.RemoveListener(clickAction);
+            button.interactable = false;
+            coinImage.color = Color.white;
+            StartCoroutine(RollCoinImageRoutine(coinImage, resultIsHeads, onResolved));
+        };
+        button.onClick.AddListener(clickAction);
+    }
+
+    private IEnumerator RollCoinImageRoutine(Image coinImage, bool resultIsHeads, System.Action onResolved = null)
+    {
+        float elapsed = 0f;
+        float nextFaceChange = 0f;
+        float rollDuration = Mathf.Max(0.01f, coinRollDuration);
+
+        while (elapsed < rollDuration)
+        {
+            elapsed += Time.deltaTime;
+            nextFaceChange -= Time.deltaTime;
+            if (nextFaceChange <= 0f)
+            {
+                SetCoinImage(coinImage, Random.value < 0.5f);
+                nextFaceChange = Mathf.Max(0.01f, coinFaceChangeInterval);
+            }
+
+            yield return null;
+        }
+
+        SetCoinImage(coinImage, resultIsHeads);
+        coinImage.color = Color.white;
+        onResolved?.Invoke();
+    }
+
+    private void SetCoinImage(Image targetImage, bool isHeads)
+    {
+        if (targetImage == null) return;
+        if (coinFaceSprites == null || coinFaceSprites.Length < 2) return;
+
+        int index = isHeads ? 0 : 1;
+        if (coinFaceSprites[index] != null)
+        {
+            targetImage.sprite = coinFaceSprites[index];
+        }
+    }
+
+    private void SetCoinIdleImage(Image targetImage)
+    {
+        if (targetImage == null) return;
+
+        if (coinIdleSprite != null)
+        {
+            targetImage.sprite = coinIdleSprite;
+            return;
+        }
+
+        SetCoinImage(targetImage, true);
+    }
+
+    private Button GetOrCreateClickButton(Image image, Color hoverColor)
+    {
+        if (image == null) return null;
+
+        image.raycastTarget = true;
+        Button button = image.GetComponent<Button>();
+        if (button == null)
+        {
+            button = image.gameObject.AddComponent<Button>();
+        }
+
+        button.targetGraphic = image;
+        button.transition = Selectable.Transition.ColorTint;
+        ColorBlock colors = button.colors;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = hoverColor;
+        colors.pressedColor = Color.Lerp(Color.white, hoverColor, 0.75f);
+        colors.selectedColor = hoverColor;
+        colors.disabledColor = Color.white;
+        button.colors = colors;
+        Navigation navigation = button.navigation;
+        navigation.mode = Navigation.Mode.None;
+        button.navigation = navigation;
+        return button;
+    }
+
+    private Button GetOrCreateCoinClickButton(Image coinImage)
+    {
+        if (coinImage == null) return null;
+
+        coinImage.raycastTarget = false;
+        RectTransform coinTransform = coinImage.rectTransform;
+        Transform parent = coinTransform.parent;
+        if (parent == null) return null;
+
+        string hitAreaName = coinImage.gameObject.name + "HitArea";
+        Transform existing = parent.Find(hitAreaName);
+        GameObject hitObject;
+        if (existing == null)
+        {
+            hitObject = new GameObject(hitAreaName, typeof(RectTransform), typeof(Image), typeof(Button), typeof(EventTrigger));
+            hitObject.transform.SetParent(parent, false);
+        }
+        else
+        {
+            hitObject = existing.gameObject;
+        }
+
+        RectTransform hitTransform = hitObject.GetComponent<RectTransform>();
+        hitTransform.anchorMin = coinTransform.anchorMin;
+        hitTransform.anchorMax = coinTransform.anchorMax;
+        hitTransform.pivot = coinTransform.pivot;
+        hitTransform.sizeDelta = coinTransform.sizeDelta;
+        hitTransform.anchoredPosition = coinTransform.anchoredPosition;
+        hitTransform.localScale = coinTransform.localScale;
+        hitObject.transform.SetAsLastSibling();
+
+        Image hitImage = hitObject.GetComponent<Image>();
+        hitImage.color = new Color(1f, 1f, 1f, 0.01f);
+        hitImage.raycastTarget = true;
+
+        Button button = hitObject.GetComponent<Button>();
+        button.targetGraphic = hitImage;
+        button.transition = Selectable.Transition.None;
+        Navigation navigation = button.navigation;
+        navigation.mode = Navigation.Mode.None;
+        button.navigation = navigation;
+
+        EventTrigger trigger = hitObject.GetComponent<EventTrigger>();
+        trigger.triggers.Clear();
+        AddPointerEvent(trigger, EventTriggerType.PointerEnter, () =>
+        {
+            if (button.interactable)
+            {
+                coinImage.color = coinHoverColor;
+            }
+        });
+        AddPointerEvent(trigger, EventTriggerType.PointerExit, () => coinImage.color = Color.white);
+
+        return button;
+    }
+
+    private Button GetOrCreateDiceClickButton(Image diceImage)
+    {
+        if (diceImage == null) return null;
+
+        diceImage.raycastTarget = false;
+        RectTransform diceTransform = diceImage.rectTransform;
+        Transform parent = diceTransform.parent;
+        if (parent == null) return null;
+
+        string hitAreaName = diceImage.gameObject.name + "HitArea";
+        Transform existing = parent.Find(hitAreaName);
+        GameObject hitObject;
+        if (existing == null)
+        {
+            hitObject = new GameObject(hitAreaName, typeof(RectTransform), typeof(Image), typeof(Button), typeof(EventTrigger));
+            hitObject.transform.SetParent(parent, false);
+        }
+        else
+        {
+            hitObject = existing.gameObject;
+        }
+
+        RectTransform hitTransform = hitObject.GetComponent<RectTransform>();
+        hitTransform.anchorMin = diceTransform.anchorMin;
+        hitTransform.anchorMax = diceTransform.anchorMax;
+        hitTransform.pivot = diceTransform.pivot;
+        hitTransform.sizeDelta = diceTransform.sizeDelta;
+        hitTransform.anchoredPosition = diceTransform.anchoredPosition;
+        hitTransform.localScale = diceTransform.localScale;
+        hitObject.transform.SetAsLastSibling();
+
+        Image hitImage = hitObject.GetComponent<Image>();
+        hitImage.color = new Color(1f, 1f, 1f, 0.01f);
+        hitImage.raycastTarget = true;
+
+        Button button = hitObject.GetComponent<Button>();
+        button.targetGraphic = hitImage;
+        button.transition = Selectable.Transition.None;
+        Navigation navigation = button.navigation;
+        navigation.mode = Navigation.Mode.None;
+        button.navigation = navigation;
+
+        EventTrigger trigger = hitObject.GetComponent<EventTrigger>();
+        trigger.triggers.Clear();
+        AddPointerEvent(trigger, EventTriggerType.PointerEnter, () =>
+        {
+            if (button.interactable)
+            {
+                diceImage.color = diceHoverColor;
+            }
+        });
+        AddPointerEvent(trigger, EventTriggerType.PointerExit, () => diceImage.color = Color.white);
+
+        return button;
+    }
+
+    private void AddPointerEvent(EventTrigger trigger, EventTriggerType eventType, System.Action action)
+    {
+        EventTrigger.Entry entry = new EventTrigger.Entry();
+        entry.eventID = eventType;
+        entry.callback.AddListener(_ => action?.Invoke());
+        trigger.triggers.Add(entry);
     }
 
 
@@ -775,7 +1187,9 @@ private int CalculateRewardLux(int bet)
 
     private int ModifyIncomingDamage(int damage)
     {
-        int modified = damage + debtStacks - resignationStacks;
+        int debtPenalty = debtStacks >= 5 ? 1 : 0;
+        int resignationReduction = resignationStacks * 2;
+        int modified = damage + debtPenalty - resignationReduction;
         return Mathf.Max(modified, 0);
     }
 
@@ -790,7 +1204,7 @@ private int CalculateRewardLux(int bet)
 
         float percentBonus = 1f + (excitementStacks * 0.05f);
         int scaled = Mathf.RoundToInt(card.luxGain * percentBonus);
-        return scaled + (greedStacks * 3);
+        return scaled + (greedStacks * 5);
     }
 
     private int GetEffectiveLuxCost(CardData card)
@@ -809,14 +1223,13 @@ private int CalculateRewardLux(int bet)
 
         if (bleedStacks > 0 && (effectiveType == CardType.Deal || effectiveType == CardType.Gamble))
         {
-            damage += bleedStacks * 2;
+            damage += bleedStacks / 2;
         }
 
         if (effectiveType == CardType.Gamble)
         {
-            damage += addictionStacks * 2;
             damage += excitementStacks * 3;
-            if (debtStacks >= 10)
+            if (debtStacks >= 5)
             {
                 damage = Mathf.RoundToInt(damage * 1.5f);
             }
@@ -915,6 +1328,8 @@ private int CalculateRewardLux(int bet)
         int gainedLux = CalculateLuxGain(card);
         lux += gainedLux;
         lux = Mathf.Clamp(lux, 0, 100);
+        currentCardLuxCost = effectiveCost;
+        currentCardLuxGain = gainedLux;
 
         CardType effectiveType = GetEffectiveCardType(card);
         bool isGambleCard = IsCardTreatedAsGamble(card);
@@ -953,6 +1368,12 @@ private int CalculateRewardLux(int bet)
 
             WriteLog($"{card.cardName} 사용 → HP {card.healAmount} 회복");
             ClearBleedStacks($"{card.cardName} 효과로");
+        }
+
+        if (card.specialEffect == SpecialCardEffect.CoinTriple)
+        {
+            StartCoroutine(ResolveCoinTripleCardRoutine(card, effectiveType));
+            return;
         }
 
         if (card.specialEffect == SpecialCardEffect.DoubleDice)
@@ -1021,21 +1442,7 @@ private int CalculateRewardLux(int bet)
             playerStunned = true;
         }
 
-        string logMessage = $"<color=yellow>{card.cardName}</color> 사용!";
-
-        if (finalDamage > 0)
-        {
-            logMessage += $" 적에게 {finalDamage} 피해.";
-        }
-
-        if (card.emotionGain > 0)
-        {
-            logMessage += $" 감정 게이지 +{card.emotionGain}.";
-        }
-
-        logMessage += $" 현재 LUX: {lux}";
-
-        WriteLog(logMessage);
+        WriteCardUseSummary(card, finalDamage);
 
 
         if (enemyHP <= 0)
@@ -1147,23 +1554,186 @@ private int CalculateRewardLux(int bet)
         isCardResolving = false;
     }
 
-    private void FinishCardUseAfterSpecialRoutine(CardData card, int finalDamage)
+    private void WriteCardUseSummary(CardData card, int finalDamage)
     {
-        string logMessage = $"<color=yellow>{card.cardName}</color> 사용!";
+        List<string> parts = new List<string>
+        {
+            $"<color=yellow>{card.cardName}</color> 사용!"
+        };
+
+        if (currentCardLuxCost > 0)
+        {
+            parts.Add($"<color=#66ccff>LUX -{currentCardLuxCost}</color>");
+        }
+
+        if (currentCardLuxGain > 0)
+        {
+            parts.Add($"<color=#66ccff>LUX +{currentCardLuxGain}</color>");
+        }
+        else if (currentCardLuxGain < 0)
+        {
+            parts.Add($"<color=#66ccff>LUX {currentCardLuxGain}</color>");
+        }
 
         if (finalDamage > 0)
         {
-            logMessage += $" 적에게 {finalDamage} 피해.";
+            parts.Add($"<color=red>적에게 {finalDamage} 피해</color>");
+        }
+
+        if (card.healAmount > 0)
+        {
+            parts.Add($"HP {card.healAmount} 회복");
         }
 
         if (card.emotionGain > 0)
         {
-            logMessage += $" 감정 게이지 +{card.emotionGain}.";
+            parts.Add($"분노 +{card.emotionGain}");
         }
 
-        logMessage += $" 현재 LUX: {lux}";
+        if (IsCardTreatedAsGamble(card) && gambleResolvedThisUse)
+        {
+            parts.Add(gambleSucceededThisUse ? "도박 성공했습니다!" : "도박 실패했습니다!");
+        }
 
-        WriteLog(logMessage);
+        parts.Add($"현재 LUX: {lux}");
+        WriteLog(string.Join(". ", parts));
+    }
+
+    private string FormatCardDescription(string description)
+    {
+        if (string.IsNullOrEmpty(description)) return description;
+
+        string formatted = description;
+        formatted = Regex.Replace(
+            formatted,
+            @"(Lux\s*cost\s*:\s*\d+)",
+            "<color=#66ccff>$1</color>",
+            RegexOptions.IgnoreCase);
+        formatted = Regex.Replace(
+            formatted,
+            @"(Lux\s*[+-]\s*\d+)",
+            "<color=#66ccff>$1</color>",
+            RegexOptions.IgnoreCase);
+        formatted = Regex.Replace(
+            formatted,
+            @"(피해\s*\d+)",
+            "<color=red>$1</color>");
+        formatted = Regex.Replace(
+            formatted,
+            @"(\d+\s*피해)",
+            "<color=red>$1</color>");
+
+        return formatted;
+    }
+
+    private IEnumerator ResolveCoinTripleCardRoutine(CardData card, CardType effectiveType)
+    {
+        isCardResolving = true;
+        InitializeCoinTossEffect();
+
+        int chanceBonus = 0;
+        chanceBonus += probabilityManipulationTurnsRemaining > 0 ? 20 : 0;
+        chanceBonus -= resignationStacks * 2;
+        if (excitementStacks >= 3) chanceBonus += 10;
+        float headChance = Mathf.Clamp01(0.5f + chanceBonus / 100f);
+
+        bool guaranteed = firstGambleGuaranteedThisTurn && !firstGambleUsedThisTurn;
+        if (guaranteed)
+        {
+            firstGambleUsedThisTurn = true;
+        }
+
+        bool[] results = new bool[3];
+        int heads = 0;
+        for (int i = 0; i < results.Length; i++)
+        {
+            results[i] = Random.value < headChance;
+            if (results[i]) heads++;
+        }
+
+        if (guaranteed && heads < 2)
+        {
+            for (int i = 0; i < results.Length && heads < 2; i++)
+            {
+                if (!results[i])
+                {
+                    results[i] = true;
+                    heads++;
+                }
+            }
+        }
+
+        yield return PlayCoinTossRoutine(results);
+
+        bool success = heads >= 2;
+        gambleResolvedThisUse = true;
+        gambleSucceededThisUse = success;
+
+        int finalDamage = 0;
+        if (success)
+        {
+            finalDamage = 40;
+            WriteLog($"<color=#ffd166>코인 3연속:</color> 앞면 {heads}/3 성공");
+        }
+        else
+        {
+            int incoming = ModifyIncomingDamage(20);
+            if (ApplyPlayerDamage(incoming) > 0) AddBleedStack(1, "코인 실패 반동으로");
+            failedGambleCountThisTurn += 1;
+            failedGambleRecordsThisTurn.Add(new FailedGambleRecord { chance = 50, successDamage = 40 });
+            WriteLog($"<color=#ffd166>코인 3연속:</color> 앞면 {heads}/3 실패, 제로가 20 피해를 받습니다.");
+        }
+
+        ApplyGambleResultStacks(card);
+        finalDamage = ApplyOutgoingCardBonuses(finalDamage, effectiveType);
+        finalDamage = ApplyTurnDamageModifiers(finalDamage);
+
+        if (enemyRaged && finalDamage > 0)
+        {
+            finalDamage -= rageAttackReduction;
+            finalDamage = Mathf.Max(finalDamage, 0);
+        }
+
+        ApplyEnemyDamage(finalDamage);
+        CheckEnemyRage();
+
+        enemyEmotion += card.emotionGain;
+        enemyEmotion = Mathf.Clamp(enemyEmotion, 0, maxEmotion);
+
+        houseTrust += card.houseTrustChange;
+
+        if (card.shieldAmount > 0)
+        {
+            shield += card.shieldAmount;
+        }
+
+        if (card.damageReduction > 0)
+        {
+            damageReduction += card.damageReduction;
+        }
+
+        if (card.ignoreEnemyDamage)
+        {
+            ignoreNextDamage = true;
+        }
+
+        if (card.stunEnemyNextTurn)
+        {
+            enemyStunned = true;
+        }
+
+        if (card.stunPlayerNextTurn)
+        {
+            playerStunned = true;
+        }
+
+        FinishCardUseAfterSpecialRoutine(card, finalDamage);
+        isCardResolving = false;
+    }
+
+    private void FinishCardUseAfterSpecialRoutine(CardData card, int finalDamage)
+    {
+        WriteCardUseSummary(card, finalDamage);
 
         if (enemyHP <= 0)
         {
@@ -1208,8 +1778,7 @@ private int CalculateRewardLux(int bet)
         if (IsCardTreatedAsGamble(card))
         {
             int chance = card.gambleSuccessChance;
-            chance += addictionStacks * 2;
-            chance -= resignationStacks * 3;
+            chance -= resignationStacks * 2;
             chance += probabilityManipulationTurnsRemaining > 0 ? 20 : 0;
             if (excitementStacks >= 3)
             {
@@ -1316,7 +1885,7 @@ private int CalculateRewardLux(int bet)
                 break;
             case SpecialCardEffect.LuxDrain:
                 luxDrainTurnsRemaining = 3;
-                WriteLog("<color=#8fd3ff>럭스 드레인:</color> 3턴 동안 매턴 LUX +2.");
+                WriteLog("<color=#8fd3ff>럭스 드레인:</color> 3턴 동안 매턴 LUX +3.");
                 break;
             case SpecialCardEffect.MissTrigger:
                 reduceEnemyDamageNextTurn = true;
@@ -1428,9 +1997,9 @@ private int CalculateRewardLux(int bet)
                 }
                 else
                 {
-                    int incoming = ModifyIncomingDamage(10);
+                    int incoming = ModifyIncomingDamage(7);
                     if (ApplyPlayerDamage(incoming) > 0) AddBleedStack(1, "7777 역반동으로");
-                    WriteLog("<color=#8fd3ff>7777:</color> 역효과! 제로가 10 피해.");
+                    WriteLog("<color=#8fd3ff>7777:</color> 역효과! 제로가 7 피해.");
                 }
                 enemyHP = Mathf.Clamp(enemyHP, 0, enemyMaxHP);
                 break;
@@ -1445,9 +2014,8 @@ private int CalculateRewardLux(int bet)
             case SpecialCardEffect.CoinTriple:
             {
                 int chanceBonus = 0;
-                chanceBonus += addictionStacks * 2;
                 chanceBonus += probabilityManipulationTurnsRemaining > 0 ? 20 : 0;
-                chanceBonus -= resignationStacks * 3;
+                chanceBonus -= resignationStacks * 2;
                 if (excitementStacks >= 3) chanceBonus += 10;
                 float headChance = Mathf.Clamp01(0.5f + chanceBonus / 100f);
 
@@ -1601,14 +2169,14 @@ private int CalculateRewardLux(int bet)
 
         if (bleedStacks > 0)
         {
-            int bleedDamage = ModifyIncomingDamage(bleedStacks);
+            int bleedDamage = bleedStacks / 2;
             ApplyPlayerDamage(bleedDamage);
             turnLogs.Add($"<color=red>출혈</color>로 턴 종료 시 {bleedDamage} 피해를 받았습니다.");
         }
 
         if (addictionStacks >= 5)
         {
-            int addictionPenalty = ModifyIncomingDamage(2);
+            int addictionPenalty = 1;
             ApplyPlayerDamage(addictionPenalty);
             turnLogs.Add($"<color=#a35dff>중독 부작용:</color> 턴 종료 시 {addictionPenalty} 피해를 받았습니다.");
         }
@@ -1632,10 +2200,10 @@ private int CalculateRewardLux(int bet)
 
         if (luxDrainTurnsRemaining > 0)
         {
-            lux += 2;
+            lux += 3;
             lux = Mathf.Clamp(lux, 0, 100);
             luxDrainTurnsRemaining--;
-            turnLogs.Add("<color=#8fd3ff>럭스 드레인:</color> LUX +2");
+            turnLogs.Add("<color=#8fd3ff>럭스 드레인</color> LUX +3");
         }
 
         if (illegalLoanTurnsRemaining > 0)
@@ -1863,6 +2431,7 @@ private void DrawCards(int count)
 
         if (drawPile.Count <= 0)
         {
+            EnsureLowLuxHandHasLuxCard(count);
             return;
         }
 
@@ -1895,6 +2464,51 @@ private void DrawCards(int count)
         }
 
     }
+    EnsureLowLuxHandHasLuxCard(count);
+}
+
+private void EnsureLowLuxHandHasLuxCard(int targetHandCount)
+{
+    if (lux > 10) return;
+    if (hand.Any(IsLowLuxGuaranteedLuxCard)) return;
+
+    CardData luxCard = TakeLowLuxGuaranteedLuxCard(drawPile);
+    if (luxCard == null)
+    {
+        luxCard = TakeLowLuxGuaranteedLuxCard(discardPile);
+    }
+
+    if (luxCard == null) return;
+
+    if (hand.Count >= targetHandCount)
+    {
+        int replaceIndex = hand.FindLastIndex(card => card != null && !IsLowLuxGuaranteedLuxCard(card));
+        if (replaceIndex >= 0)
+        {
+            discardPile.Add(hand[replaceIndex]);
+            hand.RemoveAt(replaceIndex);
+        }
+    }
+
+    hand.Add(luxCard);
+}
+
+private CardData TakeLowLuxGuaranteedLuxCard(List<CardData> source)
+{
+    int index = source.FindIndex(card => card != null && IsLowLuxGuaranteedLuxCard(card) && CanDrawCardInCurrentLuxState(card));
+    if (index < 0) return null;
+
+    CardData card = source[index];
+    source.RemoveAt(index);
+    return card;
+}
+
+private bool IsLowLuxGuaranteedLuxCard(CardData card)
+{
+    if (card == null) return false;
+    if (card.isJackpot) return false;
+
+    return card.luxGain > 0 || card.specialEffect == SpecialCardEffect.LuxDrain;
 }
 
 private void ReshuffleDiscardIntoDeck()

@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CardData
   cardName: "\uBE14\uB8E8 \uCE69"
   description: "Lux Cost: 14. 35% \uD655\uB960\uB85C \uD53C\uD574 30. \uC2E4\uD328
-    \uC2DC \uC81C\uB85C\uAC00 \uD53C\uD574 18."
+    \uC2DC \uC81C\uB85C\uAC00 \uD53C\uD574 14."
   damage: 30
   luxCost: 14
   luxGain: 0

@@ -13,11 +13,10 @@ MonoBehaviour:
   m_Name: "\uC774\uBA38\uC804\uC2DC"
   m_EditorClassIdentifier: Assembly-CSharp::CardData
   cardName: "\uC774\uBA38\uC804\uC2DC"
-  description: "Lux +20. Hp -5. (\uBD88\uC6B4 \uAD6C\uAC04\uC5D0\uC11C\uB9CC \uC0AC\uC6A9
-    \uAC00\uB2A5)"
+  description: Lux +8. Hp -5
   damage: 0
   luxCost: 0
-  luxGain: 20
+  luxGain: 8
   emotionGain: 0
   selfDamage: 5
   gambleSuccessChance: 0
@@ -25,7 +24,7 @@ MonoBehaviour:
   isGambleCard: 0
   stunEnemyNextTurn: 0
   stunPlayerNextTurn: 0
-  cardType: 3
+  cardType: 6
   povertyStackMultiplier: 0
   houseTrustChange: 0
   ignoreEnemyDamage: 0

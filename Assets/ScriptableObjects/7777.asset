@@ -15,7 +15,7 @@ MonoBehaviour:
   cardName: 7777
   description: "Lux cost: 7. 25% \uD655\uB960\uB85C \uD53C\uD574 7, 25% \uD655\uB960\uB85C
     \uD53C\uD574 14, 25% \uD655\uB960\uB85C \uD53C\uD574 21, 25% \uD655\uB960\uB85C
-    \uC790\uAE30\uD53C\uD574 10 "
+    \uC790\uAE30\uD53C\uD574 7 "
   damage: 0
   luxCost: 7
   luxGain: 0

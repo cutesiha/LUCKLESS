@@ -18,7 +18,7 @@ MonoBehaviour:
   damage: 0
   luxCost: 0
   luxGain: 0
-  emotionGain: 0
+  emotionGain: 20
   selfDamage: 0
   gambleSuccessChance: 0
   canOnlyUseInPoverty: 0

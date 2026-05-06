@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: "\uD655\uB960 \uC870\uC791"
   m_EditorClassIdentifier: Assembly-CSharp::CardData
   cardName: "\uD655\uB960 \uC870\uC791"
-  description: "Lux cost: 2\uD134 \uB3D9\uC548 \uB3C4\uBC15 \uCE74\uB4DC \uC131\uACF5\uB960
+  description: "Lux cost: 8. 2\uD134 \uB3D9\uC548 \uB3C4\uBC15 \uCE74\uB4DC \uC131\uACF5\uB960
     +20%. "
   damage: 0
-  luxCost: 13
+  luxCost: 8
   luxGain: 0
   emotionGain: 0
   selfDamage: 0
