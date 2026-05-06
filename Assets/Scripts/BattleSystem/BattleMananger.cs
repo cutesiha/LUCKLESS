@@ -878,11 +878,11 @@ private int CalculateRewardLux(int bet)
                 else
                 {
                     lux = 0;
-                    int beforeHp = playerHP;
+                    int bankruptcyBeforeHp = playerHP;
                     int incoming = ModifyIncomingDamage(15);
                     playerHP -= incoming;
                     playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
-                    if (playerHP < beforeHp) AddBleedStack(1, "파산 선언 실패 반동으로");
+                    if (playerHP < bankruptcyBeforeHp) AddBleedStack(1, "파산 선언 실패 반동으로");
                     WriteLog("<color=#8fd3ff>파산 선언 실패:</color> LUX 전부 소실, HP -15.");
                 }
                 break;
@@ -907,10 +907,10 @@ private int CalculateRewardLux(int bet)
                 }
                 else
                 {
-                    int beforeHp = playerHP;
+                    int luckyBeforeHp = playerHP;
                     int incoming = ModifyIncomingDamage(10);
                     playerHP -= incoming;
-                    if (playerHP < beforeHp) AddBleedStack(1, "7777 역반동으로");
+                    if (playerHP < luckyBeforeHp) AddBleedStack(1, "7777 역반동으로");
                     WriteLog("<color=#8fd3ff>7777:</color> 역효과! 제로가 10 피해.");
                 }
                 enemyHP = Mathf.Clamp(enemyHP, 0, enemyMaxHP);

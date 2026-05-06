@@ -22,7 +22,7 @@ MonoBehaviour:
   selfDamage: 0
   gambleSuccessChance: 0
   canOnlyUseInPoverty: 0
-  isGambleCard: 1
+  isGambleCard: 0
   stunEnemyNextTurn: 0
   stunPlayerNextTurn: 0
   cardType: 7
