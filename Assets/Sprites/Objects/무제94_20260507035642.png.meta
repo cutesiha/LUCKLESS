@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 4a706d11c3a054c4f98bc781f5ba1e08
+guid: 66623f897fa51684e9d061d655629727
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -6363930349493153119
-    second: pixel-large-snes-1777193819899_0
+      213: 524210514618675906
+    second: "\u1106\u116E\u110C\u116694_20260507035642_0"
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -100,13 +100,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: pixel-large-snes-1777193819899_0
+      name: "\u1106\u116E\u110C\u116694_20260507035642_0"
       rect:
         serializedVersion: 2
-        x: 77
-        y: 89
-        width: 1100
-        height: 1100
+        x: 170
+        y: 201
+        width: 1451
+        height: 1409
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -115,8 +115,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 1a2122f8017cea7a0800000000000000
-      internalID: -6363930349493153119
+      spriteID: 2c2fe578fae564700800000000000000
+      internalID: 524210514618675906
       vertices: []
       indices: 
       edges: []
@@ -135,7 +135,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      pixel-large-snes-1777193819899_0: -6363930349493153119
+      "\u1106\u116E\u110C\u116694_20260507035642_0": 524210514618675906
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

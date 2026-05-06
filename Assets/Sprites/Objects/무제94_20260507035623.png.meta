@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: c0ed9cafbc1f38548b0297b81623218d
+guid: 558f4167c48a3594ca6a17b8b3815b45
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -569447201193214882
-    second: pixel-large-8bit-1777194964738_0
+      213: 961233886572677390
+    second: "\u1106\u116E\u110C\u116694_20260507035623_0"
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -37,7 +37,7 @@ TextureImporter:
   maxTextureSize: 2048
   textureSettings:
     serializedVersion: 2
-    filterMode: 1
+    filterMode: 0
     aniso: 1
     mipBias: 0
     wrapU: 1
@@ -46,7 +46,7 @@ TextureImporter:
   nPOTScale: 0
   lightmap: 0
   compressionQuality: 50
-  spriteMode: 2
+  spriteMode: 1
   spriteExtrude: 1
   spriteMeshType: 1
   alignment: 0
@@ -75,7 +75,7 @@ TextureImporter:
     maxTextureSize: 2048
     resizeAlgorithm: 0
     textureFormat: -1
-    textureCompression: 1
+    textureCompression: 0
     compressionQuality: 50
     crunchedCompression: 0
     allowsAlphaSplitting: 0
@@ -100,13 +100,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: pixel-large-8bit-1777194964738_0
+      name: "\u1106\u116E\u110C\u116694_20260507035623_0"
       rect:
         serializedVersion: 2
-        x: 74
-        y: 84
-        width: 1106
-        height: 1101
+        x: 170
+        y: 201
+        width: 1451
+        height: 1409
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -115,8 +115,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: e5cb98e99cae818f0800000000000000
-      internalID: -569447201193214882
+      spriteID: e098b33802df65d00800000000000000
+      internalID: 961233886572677390
       vertices: []
       indices: 
       edges: []
@@ -125,7 +125,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 
+    spriteID: 5e97eb03825dee720800000000000000
     internalID: 0
     vertices: []
     indices: 
@@ -135,7 +135,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      pixel-large-8bit-1777194964738_0: -569447201193214882
+      "\u1106\u116E\u110C\u116694_20260507035623_0": 961233886572677390
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

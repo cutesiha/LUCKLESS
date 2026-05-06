@@ -33,5 +33,5 @@ MonoBehaviour:
   healAmount: 0
   reflectNextEnemyDamage: 0
   rerollOtherCards: 0
-  isJackpot: 0
+  isJackpot: 1
   specialEffect: 0

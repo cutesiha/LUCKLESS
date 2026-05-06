@@ -10,16 +10,16 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8b038437caf200d4eb5692d2b89128df, type: 3}
-  m_Name: "\uBE5A"
+  m_Name: "\uB3D9\uBC18\uC790\uC0B4"
   m_EditorClassIdentifier: Assembly-CSharp::CardData
-  cardName: "\uBE5A"
-  description: "Lux Cost: 0. \uD53C\uD574 5. (\uBD88\uC6B4 \uAD6C\uAC04\uC5D0\uC11C\uB9CC
-    \uC0AC\uC6A9 \uAC00\uB2A5)"
+  cardName: "\uB3D9\uBC18\uC790\uC0B4"
+  description: "Lux Cost: 0. \uC801\uACFC \uC81C\uB85C \uBAA8\uB450\uC5D0\uAC8C \uD53C\uD574
+    5."
   damage: 5
   luxCost: 0
   luxGain: 0
   emotionGain: 0
-  selfDamage: 6
+  selfDamage: 5
   gambleSuccessChance: 0
   canOnlyUseInPoverty: 0
   isGambleCard: 0

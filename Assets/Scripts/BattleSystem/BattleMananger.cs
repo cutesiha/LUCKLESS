@@ -27,6 +27,29 @@ public class BattleManager : MonoBehaviour
     public Sprite enemySprite50;
     public Sprite enemySprite20;
 
+    [Header("Enemy Hit Effect")]
+    public float enemyHitEffectDuration = 0.35f;
+    public float enemyHitShakeStrength = 12f;
+    public Color enemyHitFlashColor = new Color(1f, 0.25f, 0.25f, 1f);
+
+    [Header("Player Hit Effect")]
+    public Image playerHitFlashImage;
+    public RectTransform playerHitShakeTarget;
+    public float playerHitEffectDuration = 0.35f;
+    public float playerHitShakeStrength = 10f;
+    public Color playerHitFlashColor = new Color(1f, 0f, 0f, 0.45f);
+
+    [Header("Dice Roll Effect")]
+    public GameObject diceRollPanel;
+    public Image diceLeftImage;
+    public Image diceRightImage;
+    public TMP_Text diceTotalText;
+    public Sprite[] diceFaceSprites = new Sprite[6];
+    public float diceRollDuration = 1.25f;
+    public float diceSecondDelay = 0.45f;
+    public float diceResultHoldDuration = 1.3f;
+    public float diceFaceChangeInterval = 0.05f;
+
     [Header("Healing")]
     public int healAmount;
 
@@ -149,6 +172,13 @@ public class BattleManager : MonoBehaviour
     private int failedGambleCountThisTurn = 0;
     private bool firstGambleGuaranteedThisTurn = false;
     private bool firstGambleUsedThisTurn = false;
+    private Coroutine enemyHitEffectRoutine;
+    private bool enemyHitEffectActive = false;
+    private Vector2 enemyHitOriginalPosition;
+    private Color enemyHitOriginalColor = Color.white;
+    private Coroutine playerHitEffectRoutine;
+    private Vector2 playerHitOriginalPosition;
+    private bool isCardResolving = false;
     private readonly List<FailedGambleRecord> failedGambleRecordsThisTurn = new List<FailedGambleRecord>();
 
     private struct FailedGambleRecord
@@ -205,6 +235,8 @@ public class BattleManager : MonoBehaviour
         if (endPanel != null) endPanel.SetActive(false);
         if (negotiationButton != null) negotiationButton.gameObject.SetActive(false);
 
+        InitializePlayerHitEffect();
+        InitializeDiceRollEffect();
         UpdateBettingUI();
         UpdateUI();
         UpdateEnemyDialogue();
@@ -214,25 +246,397 @@ public class BattleManager : MonoBehaviour
         StartCoroutine(RefreshHandUIRoutine());
     }
 
+    private Sprite GetEnemyCurrentSprite()
+    {
+        if (enemyRaged && enemyRageSprite != null)
+        {
+            return enemyRageSprite;
+        }
+
+        float hpRate = (float)enemyHP / enemyMaxHP;
+
+        if (hpRate <= 0.4f && enemySprite20 != null)
+        {
+            return enemySprite20;
+        }
+
+        if (hpRate <= 0.7f && enemySprite50 != null)
+        {
+            return enemySprite50;
+        }
+
+        if (enemySprite100 != null)
+        {
+            return enemySprite100;
+        }
+
+        return enemyRaged ? enemyRageSprite : enemyNormalSprite;
+    }
+
     private void UpdateEnemySprite()
-{
-    if (enemyCharacterImage == null) return;
+    {
+        if (enemyCharacterImage == null || enemyHitEffectActive) return;
 
-    float hpRate = (float)enemyHP / enemyMaxHP;
+        enemyCharacterImage.sprite = GetEnemyCurrentSprite();
+    }
 
-    if (hpRate <= 0.2f)
+    private int ApplyEnemyDamage(int damage)
     {
-        enemyCharacterImage.sprite = enemySprite20;
+        if (damage <= 0) return 0;
+
+        int beforeHp = enemyHP;
+        enemyHP -= damage;
+        enemyHP = Mathf.Clamp(enemyHP, 0, enemyMaxHP);
+
+        int actualDamage = beforeHp - enemyHP;
+        if (actualDamage > 0)
+        {
+            PlayEnemyHitEffect();
+        }
+
+        return actualDamage;
     }
-    else if (hpRate <= 0.5f)
+
+    private void PlayEnemyHitEffect()
     {
-        enemyCharacterImage.sprite = enemySprite50;
+        if (enemyCharacterImage == null) return;
+
+        if (enemyHitEffectRoutine != null)
+        {
+            StopCoroutine(enemyHitEffectRoutine);
+            enemyCharacterImage.rectTransform.anchoredPosition = enemyHitOriginalPosition;
+            enemyCharacterImage.color = enemyHitOriginalColor;
+            enemyHitEffectActive = false;
+        }
+
+        enemyHitEffectRoutine = StartCoroutine(EnemyHitEffectRoutine());
     }
-    else
+
+    private IEnumerator EnemyHitEffectRoutine()
     {
-        enemyCharacterImage.sprite = enemySprite100;
+        enemyHitEffectActive = true;
+
+        RectTransform rectTransform = enemyCharacterImage.rectTransform;
+        enemyHitOriginalPosition = rectTransform.anchoredPosition;
+        enemyHitOriginalColor = enemyCharacterImage.color;
+
+        Sprite angrySprite = enemyRageSprite != null ? enemyRageSprite : GetEnemyCurrentSprite();
+        enemyCharacterImage.sprite = angrySprite;
+
+        float elapsed = 0f;
+        while (elapsed < enemyHitEffectDuration)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / enemyHitEffectDuration);
+            float shake = enemyHitShakeStrength * (1f - t);
+
+            rectTransform.anchoredPosition = enemyHitOriginalPosition + Random.insideUnitCircle * shake;
+            enemyCharacterImage.color = Color.Lerp(enemyHitOriginalColor, enemyHitFlashColor, 1f - t);
+
+            yield return null;
+        }
+
+        rectTransform.anchoredPosition = enemyHitOriginalPosition;
+        enemyCharacterImage.color = enemyHitOriginalColor;
+        enemyHitEffectActive = false;
+        enemyHitEffectRoutine = null;
+        UpdateEnemySprite();
     }
-}
+
+    private void InitializePlayerHitEffect()
+    {
+        if (playerHitShakeTarget == null && battlePanel != null)
+        {
+            playerHitShakeTarget = battlePanel.GetComponent<RectTransform>();
+        }
+
+        if (playerHitFlashImage == null)
+        {
+            Canvas canvas = null;
+            if (battlePanel != null)
+            {
+                canvas = battlePanel.GetComponentInParent<Canvas>(true);
+            }
+
+            if (canvas == null)
+            {
+                canvas = GetComponentInParent<Canvas>(true);
+            }
+
+            if (canvas != null)
+            {
+                GameObject flashObject = new GameObject("PlayerHitFlash", typeof(RectTransform), typeof(Image));
+                flashObject.transform.SetParent(canvas.transform, false);
+
+                RectTransform flashTransform = flashObject.GetComponent<RectTransform>();
+                flashTransform.anchorMin = Vector2.zero;
+                flashTransform.anchorMax = Vector2.one;
+                flashTransform.offsetMin = Vector2.zero;
+                flashTransform.offsetMax = Vector2.zero;
+
+                playerHitFlashImage = flashObject.GetComponent<Image>();
+                playerHitFlashImage.raycastTarget = false;
+            }
+        }
+
+        if (playerHitFlashImage != null)
+        {
+            playerHitFlashImage.color = Color.clear;
+            playerHitFlashImage.transform.SetAsLastSibling();
+        }
+    }
+
+    private int ApplyPlayerDamage(int damage)
+    {
+        if (damage <= 0) return 0;
+
+        int beforeHp = playerHP;
+        playerHP -= damage;
+        playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
+
+        int actualDamage = beforeHp - playerHP;
+        if (actualDamage > 0)
+        {
+            PlayPlayerHitEffect();
+        }
+
+        return actualDamage;
+    }
+
+    private void PlayPlayerHitEffect()
+    {
+        if (playerHitFlashImage == null && playerHitShakeTarget == null) return;
+
+        if (playerHitEffectRoutine != null)
+        {
+            StopCoroutine(playerHitEffectRoutine);
+            RestorePlayerHitEffect();
+        }
+
+        playerHitEffectRoutine = StartCoroutine(PlayerHitEffectRoutine());
+    }
+
+    private IEnumerator PlayerHitEffectRoutine()
+    {
+        if (playerHitFlashImage != null)
+        {
+            playerHitFlashImage.transform.SetAsLastSibling();
+        }
+
+        playerHitOriginalPosition = playerHitShakeTarget != null ? playerHitShakeTarget.anchoredPosition : Vector2.zero;
+
+        float elapsed = 0f;
+        float duration = Mathf.Max(0.01f, playerHitEffectDuration);
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+            float shake = playerHitShakeStrength * (1f - t);
+
+            if (playerHitShakeTarget != null)
+            {
+                playerHitShakeTarget.anchoredPosition = playerHitOriginalPosition + Random.insideUnitCircle * shake;
+            }
+
+            if (playerHitFlashImage != null)
+            {
+                playerHitFlashImage.color = Color.Lerp(Color.clear, playerHitFlashColor, 1f - t);
+            }
+
+            yield return null;
+        }
+
+        RestorePlayerHitEffect();
+        playerHitEffectRoutine = null;
+    }
+
+    private void RestorePlayerHitEffect()
+    {
+        if (playerHitShakeTarget != null)
+        {
+            playerHitShakeTarget.anchoredPosition = playerHitOriginalPosition;
+        }
+
+        if (playerHitFlashImage != null)
+        {
+            playerHitFlashImage.color = Color.clear;
+        }
+    }
+
+    private void InitializeDiceRollEffect()
+    {
+        if (diceRollPanel == null)
+        {
+            Canvas canvas = null;
+            if (battlePanel != null)
+            {
+                canvas = battlePanel.GetComponentInParent<Canvas>(true);
+            }
+
+            if (canvas == null)
+            {
+                canvas = GetComponentInParent<Canvas>(true);
+            }
+
+            if (canvas != null)
+            {
+                diceRollPanel = new GameObject("DiceRollPanel", typeof(RectTransform));
+                diceRollPanel.transform.SetParent(canvas.transform, false);
+
+                RectTransform panelTransform = diceRollPanel.GetComponent<RectTransform>();
+                panelTransform.anchorMin = new Vector2(0.5f, 0.5f);
+                panelTransform.anchorMax = new Vector2(0.5f, 0.5f);
+                panelTransform.pivot = new Vector2(0.5f, 0.5f);
+                panelTransform.sizeDelta = new Vector2(420f, 220f);
+                panelTransform.anchoredPosition = Vector2.zero;
+
+                diceLeftImage = CreateDiceImage("LeftDice", diceRollPanel.transform, new Vector2(-90f, 30f));
+                diceRightImage = CreateDiceImage("RightDice", diceRollPanel.transform, new Vector2(90f, 30f));
+                diceTotalText = CreateDiceTotalText(diceRollPanel.transform);
+            }
+        }
+
+        if (diceRollPanel != null)
+        {
+            if (diceLeftImage == null)
+            {
+                diceLeftImage = CreateDiceImage("LeftDice", diceRollPanel.transform, new Vector2(-90f, 30f));
+            }
+
+            if (diceRightImage == null)
+            {
+                diceRightImage = CreateDiceImage("RightDice", diceRollPanel.transform, new Vector2(90f, 30f));
+            }
+
+            if (diceTotalText == null)
+            {
+                diceTotalText = CreateDiceTotalText(diceRollPanel.transform);
+            }
+
+            diceRollPanel.SetActive(false);
+        }
+
+        if (diceTotalText != null)
+        {
+            diceTotalText.text = string.Empty;
+        }
+    }
+
+    private Image CreateDiceImage(string objectName, Transform parent, Vector2 anchoredPosition)
+    {
+        GameObject imageObject = new GameObject(objectName, typeof(RectTransform), typeof(Image));
+        imageObject.transform.SetParent(parent, false);
+
+        RectTransform rectTransform = imageObject.GetComponent<RectTransform>();
+        rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+        rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+        rectTransform.pivot = new Vector2(0.5f, 0.5f);
+        rectTransform.sizeDelta = new Vector2(96f, 96f);
+        rectTransform.anchoredPosition = anchoredPosition;
+
+        Image image = imageObject.GetComponent<Image>();
+        image.raycastTarget = false;
+        image.preserveAspect = true;
+        return image;
+    }
+
+    private TMP_Text CreateDiceTotalText(Transform parent)
+    {
+        GameObject textObject = new GameObject("DiceTotalText", typeof(RectTransform), typeof(TextMeshProUGUI));
+        textObject.transform.SetParent(parent, false);
+
+        RectTransform rectTransform = textObject.GetComponent<RectTransform>();
+        rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+        rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+        rectTransform.pivot = new Vector2(0.5f, 0.5f);
+        rectTransform.sizeDelta = new Vector2(360f, 60f);
+        rectTransform.anchoredPosition = new Vector2(0f, -70f);
+
+        TextMeshProUGUI text = textObject.GetComponent<TextMeshProUGUI>();
+        text.alignment = TextAlignmentOptions.Center;
+        text.fontSize = 34f;
+        text.color = Color.white;
+        text.raycastTarget = false;
+        return text;
+    }
+
+    private IEnumerator PlayDoubleDiceRollRoutine(int leftResult, int rightResult)
+    {
+        if (diceRollPanel == null || diceLeftImage == null || diceRightImage == null)
+        {
+            yield break;
+        }
+
+        diceRollPanel.SetActive(true);
+        diceRollPanel.transform.SetAsLastSibling();
+
+        if (diceTotalText != null)
+        {
+            diceTotalText.text = string.Empty;
+        }
+
+        float elapsed = 0f;
+        float nextFaceChange = 0f;
+        float rollDuration = Mathf.Max(0.01f, diceRollDuration);
+
+        while (elapsed < rollDuration)
+        {
+            elapsed += Time.deltaTime;
+            nextFaceChange -= Time.deltaTime;
+            if (nextFaceChange <= 0f)
+            {
+                SetDiceImage(diceLeftImage, Random.Range(1, 7));
+                SetDiceImage(diceRightImage, Random.Range(1, 7));
+                nextFaceChange = Mathf.Max(0.01f, diceFaceChangeInterval);
+            }
+
+            yield return null;
+        }
+
+        SetDiceImage(diceLeftImage, leftResult);
+
+        elapsed = 0f;
+        nextFaceChange = 0f;
+        float secondDelay = Mathf.Max(0f, diceSecondDelay);
+        while (elapsed < secondDelay)
+        {
+            elapsed += Time.deltaTime;
+            nextFaceChange -= Time.deltaTime;
+            if (nextFaceChange <= 0f)
+            {
+                SetDiceImage(diceRightImage, Random.Range(1, 7));
+                nextFaceChange = Mathf.Max(0.01f, diceFaceChangeInterval);
+            }
+
+            yield return null;
+        }
+
+        SetDiceImage(diceRightImage, rightResult);
+
+        if (diceTotalText != null)
+        {
+            diceTotalText.text = $"총합: {leftResult + rightResult}";
+        }
+
+        yield return new WaitForSeconds(diceResultHoldDuration);
+
+        if (diceRollPanel != null)
+        {
+            diceRollPanel.SetActive(false);
+        }
+    }
+
+    private void SetDiceImage(Image targetImage, int diceValue)
+    {
+        if (targetImage == null) return;
+        if (diceFaceSprites == null || diceFaceSprites.Length < 6) return;
+
+        int index = Mathf.Clamp(diceValue, 1, 6) - 1;
+        if (diceFaceSprites[index] != null)
+        {
+            targetImage.sprite = diceFaceSprites[index];
+        }
+    }
 
 
     private void RefreshHandUI()
@@ -492,6 +896,7 @@ private int CalculateRewardLux(int bet)
     {
         if (!battleStarted) return;
         if (battleEnded) return;
+        if (isCardResolving) return;
         if (playerStunned)
         {
             WriteLog("제로는 행동 불가 상태입니다. 이번 턴 카드를 사용할 수 없습니다.");
@@ -550,6 +955,12 @@ private int CalculateRewardLux(int bet)
             ClearBleedStacks($"{card.cardName} 효과로");
         }
 
+        if (card.specialEffect == SpecialCardEffect.DoubleDice)
+        {
+            StartCoroutine(ResolveDoubleDiceCardRoutine(card, effectiveType));
+            return;
+        }
+
         int finalDamage = CalculateDamage(card);
         ApplyGambleResultStacks(card);
         finalDamage = ApplyOutgoingCardBonuses(finalDamage, effectiveType);
@@ -562,18 +973,14 @@ private int CalculateRewardLux(int bet)
             finalDamage = Mathf.Max(finalDamage, 0);
         }
 
-        enemyHP -= finalDamage;
-        enemyHP = Mathf.Clamp(enemyHP, 0, enemyMaxHP);
+        ApplyEnemyDamage(finalDamage);
         CheckEnemyRage();
 
         enemyEmotion += card.emotionGain;
         if (!IsCardTreatedAsGamble(card) && card.selfDamage > 0)
         {
-            int beforeHp = playerHP;
             int incoming = ModifyIncomingDamage(card.selfDamage);
-            playerHP -= incoming;
-            playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
-            if (playerHP < beforeHp) AddBleedStack(1, $"{card.cardName} 자해로");
+            if (ApplyPlayerDamage(incoming) > 0) AddBleedStack(1, $"{card.cardName} 자해로");
         }
         enemyEmotion = Mathf.Clamp(enemyEmotion, 0, maxEmotion);
 
@@ -650,6 +1057,133 @@ private int CalculateRewardLux(int bet)
         UpdateEnemyDialogue();
     }
 
+    private IEnumerator ResolveDoubleDiceCardRoutine(CardData card, CardType effectiveType)
+    {
+        isCardResolving = true;
+        InitializeDiceRollEffect();
+
+        int d1 = Random.Range(1, 7);
+        int d2 = Random.Range(1, 7);
+
+        bool guaranteed = firstGambleGuaranteedThisTurn && !firstGambleUsedThisTurn;
+        if (guaranteed)
+        {
+            firstGambleUsedThisTurn = true;
+            int safety = 0;
+            while (d1 + d2 < 8 && safety < 50)
+            {
+                d1 = Random.Range(1, 7);
+                d2 = Random.Range(1, 7);
+                safety++;
+            }
+        }
+
+        yield return PlayDoubleDiceRollRoutine(d1, d2);
+
+        int total = d1 + d2;
+        bool success = total >= 8;
+        gambleResolvedThisUse = true;
+        gambleSucceededThisUse = success;
+
+        int finalDamage = 0;
+        if (success)
+        {
+            finalDamage = 25;
+        }
+        else
+        {
+            int incoming = ModifyIncomingDamage(20);
+            if (ApplyPlayerDamage(incoming) > 0) AddBleedStack(1, "주사위 실패 반동으로");
+            failedGambleCountThisTurn += 1;
+            failedGambleRecordsThisTurn.Add(new FailedGambleRecord { chance = 42, successDamage = 25 });
+        }
+
+        WriteLog($"<color=#ffd166>주사위:</color> {d1} + {d2} = {total} {(success ? "성공" : "실패")}");
+
+        ApplyGambleResultStacks(card);
+        finalDamage = ApplyOutgoingCardBonuses(finalDamage, effectiveType);
+        finalDamage = ApplyTurnDamageModifiers(finalDamage);
+
+        if (enemyRaged && finalDamage > 0)
+        {
+            finalDamage -= rageAttackReduction;
+            finalDamage = Mathf.Max(finalDamage, 0);
+        }
+
+        ApplyEnemyDamage(finalDamage);
+        CheckEnemyRage();
+
+        enemyEmotion += card.emotionGain;
+        enemyEmotion = Mathf.Clamp(enemyEmotion, 0, maxEmotion);
+
+        houseTrust += card.houseTrustChange;
+
+        if (card.shieldAmount > 0)
+        {
+            shield += card.shieldAmount;
+        }
+
+        if (card.damageReduction > 0)
+        {
+            damageReduction += card.damageReduction;
+        }
+
+        if (card.ignoreEnemyDamage)
+        {
+            ignoreNextDamage = true;
+        }
+
+        if (card.stunEnemyNextTurn)
+        {
+            enemyStunned = true;
+        }
+
+        if (card.stunPlayerNextTurn)
+        {
+            playerStunned = true;
+        }
+
+        FinishCardUseAfterSpecialRoutine(card, finalDamage);
+        isCardResolving = false;
+    }
+
+    private void FinishCardUseAfterSpecialRoutine(CardData card, int finalDamage)
+    {
+        string logMessage = $"<color=yellow>{card.cardName}</color> 사용!";
+
+        if (finalDamage > 0)
+        {
+            logMessage += $" 적에게 {finalDamage} 피해.";
+        }
+
+        if (card.emotionGain > 0)
+        {
+            logMessage += $" 감정 게이지 +{card.emotionGain}.";
+        }
+
+        logMessage += $" 현재 LUX: {lux}";
+
+        WriteLog(logMessage);
+
+        if (enemyHP <= 0)
+        {
+            WinBattle();
+            return;
+        }
+
+        hand.Remove(card);
+        forcedGambleCards.Remove(card);
+        bool isOneTimeCard = card.specialEffect == SpecialCardEffect.No23;
+        if (!isOneTimeCard)
+        {
+            discardPile.Add(card);
+        }
+        StartCoroutine(RefreshHandUIRoutine());
+
+        UpdateUI();
+        UpdateEnemyDialogue();
+    }
+
     private int CalculateDamage(CardData card)
     {
         int specialDamage = ResolveSpecialCardDamage(card);
@@ -703,11 +1237,8 @@ private int CalculateRewardLux(int bet)
 
             if (roll > chance)
             {
-                int beforeHp = playerHP;
                 int incoming = ModifyIncomingDamage(card.selfDamage);
-                playerHP -= incoming;
-                playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
-                if (playerHP < beforeHp) AddBleedStack(1, $"{card.cardName} 도박 실패로");
+                if (ApplyPlayerDamage(incoming) > 0) AddBleedStack(1, $"{card.cardName} 도박 실패로");
                 gambleResolvedThisUse = true;
                 gambleSucceededThisUse = false;
                 failedGambleCountThisTurn += 1;
@@ -735,11 +1266,8 @@ private int CalculateRewardLux(int bet)
         {
             if (Random.value < 0.2f)
             {
-                int beforeHp = playerHP;
                 int incoming = ModifyIncomingDamage(damage);
-                playerHP -= incoming;
-                playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
-                if (playerHP < beforeHp) AddBleedStack(1, "불운 역효과로");
+                if (ApplyPlayerDamage(incoming) > 0) AddBleedStack(1, "불운 역효과로");
 
                 WriteLog("<color=red>불운 발동!</color> 공격이 역효과로 돌아왔습니다.");
                 return 0;
@@ -774,9 +1302,8 @@ private int CalculateRewardLux(int bet)
                 WriteLog("<color=#8fd3ff>무기 버리기:</color> 카드 1장을 추가로 뽑았습니다.");
                 break;
             case SpecialCardEffect.BeastHeart:
-                int beforeHp = playerHP;
-                playerHP = 1;
-                if (playerHP < beforeHp) AddBleedStack(1, "야수의 심장 대가로");
+                int beastHeartDamage = Mathf.Max(0, playerHP - 1);
+                if (ApplyPlayerDamage(beastHeartDamage) > 0) AddBleedStack(1, "야수의 심장 대가로");
                 forcedGambleCards.Clear();
                 foreach (CardData handCard in hand)
                 {
@@ -819,8 +1346,7 @@ private int CalculateRewardLux(int bet)
             case SpecialCardEffect.ReverseOdds:
             {
                 int bonusDamage = failedGambleCountThisTurn * 10;
-                enemyHP -= bonusDamage;
-                enemyHP = Mathf.Clamp(enemyHP, 0, enemyMaxHP);
+                ApplyEnemyDamage(bonusDamage);
                 WriteLog($"<color=#8fd3ff>역배당:</color> 이번 턴 실패 도박 {failedGambleCountThisTurn}회로 {bonusDamage} 피해.");
                 break;
             }
@@ -845,8 +1371,7 @@ private int CalculateRewardLux(int bet)
                     {
                         rerollDamage = Mathf.Max(0, rerollDamage - rageAttackReduction);
                     }
-                    enemyHP -= rerollDamage;
-                    enemyHP = Mathf.Clamp(enemyHP, 0, enemyMaxHP);
+                    ApplyEnemyDamage(rerollDamage);
                     WriteLog($"<color=#8fd3ff>확률 세탁:</color> 재판정 성공! 추가 피해 {rerollDamage}");
                 }
                 else
@@ -871,18 +1396,14 @@ private int CalculateRewardLux(int bet)
                 {
                     lux = 0;
                     int damage = Mathf.RoundToInt(currentLux * 2f);
-                    enemyHP -= damage;
-                    enemyHP = Mathf.Clamp(enemyHP, 0, enemyMaxHP);
+                    ApplyEnemyDamage(damage);
                     WriteLog($"<color=#8fd3ff>파산 선언 성공:</color> LUX {currentLux} 소모, {damage} 피해.");
                 }
                 else
                 {
                     lux = 0;
-                    int bankruptcyBeforeHp = playerHP;
                     int incoming = ModifyIncomingDamage(15);
-                    playerHP -= incoming;
-                    playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
-                    if (playerHP < bankruptcyBeforeHp) AddBleedStack(1, "파산 선언 실패 반동으로");
+                    if (ApplyPlayerDamage(incoming) > 0) AddBleedStack(1, "파산 선언 실패 반동으로");
                     WriteLog("<color=#8fd3ff>파산 선언 실패:</color> LUX 전부 소실, HP -15.");
                 }
                 break;
@@ -892,29 +1413,26 @@ private int CalculateRewardLux(int bet)
                 int roll = Random.Range(0, 4);
                 if (roll == 0)
                 {
-                    enemyHP -= 7;
+                    ApplyEnemyDamage(7);
                     WriteLog("<color=#8fd3ff>7777:</color> 7 피해");
                 }
                 else if (roll == 1)
                 {
-                    enemyHP -= 14;
+                    ApplyEnemyDamage(14);
                     WriteLog("<color=#8fd3ff>7777:</color> 14 피해");
                 }
                 else if (roll == 2)
                 {
-                    enemyHP -= 21;
+                    ApplyEnemyDamage(21);
                     WriteLog("<color=#8fd3ff>7777:</color> 21 피해");
                 }
                 else
                 {
-                    int luckyBeforeHp = playerHP;
                     int incoming = ModifyIncomingDamage(10);
-                    playerHP -= incoming;
-                    if (playerHP < luckyBeforeHp) AddBleedStack(1, "7777 역반동으로");
+                    if (ApplyPlayerDamage(incoming) > 0) AddBleedStack(1, "7777 역반동으로");
                     WriteLog("<color=#8fd3ff>7777:</color> 역효과! 제로가 10 피해.");
                 }
                 enemyHP = Mathf.Clamp(enemyHP, 0, enemyMaxHP);
-                playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
                 break;
             }
         }
@@ -955,9 +1473,7 @@ private int CalculateRewardLux(int bet)
                 }
 
                 int incoming = ModifyIncomingDamage(20);
-                playerHP -= incoming;
-                playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
-                AddBleedStack(1, "코인 실패 반동으로");
+                if (ApplyPlayerDamage(incoming) > 0) AddBleedStack(1, "코인 실패 반동으로");
                 gambleResolvedThisUse = true;
                 gambleSucceededThisUse = false;
                 failedGambleCountThisTurn += 1;
@@ -1058,15 +1574,13 @@ private int CalculateRewardLux(int bet)
                 }
 
                 finalDamage = ModifyIncomingDamage(finalDamage);
-                playerHP -= finalDamage;
-                playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
+                ApplyPlayerDamage(finalDamage);
 
                 resultLog = $"적의 공격 발동. 제로가 {finalDamage} 피해를 받았습니다.";
 
                 if (reflectNextDamage && finalDamage > 0)
                 {
-                    enemyHP -= finalDamage;
-                    enemyHP = Mathf.Clamp(enemyHP, 0, enemyMaxHP);
+                    ApplyEnemyDamage(finalDamage);
 
                     resultLog += $"\n반사 발동! 적에게 {finalDamage} 피해를 되돌렸습니다.";
 
@@ -1088,16 +1602,14 @@ private int CalculateRewardLux(int bet)
         if (bleedStacks > 0)
         {
             int bleedDamage = ModifyIncomingDamage(bleedStacks);
-            playerHP -= bleedDamage;
-            playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
+            ApplyPlayerDamage(bleedDamage);
             turnLogs.Add($"<color=red>출혈</color>로 턴 종료 시 {bleedDamage} 피해를 받았습니다.");
         }
 
         if (addictionStacks >= 5)
         {
             int addictionPenalty = ModifyIncomingDamage(2);
-            playerHP -= addictionPenalty;
-            playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
+            ApplyPlayerDamage(addictionPenalty);
             turnLogs.Add($"<color=#a35dff>중독 부작용:</color> 턴 종료 시 {addictionPenalty} 피해를 받았습니다.");
         }
 
@@ -1134,11 +1646,8 @@ private int CalculateRewardLux(int bet)
             turnLogs.Add("<color=#8fd3ff>불법 대출:</color> LUX +5");
             if (illegalLoanTurnsRemaining == 0 && illegalLoanPenaltyPending)
             {
-                int beforeHp = playerHP;
                 int incoming = ModifyIncomingDamage(10);
-                playerHP -= incoming;
-                playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
-                if (playerHP < beforeHp) AddBleedStack(1, "불법 대출 상환으로");
+                if (ApplyPlayerDamage(incoming) > 0) AddBleedStack(1, "불법 대출 상환으로");
                 illegalLoanPenaltyPending = false;
                 turnLogs.Add("<color=#8fd3ff>불법 대출:</color> 만기 도달, HP -10");
             }
@@ -1369,7 +1878,7 @@ private void DrawCards(int count)
         
         if (card.isJackpot)
         {
-            if (Random.value > 0.3f)
+            if (Random.value > 0.005f)
             {
                 discardPile.Add(card);
                 continue;
@@ -1466,10 +1975,7 @@ private void CheckEnemyRage()
         enemyRaged = false;
     }
 
-    if (enemyCharacterImage != null)
-    {
-        enemyCharacterImage.sprite = enemyRaged ? enemyRageSprite : enemyNormalSprite;
-    }
+    UpdateEnemySprite();
 }
 
     private void UpdateUI()
