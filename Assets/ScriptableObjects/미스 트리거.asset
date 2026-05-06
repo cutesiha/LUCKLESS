@@ -10,22 +10,21 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8b038437caf200d4eb5692d2b89128df, type: 3}
-  m_Name: Blue Chip
+  m_Name: "\uBBF8\uC2A4 \uD2B8\uB9AC\uAC70"
   m_EditorClassIdentifier: Assembly-CSharp::CardData
-  cardName: Blue Chip
-  description: "Lux Cost: 14. 35% \uD655\uB960\uB85C \uD53C\uD574 30. \uC2E4\uD328
-    \uC2DC \uC81C\uB85C\uAC00 \uD53C\uD574 18."
-  damage: 30
-  luxCost: 14
+  cardName: "\uBBF8\uC2A4 \uD2B8\uB9AC\uAC70"
+  description: "Lux Cost: 5. \uC81C\uB85C\uAC00 \uBC1B\uB294 \uD53C\uD574 70% \uAC10\uC18C."
+  damage: 0
+  luxCost: 5
   luxGain: 0
   emotionGain: 0
-  selfDamage: 18
-  gambleSuccessChance: 35
+  selfDamage: 0
+  gambleSuccessChance: 0
   canOnlyUseInPoverty: 0
-  isGambleCard: 1
+  isGambleCard: 0
   stunEnemyNextTurn: 0
   stunPlayerNextTurn: 0
-  cardType: 2
+  cardType: 7
   povertyStackMultiplier: 0
   houseTrustChange: 0
   ignoreEnemyDamage: 0
@@ -34,3 +33,5 @@ MonoBehaviour:
   healAmount: 0
   reflectNextEnemyDamage: 0
   rerollOtherCards: 0
+  isJackpot: 0
+  specialEffect: 7

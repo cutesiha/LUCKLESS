@@ -66,5 +66,14 @@ public enum SpecialCardEffect
     BeastHeart,
     LuxDrain,
     MissTrigger,
-    No23
+    No23,
+    IllegalLoan,
+    ProbabilityManipulation,
+    Overload,
+    Heartbeat,
+    ReverseOdds,
+    ProbabilityLaundering,
+    FakeLuck,
+    BankruptcyDeclaration,
+    Lucky7777
 }

@@ -132,6 +132,30 @@ public class BattleManager : MonoBehaviour
     private bool reduceEnemyDamageNextTurn = false;
     private readonly HashSet<CardData> forcedGambleCards = new HashSet<CardData>();
     private int bleedStacks = 0;
+    private int addictionStacks = 0;   // 중독
+    private int debtStacks = 0;        // 채무
+    private int excitementStacks = 0;  // 흥분
+    private int greedStacks = 0;       // 탐욕
+    private int resignationStacks = 0; // 체념
+    private bool gambleResolvedThisUse = false;
+    private bool gambleSucceededThisUse = false;
+    private bool usedCardThisTurn = false;
+    private int illegalLoanTurnsRemaining = 0;
+    private bool illegalLoanPenaltyPending = false;
+    private int probabilityManipulationTurnsRemaining = 0;
+    private int overloadTurnsRemaining = 0;
+    private int heartbeatStacks = 0;
+    private bool heartbeatEnabled = false;
+    private int failedGambleCountThisTurn = 0;
+    private bool firstGambleGuaranteedThisTurn = false;
+    private bool firstGambleUsedThisTurn = false;
+    private readonly List<FailedGambleRecord> failedGambleRecordsThisTurn = new List<FailedGambleRecord>();
+
+    private struct FailedGambleRecord
+    {
+        public int chance;
+        public int successDamage;
+    }
 
     private enum LuxState
     {
@@ -290,6 +314,7 @@ public class BattleManager : MonoBehaviour
         hand.Clear();
         DrawCards(drawCount);
         RefreshHandUI();
+        usedCardThisTurn = false;
 
         WriteLog($"전투 시작. {selectedBet} LUX가 베팅되었습니다.");
         UpdateUI();
@@ -344,6 +369,85 @@ private int CalculateRewardLux(int bet)
         WriteLog($"{reason} <color=#8fd3ff>출혈이 초기화</color>되었습니다.");
     }
 
+    private int ModifyIncomingDamage(int damage)
+    {
+        int modified = damage + debtStacks - resignationStacks;
+        return Mathf.Max(modified, 0);
+    }
+
+    private bool IsLuxTypeCard(CardData card)
+    {
+        return card.luxGain > 0 || card.specialEffect == SpecialCardEffect.LuxDrain;
+    }
+
+    private int CalculateLuxGain(CardData card)
+    {
+        if (card.luxGain <= 0) return card.luxGain;
+
+        float percentBonus = 1f + (excitementStacks * 0.05f);
+        int scaled = Mathf.RoundToInt(card.luxGain * percentBonus);
+        return scaled + (greedStacks * 3);
+    }
+
+    private int GetEffectiveLuxCost(CardData card)
+    {
+        int cost = card.luxCost;
+        if (overloadTurnsRemaining > 0)
+        {
+            cost -= 3;
+        }
+        return Mathf.Max(cost, 0);
+    }
+
+    private int ApplyOutgoingCardBonuses(int damage, CardType effectiveType)
+    {
+        if (damage <= 0) return 0;
+
+        if (bleedStacks > 0 && (effectiveType == CardType.Deal || effectiveType == CardType.Gamble))
+        {
+            damage += bleedStacks * 2;
+        }
+
+        if (effectiveType == CardType.Gamble)
+        {
+            damage += addictionStacks * 2;
+            damage += excitementStacks * 3;
+            if (debtStacks >= 10)
+            {
+                damage = Mathf.RoundToInt(damage * 1.5f);
+            }
+        }
+
+        if (effectiveType == CardType.Deal && greedStacks > 0)
+        {
+            damage = Mathf.Max(0, damage - greedStacks);
+        }
+
+        if (heartbeatEnabled && heartbeatStacks > 0 && playerHP <= Mathf.RoundToInt(playerMaxHP * 0.5f))
+        {
+            damage = Mathf.RoundToInt(damage * (1f + heartbeatStacks * 0.05f));
+        }
+
+        return damage;
+    }
+
+    private void ApplyGambleResultStacks(CardData card)
+    {
+        if (!IsCardTreatedAsGamble(card) || !gambleResolvedThisUse) return;
+
+        if (gambleSucceededThisUse)
+        {
+            addictionStacks += 1;
+            excitementStacks += 1;
+            resignationStacks = Mathf.Max(0, resignationStacks - 2);
+        }
+        else
+        {
+            excitementStacks = 0;
+            resignationStacks += 1;
+        }
+    }
+
     private bool CanUseCard(CardData card)
 {
     if (card == null)
@@ -352,9 +456,10 @@ private int CalculateRewardLux(int bet)
         return false;
     }
 
-    if (lux < card.luxCost)
+    int effectiveCost = GetEffectiveLuxCost(card);
+    if (lux < effectiveCost)
     {
-        WriteLog($"{card.cardName} 사용 불가. LUX가 부족합니다. 필요 LUX: {card.luxCost}, 현재 LUX: {lux}");
+        WriteLog($"{card.cardName} 사용 불가. LUX가 부족합니다. 필요 LUX: {effectiveCost}, 현재 LUX: {lux}");
         return false;
     }
 
@@ -398,9 +503,35 @@ private int CalculateRewardLux(int bet)
             return;
         }
 
-        lux -= card.luxCost;
-        lux += card.luxGain;
+        usedCardThisTurn = true;
+
+        int effectiveCost = GetEffectiveLuxCost(card);
+        lux -= effectiveCost;
+        int gainedLux = CalculateLuxGain(card);
+        lux += gainedLux;
         lux = Mathf.Clamp(lux, 0, 100);
+
+        CardType effectiveType = GetEffectiveCardType(card);
+        bool isGambleCard = IsCardTreatedAsGamble(card);
+        bool isLuxTypeCard = IsLuxTypeCard(card);
+
+        if (isGambleCard)
+        {
+            addictionStacks += 1;
+        }
+
+        if (effectiveType == CardType.Poverty || isLuxTypeCard)
+        {
+            debtStacks += 1;
+        }
+
+        if (isLuxTypeCard)
+        {
+            greedStacks += 1;
+        }
+
+        gambleResolvedThisUse = false;
+        gambleSucceededThisUse = false;
 
         if (card.reflectNextEnemyDamage)
         {
@@ -420,11 +551,8 @@ private int CalculateRewardLux(int bet)
         }
 
         int finalDamage = CalculateDamage(card);
-        CardType effectiveType = GetEffectiveCardType(card);
-        if (bleedStacks > 0 && (effectiveType == CardType.Deal || effectiveType == CardType.Gamble))
-        {
-            finalDamage += bleedStacks * 2;
-        }
+        ApplyGambleResultStacks(card);
+        finalDamage = ApplyOutgoingCardBonuses(finalDamage, effectiveType);
         finalDamage = ApplyTurnDamageModifiers(finalDamage);
 
         // 분노 상태일 때 플레이어의 공격력 감소
@@ -442,7 +570,8 @@ private int CalculateRewardLux(int bet)
         if (!IsCardTreatedAsGamble(card) && card.selfDamage > 0)
         {
             int beforeHp = playerHP;
-            playerHP -= card.selfDamage;
+            int incoming = ModifyIncomingDamage(card.selfDamage);
+            playerHP -= incoming;
             playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
             if (playerHP < beforeHp) AddBleedStack(1, $"{card.cardName} 자해로");
         }
@@ -545,6 +674,13 @@ private int CalculateRewardLux(int bet)
         if (IsCardTreatedAsGamble(card))
         {
             int chance = card.gambleSuccessChance;
+            chance += addictionStacks * 2;
+            chance -= resignationStacks * 3;
+            chance += probabilityManipulationTurnsRemaining > 0 ? 20 : 0;
+            if (excitementStacks >= 3)
+            {
+                chance += 10;
+            }
 
             if (state == LuxState.Lucky)
             {
@@ -558,18 +694,35 @@ private int CalculateRewardLux(int bet)
             chance = Mathf.Clamp(chance, 5, 95);
 
             int roll = Random.Range(1, 101);
+            bool guaranteed = firstGambleGuaranteedThisTurn && !firstGambleUsedThisTurn;
+            if (guaranteed)
+            {
+                firstGambleUsedThisTurn = true;
+                roll = 1;
+            }
 
             if (roll > chance)
             {
                 int beforeHp = playerHP;
-                playerHP -= card.selfDamage;
+                int incoming = ModifyIncomingDamage(card.selfDamage);
+                playerHP -= incoming;
                 playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
                 if (playerHP < beforeHp) AddBleedStack(1, $"{card.cardName} 도박 실패로");
+                gambleResolvedThisUse = true;
+                gambleSucceededThisUse = false;
+                failedGambleCountThisTurn += 1;
+                failedGambleRecordsThisTurn.Add(new FailedGambleRecord
+                {
+                    chance = chance,
+                    successDamage = Mathf.Max(card.damage, 0)
+                });
 
                 WriteLog($"<color=red>{card.cardName} 실패!</color> ({roll}/{chance}) 제로가 {card.selfDamage} 피해를 받았습니다.");
                 return 0;
             }
 
+            gambleResolvedThisUse = true;
+            gambleSucceededThisUse = true;
             WriteLog($"<color=yellow>{card.cardName} 성공!</color> ({roll}/{chance})");
         }
 
@@ -583,7 +736,8 @@ private int CalculateRewardLux(int bet)
             if (Random.value < 0.2f)
             {
                 int beforeHp = playerHP;
-                playerHP -= damage;
+                int incoming = ModifyIncomingDamage(damage);
+                playerHP -= incoming;
                 playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
                 if (playerHP < beforeHp) AddBleedStack(1, "불운 역효과로");
 
@@ -644,6 +798,125 @@ private int CalculateRewardLux(int bet)
             case SpecialCardEffect.No23:
                 WriteLog("<color=#8fd3ff>No.23:</color> 사용 후 소멸합니다.");
                 break;
+            case SpecialCardEffect.IllegalLoan:
+                illegalLoanTurnsRemaining = 3;
+                illegalLoanPenaltyPending = true;
+                WriteLog("<color=#8fd3ff>불법 대출:</color> 3턴 동안 매턴 LUX +5, 이후 HP -10.");
+                break;
+            case SpecialCardEffect.ProbabilityManipulation:
+                probabilityManipulationTurnsRemaining = 2;
+                WriteLog("<color=#8fd3ff>확률 조작:</color> 2턴 동안 도박 성공률 +20%.");
+                break;
+            case SpecialCardEffect.Overload:
+                overloadTurnsRemaining = 2;
+                enemyEmotion = Mathf.Clamp(enemyEmotion + 20, 0, maxEmotion);
+                WriteLog("<color=#8fd3ff>과부하:</color> 2턴 동안 모든 카드 코스트 -3, 분노 +20.");
+                break;
+            case SpecialCardEffect.Heartbeat:
+                heartbeatEnabled = true;
+                WriteLog("<color=#8fd3ff>심장 박동:</color> HP 50% 이하일 때 매턴 공격력 보정이 누적됩니다.");
+                break;
+            case SpecialCardEffect.ReverseOdds:
+            {
+                int bonusDamage = failedGambleCountThisTurn * 10;
+                enemyHP -= bonusDamage;
+                enemyHP = Mathf.Clamp(enemyHP, 0, enemyMaxHP);
+                WriteLog($"<color=#8fd3ff>역배당:</color> 이번 턴 실패 도박 {failedGambleCountThisTurn}회로 {bonusDamage} 피해.");
+                break;
+            }
+            case SpecialCardEffect.ProbabilityLaundering:
+            {
+                if (failedGambleRecordsThisTurn.Count <= 0)
+                {
+                    WriteLog("<color=#8fd3ff>확률 세탁:</color> 재판정할 실패 도박이 없습니다.");
+                    break;
+                }
+
+                FailedGambleRecord record = failedGambleRecordsThisTurn[failedGambleRecordsThisTurn.Count - 1];
+                failedGambleRecordsThisTurn.RemoveAt(failedGambleRecordsThisTurn.Count - 1);
+                failedGambleCountThisTurn = Mathf.Max(0, failedGambleCountThisTurn - 1);
+
+                int reroll = Random.Range(1, 101);
+                if (reroll <= record.chance)
+                {
+                    int rerollDamage = ApplyOutgoingCardBonuses(record.successDamage, CardType.Gamble);
+                    rerollDamage = ApplyTurnDamageModifiers(rerollDamage);
+                    if (enemyRaged && rerollDamage > 0)
+                    {
+                        rerollDamage = Mathf.Max(0, rerollDamage - rageAttackReduction);
+                    }
+                    enemyHP -= rerollDamage;
+                    enemyHP = Mathf.Clamp(enemyHP, 0, enemyMaxHP);
+                    WriteLog($"<color=#8fd3ff>확률 세탁:</color> 재판정 성공! 추가 피해 {rerollDamage}");
+                }
+                else
+                {
+                    failedGambleCountThisTurn += 1;
+                    failedGambleRecordsThisTurn.Add(record);
+                    WriteLog("<color=#8fd3ff>확률 세탁:</color> 재판정도 실패했습니다.");
+                }
+                break;
+            }
+            case SpecialCardEffect.FakeLuck:
+                firstGambleGuaranteedThisTurn = true;
+                firstGambleUsedThisTurn = false;
+                enemyEmotion = Mathf.Clamp(enemyEmotion + 20, 0, maxEmotion);
+                WriteLog("<color=#8fd3ff>위조 행운:</color> 이번 턴 첫 도박은 무조건 성공, 분노 +20.");
+                break;
+            case SpecialCardEffect.BankruptcyDeclaration:
+            {
+                greedStacks = 0;
+                int currentLux = lux;
+                if (Random.value < 0.5f)
+                {
+                    lux = 0;
+                    int damage = Mathf.RoundToInt(currentLux * 2f);
+                    enemyHP -= damage;
+                    enemyHP = Mathf.Clamp(enemyHP, 0, enemyMaxHP);
+                    WriteLog($"<color=#8fd3ff>파산 선언 성공:</color> LUX {currentLux} 소모, {damage} 피해.");
+                }
+                else
+                {
+                    lux = 0;
+                    int beforeHp = playerHP;
+                    int incoming = ModifyIncomingDamage(15);
+                    playerHP -= incoming;
+                    playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
+                    if (playerHP < beforeHp) AddBleedStack(1, "파산 선언 실패 반동으로");
+                    WriteLog("<color=#8fd3ff>파산 선언 실패:</color> LUX 전부 소실, HP -15.");
+                }
+                break;
+            }
+            case SpecialCardEffect.Lucky7777:
+            {
+                int roll = Random.Range(0, 4);
+                if (roll == 0)
+                {
+                    enemyHP -= 7;
+                    WriteLog("<color=#8fd3ff>7777:</color> 7 피해");
+                }
+                else if (roll == 1)
+                {
+                    enemyHP -= 14;
+                    WriteLog("<color=#8fd3ff>7777:</color> 14 피해");
+                }
+                else if (roll == 2)
+                {
+                    enemyHP -= 21;
+                    WriteLog("<color=#8fd3ff>7777:</color> 21 피해");
+                }
+                else
+                {
+                    int beforeHp = playerHP;
+                    int incoming = ModifyIncomingDamage(10);
+                    playerHP -= incoming;
+                    if (playerHP < beforeHp) AddBleedStack(1, "7777 역반동으로");
+                    WriteLog("<color=#8fd3ff>7777:</color> 역효과! 제로가 10 피해.");
+                }
+                enemyHP = Mathf.Clamp(enemyHP, 0, enemyMaxHP);
+                playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
+                break;
+            }
         }
     }
 
@@ -653,31 +926,63 @@ private int CalculateRewardLux(int bet)
         {
             case SpecialCardEffect.CoinTriple:
             {
+                int chanceBonus = 0;
+                chanceBonus += addictionStacks * 2;
+                chanceBonus += probabilityManipulationTurnsRemaining > 0 ? 20 : 0;
+                chanceBonus -= resignationStacks * 3;
+                if (excitementStacks >= 3) chanceBonus += 10;
+                float headChance = Mathf.Clamp01(0.5f + chanceBonus / 100f);
+
+                bool guaranteed = firstGambleGuaranteedThisTurn && !firstGambleUsedThisTurn;
+                if (guaranteed)
+                {
+                    firstGambleUsedThisTurn = true;
+                }
+
                 int heads = 0;
                 for (int i = 0; i < 3; i++)
                 {
-                    if (Random.value < 0.5f) heads++;
+                    if (Random.value < headChance) heads++;
                 }
 
-                bool success = heads >= 2;
+                bool success = guaranteed || heads >= 2;
                 if (success)
                 {
+                    gambleResolvedThisUse = true;
+                    gambleSucceededThisUse = true;
                     WriteLog($"<color=#ffd166>코인 3연속:</color> 앞면 {heads}/3 성공");
                     return 40;
                 }
 
-                playerHP -= 20;
+                int incoming = ModifyIncomingDamage(20);
+                playerHP -= incoming;
                 playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
                 AddBleedStack(1, "코인 실패 반동으로");
+                gambleResolvedThisUse = true;
+                gambleSucceededThisUse = false;
+                failedGambleCountThisTurn += 1;
+                failedGambleRecordsThisTurn.Add(new FailedGambleRecord { chance = 50, successDamage = 40 });
                 WriteLog($"<color=#ffd166>코인 3연속:</color> 앞면 {heads}/3 실패, 제로가 20 피해를 받았습니다.");
                 return 0;
             }
             case SpecialCardEffect.DoubleDice:
             {
+                bool guaranteed = firstGambleGuaranteedThisTurn && !firstGambleUsedThisTurn;
+                if (guaranteed)
+                {
+                    firstGambleUsedThisTurn = true;
+                }
                 int d1 = Random.Range(1, 7);
                 int d2 = Random.Range(1, 7);
                 int total = d1 + d2;
-                bool success = total >= 8;
+                bool success = guaranteed || total >= 8;
+                gambleResolvedThisUse = true;
+                gambleSucceededThisUse = success;
+                if (!success)
+                {
+                    failedGambleCountThisTurn += 1;
+                    failedGambleRecordsThisTurn.Add(new FailedGambleRecord { chance = 42, successDamage = 25 });
+                }
                 WriteLog($"<color=#ffd166>주사위:</color> {d1} + {d2} = {total} {(success ? "성공" : "실패")}");
                 return success ? 25 : 0;
             }
@@ -709,6 +1014,7 @@ private int CalculateRewardLux(int bet)
         if (battleEnded) return;
 
         string resultLog;
+        List<string> turnLogs = new List<string>();
 
         if (enemyStunned)
         {
@@ -751,6 +1057,7 @@ private int CalculateRewardLux(int bet)
                     finalDamage -= absorbed;
                 }
 
+                finalDamage = ModifyIncomingDamage(finalDamage);
                 playerHP -= finalDamage;
                 playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
 
@@ -768,11 +1075,11 @@ private int CalculateRewardLux(int bet)
             }
         }
 
-        WriteLog(resultLog);
+        turnLogs.Add(resultLog);
 
         if (playerStunned)
         {
-            WriteLog("제로는 행동 불가 상태입니다. 이번 턴 아무 행동도 할 수 없습니다.");
+            turnLogs.Add("제로는 행동 불가 상태입니다. 이번 턴 아무 행동도 할 수 없습니다.");
             playerStunned = false;
         }
 
@@ -780,9 +1087,18 @@ private int CalculateRewardLux(int bet)
 
         if (bleedStacks > 0)
         {
-            playerHP -= bleedStacks;
+            int bleedDamage = ModifyIncomingDamage(bleedStacks);
+            playerHP -= bleedDamage;
             playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
-            WriteLog($"<color=red>출혈</color>로 턴 종료 시 {bleedStacks} 피해를 받았습니다.");
+            turnLogs.Add($"<color=red>출혈</color>로 턴 종료 시 {bleedDamage} 피해를 받았습니다.");
+        }
+
+        if (addictionStacks >= 5)
+        {
+            int addictionPenalty = ModifyIncomingDamage(2);
+            playerHP -= addictionPenalty;
+            playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
+            turnLogs.Add($"<color=#a35dff>중독 부작용:</color> 턴 종료 시 {addictionPenalty} 피해를 받았습니다.");
         }
 
         if (GetLuxState() == LuxState.Poverty)
@@ -799,7 +1115,7 @@ private int CalculateRewardLux(int bet)
             lux -= 30;
             lux = Mathf.Clamp(lux, 0, 100);
 
-            WriteLog("<color=cyan>폭주 반동:</color> 턴 종료 시 LUX -30.");
+            turnLogs.Add("<color=cyan>폭주 반동:</color> 턴 종료 시 LUX -30.");
         }
 
         if (luxDrainTurnsRemaining > 0)
@@ -807,10 +1123,53 @@ private int CalculateRewardLux(int bet)
             lux += 2;
             lux = Mathf.Clamp(lux, 0, 100);
             luxDrainTurnsRemaining--;
-            WriteLog("<color=#8fd3ff>럭스 드레인:</color> LUX +2");
+            turnLogs.Add("<color=#8fd3ff>럭스 드레인:</color> LUX +2");
         }
 
-        discardPile.AddRange(hand);
+        if (illegalLoanTurnsRemaining > 0)
+        {
+            lux += 5;
+            lux = Mathf.Clamp(lux, 0, 100);
+            illegalLoanTurnsRemaining--;
+            turnLogs.Add("<color=#8fd3ff>불법 대출:</color> LUX +5");
+            if (illegalLoanTurnsRemaining == 0 && illegalLoanPenaltyPending)
+            {
+                int beforeHp = playerHP;
+                int incoming = ModifyIncomingDamage(10);
+                playerHP -= incoming;
+                playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
+                if (playerHP < beforeHp) AddBleedStack(1, "불법 대출 상환으로");
+                illegalLoanPenaltyPending = false;
+                turnLogs.Add("<color=#8fd3ff>불법 대출:</color> 만기 도달, HP -10");
+            }
+        }
+
+        if (probabilityManipulationTurnsRemaining > 0)
+        {
+            probabilityManipulationTurnsRemaining--;
+        }
+
+        if (overloadTurnsRemaining > 0)
+        {
+            overloadTurnsRemaining--;
+        }
+
+        if (heartbeatEnabled && playerHP <= Mathf.RoundToInt(playerMaxHP * 0.5f))
+        {
+            heartbeatStacks += 1;
+            turnLogs.Add($"<color=#8fd3ff>심장 박동:</color> 저체력 보정 {heartbeatStacks * 5}% 활성");
+        }
+
+        if (!usedCardThisTurn)
+        {
+            // 아무 카드도 안 쓴 턴은 손패를 덱으로 되돌려 다시 셔플
+            drawPile.AddRange(hand);
+            Shuffle(drawPile);
+        }
+        else
+        {
+            discardPile.AddRange(hand);
+        }
         forcedGambleCards.Clear();
         hand.Clear();
 
@@ -840,8 +1199,15 @@ private int CalculateRewardLux(int bet)
             currentTurnDamageMultiplier = 1f;
         }
 
+        usedCardThisTurn = false;
+        failedGambleCountThisTurn = 0;
+        failedGambleRecordsThisTurn.Clear();
+        firstGambleGuaranteedThisTurn = false;
+        firstGambleUsedThisTurn = false;
+
         UpdateUI();
         UpdateEnemyDialogue();
+        WriteLog(string.Join("\n", turnLogs));
 
         damageReduction = 0;
     }
@@ -941,7 +1307,17 @@ private int CalculateRewardLux(int bet)
         discardPile.Clear();
         forcedGambleCards.Clear();
 
-        drawPile = startingCards.ToList();
+        if (startingCards == null)
+        {
+            Debug.LogError("[BattleManager] startingCards가 비어 있습니다.", this);
+            return;
+        }
+
+        drawPile = startingCards.Where(c => c != null).ToList();
+        if (drawPile.Count != startingCards.Length)
+        {
+            Debug.LogWarning("[BattleManager] startingCards에 null 카드가 있어 제외했습니다.", this);
+        }
 
         Shuffle(drawPile);
     }
@@ -983,6 +1359,11 @@ private void DrawCards(int count)
 
         CardData card = drawPile[0];
         drawPile.RemoveAt(0);
+        if (card == null)
+        {
+            Debug.LogWarning("[BattleManager] drawPile의 null 카드를 스킵했습니다.", this);
+            continue;
+        }
 
         // 잭팟 카드 확률 제한 
         
@@ -1014,7 +1395,7 @@ private void ReshuffleDiscardIntoDeck()
         return;
     }
 
-    drawPile.AddRange(discardPile);
+    drawPile.AddRange(discardPile.Where(c => c != null));
     discardPile.Clear();
     Shuffle(drawPile);
 
@@ -1160,7 +1541,9 @@ private void CheckEnemyRage()
 
         if (stackTagText != null)
         {
-            stackTagText.text = bleedStacks > 0 ? $"태그: 출혈 x{bleedStacks}" : "태그: 없음";
+            stackTagText.text =
+                $"출혈 x{bleedStacks} | 중독 x{addictionStacks} | 채무 x{debtStacks}\n" +
+                $"흥분 x{excitementStacks} | 탐욕 x{greedStacks} | 체념 x{resignationStacks}";
         }
 
         UpdateLuxState();

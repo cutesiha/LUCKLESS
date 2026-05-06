@@ -10,13 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8b038437caf200d4eb5692d2b89128df, type: 3}
-  m_Name: Miss Trigger
+  m_Name: "\uB7ED \uB4DC\uB85C\uC6B0"
   m_EditorClassIdentifier: Assembly-CSharp::CardData
-  cardName: Miss Trigger
-  description: "Lux Cost: 5. \uC81C\uB85C\uAC00 \uBC1B\uB294 \uD53C\uD574 70% \uAC10\uC18C."
+  cardName: "\uB7ED \uB4DC\uB85C\uC6B0"
+  description: Lux +5.
   damage: 0
-  luxCost: 5
-  luxGain: 0
+  luxCost: 0
+  luxGain: 5
   emotionGain: 0
   selfDamage: 0
   gambleSuccessChance: 0
@@ -24,7 +24,7 @@ MonoBehaviour:
   isGambleCard: 0
   stunEnemyNextTurn: 0
   stunPlayerNextTurn: 0
-  cardType: 7
+  cardType: 6
   povertyStackMultiplier: 0
   houseTrustChange: 0
   ignoreEnemyDamage: 0
@@ -34,4 +34,4 @@ MonoBehaviour:
   reflectNextEnemyDamage: 0
   rerollOtherCards: 0
   isJackpot: 0
-  specialEffect: 7
+  specialEffect: 0
