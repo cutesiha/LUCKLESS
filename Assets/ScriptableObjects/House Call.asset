@@ -18,7 +18,7 @@ MonoBehaviour:
   damage: 13
   luxCost: 0
   luxGain: 0
-  emotionGain: 5
+  emotionGain: 10
   selfDamage: 0
   gambleSuccessChance: 0
   canOnlyUseInPoverty: 0
@@ -34,3 +34,5 @@ MonoBehaviour:
   healAmount: 0
   reflectNextEnemyDamage: 0
   rerollOtherCards: 0
+  isJackpot: 0
+  specialEffect: 0

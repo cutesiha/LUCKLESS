@@ -41,6 +41,7 @@ public class CardData : ScriptableObject
 
     [Header("Special")]
     public bool isJackpot;
+    public SpecialCardEffect specialEffect = SpecialCardEffect.None;
 }
 
 public enum CardType
@@ -53,4 +54,17 @@ public enum CardType
     Manipulation,
     Flux,
     Barrier
+}
+
+public enum SpecialCardEffect
+{
+    None,
+    LightBilling,
+    CoinTriple,
+    WeaponDiscard,
+    DoubleDice,
+    BeastHeart,
+    LuxDrain,
+    MissTrigger,
+    No23
 }

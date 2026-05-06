@@ -31,7 +31,7 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
             return;
         }
 
-        cardNameText.text = cardData.cardName;
+        cardNameText.text = $"{cardData.cardName}\n<LUX {cardData.luxCost}>";
     }
 
     public void OnClickCard()

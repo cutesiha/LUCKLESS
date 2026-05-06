@@ -12,11 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8b038437caf200d4eb5692d2b89128df, type: 3}
   m_Name: Lux Drain
   m_EditorClassIdentifier: Assembly-CSharp::CardData
-  cardName: Record Erase
-  description: "\uBD84\uB178 \uAC8C\uC774\uC9C0 +10. Lux +10. "
+  cardName: "\uB7ED\uC2A4 \uB4DC\uB808\uC778"
+  description: "3\uD134 \uB3D9\uC548 Lux +2. \uBD84\uB178\uAC8C\uC774\uC9C0 +10. "
   damage: 0
   luxCost: 0
-  luxGain: 10
+  luxGain: 0
   emotionGain: 10
   selfDamage: 0
   gambleSuccessChance: 0
@@ -33,3 +33,5 @@ MonoBehaviour:
   healAmount: 0
   reflectNextEnemyDamage: 0
   rerollOtherCards: 0
+  isJackpot: 0
+  specialEffect: 6
