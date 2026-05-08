@@ -13,11 +13,11 @@ MonoBehaviour:
   m_Name: "\uB371 \uC154\uD50C"
   m_EditorClassIdentifier: Assembly-CSharp::CardData
   cardName: "\uB371 \uC154\uD50C"
-  description: "Lux Cost: 10. \uC774 \uCE74\uB4DC\uB97C \uC0AC\uC6A9\uD558\uBA74
-    \uB098\uBA38\uC9C0 \uC190\uD328\uB97C \uC804\uBD80 \uBC84\uB9AC\uACE0 \uC0C8
-    \uCE74\uB4DC 4\uC7A5\uC744 \uBF51\uB294\uB2E4."
+  description: "Lux Cost: 7. \uC774 \uCE74\uB4DC\uB97C \uC0AC\uC6A9\uD558\uBA74 \uB098\uBA38\uC9C0
+    \uC190\uD328\uB97C \uC804\uBD80 \uBC84\uB9AC\uACE0 \uC0C8 \uCE74\uB4DC 4\uC7A5\uC744
+    \uBF51\uB294\uB2E4."
   damage: 0
-  luxCost: 10
+  luxCost: 7
   luxGain: 0
   emotionGain: 0
   selfDamage: 0

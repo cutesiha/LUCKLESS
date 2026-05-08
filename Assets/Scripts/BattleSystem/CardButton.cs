@@ -31,7 +31,10 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
             return;
         }
 
-        cardNameText.text = $"{cardData.cardName}\n<LUX {cardData.luxCost}>";
+        cardNameText.richText = true;
+        cardNameText.text = battleManager != null
+            ? battleManager.GetCardButtonLabel(cardData)
+            : $"{cardData.cardName}\n<LUX {cardData.luxCost}>";
     }
 
     public void OnClickCard()
