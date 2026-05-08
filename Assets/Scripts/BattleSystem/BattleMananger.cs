@@ -111,6 +111,10 @@ public class BattleManager : MonoBehaviour
     public TMP_Text luxText;
     public TMP_Text luxStateText;
     public Slider luxBar;
+    public Color povertyLuxBarColor = new Color(0.78f, 0.05f, 0.38f, 1f);
+    public Color normalLuxBarColor = new Color(1f, 0.25f, 0.62f, 1f);
+    public Color luckyLuxBarColor = new Color(1f, 0.48f, 0.48f, 1f);
+    public Color overflowLuxBarColor = new Color(1f, 0.78f, 0.18f, 1f);
     public TMP_Text shieldText;
     public TMP_Text playerNameText;
     public Slider playerHPBar;
@@ -1607,12 +1611,12 @@ private int CalculateRewardLux(int bet)
         formatted = Regex.Replace(
             formatted,
             @"(Lux\s*cost\s*:\s*\d+)",
-            "<color=#66ccff>$1</color>",
+            "<color=#0050a8>$1</color>",
             RegexOptions.IgnoreCase);
         formatted = Regex.Replace(
             formatted,
             @"(Lux\s*[+-]\s*\d+)",
-            "<color=#66ccff>$1</color>",
+            "<color=#0050a8>$1</color>",
             RegexOptions.IgnoreCase);
         formatted = Regex.Replace(
             formatted,
@@ -2627,6 +2631,7 @@ private void CheckEnemyRage()
         if (luxBar != null)
         {
             luxBar.value = lux / 100f;
+            UpdateLuxBarColor();
         }
 
         if (enemyNameText != null)
@@ -2676,21 +2681,47 @@ private void CheckEnemyRage()
     {
         if (luxStateText == null) return;
 
-        if (lux <= 25)
+        LuxState state = GetLuxState();
+
+        if (state == LuxState.Poverty)
         {
             luxStateText.text = "상태: 불운";
         }
-        else if (lux <= 60)
+        else if (state == LuxState.Normal)
         {
             luxStateText.text = "상태: 보통";
         }
-        else if (lux <= 85)
+        else if (state == LuxState.Lucky)
         {
             luxStateText.text = "상태: 행운";
         }
         else
         {
             luxStateText.text = "상태: 폭주";
+        }
+    }
+
+    private void UpdateLuxBarColor()
+    {
+        if (luxBar == null || luxBar.fillRect == null) return;
+
+        Image fillImage = luxBar.fillRect.GetComponent<Image>();
+        if (fillImage == null) return;
+
+        switch (GetLuxState())
+        {
+            case LuxState.Poverty:
+                fillImage.color = povertyLuxBarColor;
+                break;
+            case LuxState.Normal:
+                fillImage.color = normalLuxBarColor;
+                break;
+            case LuxState.Lucky:
+                fillImage.color = luckyLuxBarColor;
+                break;
+            case LuxState.Overflow:
+                fillImage.color = overflowLuxBarColor;
+                break;
         }
     }
 

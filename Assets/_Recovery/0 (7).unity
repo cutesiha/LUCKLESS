@@ -2330,7 +2330,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0, g: 0, b: 0, a: 0.8666667}
+  m_Color: {r: 0, g: 0, b: 0, a: 0.68235296}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -2619,7 +2619,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: 683fb0411843c2441a99943978bd4e05, type: 3}
   m_PlayOnAwake: 1
-  m_Volume: 0.5
+  m_Volume: 0.8
   m_Pitch: 1
   Loop: 0
   Mute: 0
@@ -3321,8 +3321,8 @@ MonoBehaviour:
   damageReduction: 0
   ignoreNextDamage: 0
   enemyName: "\uCE74\uB9BC \uD558\uC0B0"
-  enemyMaxHP: 100
-  enemyHP: 100
+  enemyMaxHP: 120
+  enemyHP: 120
   enemyDamage: 8
   enemyEmotion: 0
   maxEmotion: 100
@@ -3342,10 +3342,6 @@ MonoBehaviour:
   luxText: {fileID: 330467302}
   luxStateText: {fileID: 1277662685}
   luxBar: {fileID: 793395136}
-  povertyLuxBarColor: {r: 0.78, g: 0.05, b: 0.38, a: 1}
-  normalLuxBarColor: {r: 1, g: 0.25, b: 0.62, a: 1}
-  luckyLuxBarColor: {r: 1, g: 0.48, b: 0.48, a: 1}
-  overflowLuxBarColor: {r: 1, g: 0.78, b: 0.18, a: 1}
   shieldText: {fileID: 888962356}
   playerNameText: {fileID: 312135923}
   playerHPBar: {fileID: 1731054725}
@@ -3476,7 +3472,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: 354042fc5f1aff74da13af04ec583939, type: 3}
   m_PlayOnAwake: 1
-  m_Volume: 0.5
+  m_Volume: 0.8
   m_Pitch: 1
   Loop: 0
   Mute: 0
@@ -5062,7 +5058,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1203978486
 RectTransform:
   m_ObjectHideFlags: 0
@@ -6093,7 +6089,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 0.61960787, b: 0.8, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -6305,7 +6301,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 0.61960787, b: 0.8, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -8516,7 +8512,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 0.6179246, b: 0.7977247, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1

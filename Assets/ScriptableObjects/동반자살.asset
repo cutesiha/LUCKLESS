@@ -14,12 +14,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CardData
   cardName: "\uB3D9\uBC18\uC790\uC0B4"
   description: "Lux Cost: 0. \uC801\uACFC \uC81C\uB85C \uBAA8\uB450\uC5D0\uAC8C \uD53C\uD574
-    5."
-  damage: 5
+    10."
+  damage: 10
   luxCost: 0
   luxGain: 0
   emotionGain: 0
-  selfDamage: 5
+  selfDamage: 10
   gambleSuccessChance: 0
   canOnlyUseInPoverty: 0
   isGambleCard: 0
