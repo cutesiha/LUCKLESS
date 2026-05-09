@@ -31,6 +31,9 @@ public class PrologueSequenceController : MonoBehaviour
     [SerializeField] private TMP_Text nameText;
     [SerializeField] private TMP_Text dialogueText;
     [SerializeField] private Image characterImage;
+    [SerializeField] private Image canvas2MouthImage;
+    [SerializeField] private Sprite mouthOpenSprite;
+    [SerializeField] private Sprite mouthClosedSprite;
 
     [Header("Dialogue")]
     public PrologueDialogueLine[] canvas1Lines;
@@ -45,6 +48,7 @@ public class PrologueSequenceController : MonoBehaviour
     [SerializeField] private float titleAppearDelayAfterDialogue = 1.5f;
     [SerializeField] private float titleFadeAfterCanvas2Delay = 1f;
     [SerializeField] private float eyeOpenDuration = 1.15f;
+    [SerializeField] private float mouthCycleDuration = 0.24f;
 
     [Header("Audio")]
     [SerializeField] private AudioSource voiceSource;
@@ -58,6 +62,7 @@ public class PrologueSequenceController : MonoBehaviour
     private bool advanceRequested;
     private bool skipTypingRequested;
     private Coroutine typingRoutine;
+    private Coroutine mouthRoutine;
     private Coroutine titleMusicFadeRoutine;
     private Vector2 topEyeClosedPosition;
     private Vector2 bottomEyeClosedPosition;
@@ -67,6 +72,7 @@ public class PrologueSequenceController : MonoBehaviour
     private void Awake()
     {
         EnsureDialogueCanvas();
+        PrepareCanvas2();
 
         SetGroup(canvas1Group, 1f, true);
         SetGroup(canvas2Group, 0f, false);
@@ -74,6 +80,8 @@ public class PrologueSequenceController : MonoBehaviour
         SetGroup(titleGroup, 0f, false);
         CacheEyeCoverPositions();
         SetEyeCoversVisible(false);
+        SetMouthClosed();
+        SetMouthVisible(false);
 
         if (titleImage != null)
         {
@@ -133,6 +141,7 @@ public class PrologueSequenceController : MonoBehaviour
         }
 
         currentLines = lines;
+        SetMouthVisible(lines == canvas2Lines);
 
         for (lineIndex = 0; lineIndex < lines.Length; lineIndex++)
         {
@@ -145,6 +154,8 @@ public class PrologueSequenceController : MonoBehaviour
             yield return new WaitUntil(() => advanceRequested);
             advanceRequested = false;
         }
+
+        SetMouthVisible(false);
     }
 
     private void EnsureDialogueCanvas()
@@ -238,13 +249,22 @@ public class PrologueSequenceController : MonoBehaviour
             line = "";
         }
 
+        if (ShouldAnimateMouth())
+        {
+            if (mouthRoutine != null)
+            {
+                StopCoroutine(mouthRoutine);
+            }
+
+            mouthRoutine = StartCoroutine(AnimateMouthForLine(line));
+        }
+
         foreach (char character in line)
         {
             if (skipTypingRequested)
             {
                 break;
             }
-
             dialogueText.text += character;
             yield return new WaitForSecondsRealtime(typingSpeed);
         }
@@ -252,6 +272,91 @@ public class PrologueSequenceController : MonoBehaviour
         dialogueText.text = line;
         isTyping = false;
         skipTypingRequested = false;
+    }
+
+    private bool ShouldAnimateMouth()
+    {
+        return currentLines == canvas2Lines
+            && canvas2MouthImage != null
+            && mouthOpenSprite != null
+            && mouthClosedSprite != null;
+    }
+
+    private IEnumerator AnimateMouthForLine(string line)
+    {
+        int cycleCount = CountVisibleCharacters(line);
+        float halfCycleDuration = Mathf.Max(0.02f, mouthCycleDuration * 0.5f);
+
+        for (int i = 0; i < cycleCount; i++)
+        {
+            if (skipTypingRequested)
+            {
+                break;
+            }
+
+            SetMouthOpen();
+            yield return new WaitForSecondsRealtime(halfCycleDuration);
+
+            SetMouthClosed();
+            yield return new WaitForSecondsRealtime(halfCycleDuration);
+        }
+
+        SetMouthClosed();
+        mouthRoutine = null;
+    }
+
+    private int CountVisibleCharacters(string line)
+    {
+        if (string.IsNullOrEmpty(line))
+        {
+            return 0;
+        }
+
+        int count = 0;
+
+        foreach (char character in line)
+        {
+            if (!char.IsWhiteSpace(character))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private void SetMouthVisible(bool visible)
+    {
+        if (canvas2MouthImage != null)
+        {
+            canvas2MouthImage.gameObject.SetActive(visible);
+        }
+
+        if (!visible && mouthRoutine != null)
+        {
+            StopCoroutine(mouthRoutine);
+            mouthRoutine = null;
+            SetMouthClosed();
+        }
+    }
+
+    private void SetMouthOpen()
+    {
+        if (canvas2MouthImage != null && mouthOpenSprite != null)
+        {
+            canvas2MouthImage.sprite = mouthOpenSprite;
+        }
+    }
+
+    private void SetMouthClosed()
+    {
+        if (canvas2MouthImage != null)
+        {
+            if (mouthClosedSprite != null)
+            {
+                canvas2MouthImage.sprite = mouthClosedSprite;
+            }
+        }
     }
 
     private IEnumerator PlayTitleTransition()
@@ -277,6 +382,7 @@ public class PrologueSequenceController : MonoBehaviour
         StartTitleMusic();
         yield return FadeGroup(titleGroup, 0f, 1f, titleFadeDuration, true);
         yield return new WaitForSecondsRealtime(titleHoldSeconds);
+        PrepareCanvas2();
         SetGroup(canvas2Group, 1f, true);
         yield return OpenEyeCovers();
         BringTitleToFront();
@@ -360,6 +466,39 @@ public class PrologueSequenceController : MonoBehaviour
         }
 
         return "";
+    }
+
+    private void PrepareCanvas2()
+    {
+        if (canvas2Group == null)
+        {
+            return;
+        }
+
+        Transform canvas2Transform = canvas2Group.transform;
+
+        if (canvas2Transform.localScale == Vector3.zero)
+        {
+            canvas2Transform.localScale = Vector3.one;
+        }
+
+        Canvas canvas2 = canvas2Group.GetComponent<Canvas>();
+
+        if (canvas2 != null)
+        {
+            canvas2.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas2.worldCamera = Camera.main;
+            canvas2.overrideSorting = true;
+            canvas2.sortingOrder = 5;
+        }
+
+        Transform background = canvas2Transform.Find("HouseMasterBackground");
+
+        if (background != null)
+        {
+            background.gameObject.SetActive(true);
+            background.SetAsFirstSibling();
+        }
     }
 
     private void CacheEyeCoverPositions()

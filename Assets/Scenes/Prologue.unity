@@ -236,6 +236,9 @@ MonoBehaviour:
   nameText: {fileID: 1904531253}
   dialogueText: {fileID: 1904531252}
   characterImage: {fileID: 1904531249}
+  canvas2MouthImage: {fileID: 1667902126}
+  mouthOpenSprite: {fileID: 21300000, guid: 3ea0f99f3ab0feb498297571ca465f1b, type: 3}
+  mouthClosedSprite: {fileID: 21300000, guid: 7118afecf425fe6478c67a86b154ff3c, type: 3}
   canvas1Lines:
   - speakerName: ???
     dialogue: "\uD589\uC6B4\uC774 \uBB54\uC9C0 \uC54C\uC544\uC694?"
@@ -269,43 +272,43 @@ MonoBehaviour:
   - speakerName: "\uB0AF\uC120 \uC5EC\uC790"
     dialogue: "\uC5B4\uBA38, \uC654\uC5B4\uC694?"
     characterSprite: {fileID: 0}
-    voiceClip: {fileID: 0}
+    voiceClip: {fileID: 8300000, guid: 11b824762d313514c8ff9911018f9b50, type: 3}
   - speakerName: "\uB0AF\uC120 \uC5EC\uC790"
-    dialogue: "\uAE30\uB2E4\uB838\uB294\uB370."
+    dialogue: "\uAE30\uB2E4\uB838\uB294\uB370. \uC624\uB798."
     characterSprite: {fileID: 0}
-    voiceClip: {fileID: 0}
-  - speakerName: "\uB0AF\uC120 \uC5EC\uC790"
+    voiceClip: {fileID: 8300000, guid: 99cb55236c3e5364eb7ec52cae5a4e2d, type: 3}
+  - speakerName: "\uD558\uC6B0\uC2A4 \uB9C8\uC2A4\uD130"
     dialogue: "\uB098\uB294 \uD558\uC6B0\uC2A4 \uB9C8\uC2A4\uD130. THE HOUSE\uC758
       \uC8FC\uC778\uC774\uC8E0."
     characterSprite: {fileID: 0}
-    voiceClip: {fileID: 0}
-  - speakerName: "\uB0AF\uC120 \uC5EC\uC790"
+    voiceClip: {fileID: 8300000, guid: 89d4688b3ecd05c46b8d0792b7310aaf, type: 3}
+  - speakerName: "\uD558\uC6B0\uC2A4 \uB9C8\uC2A4\uD130"
     dialogue: "\uB0B4\uAC00 \uB2F9\uC2E0\uC744 \uC5EC\uAE30\uB85C \uBD80\uB978 \uC774\uC720\uB97C
       \uC124\uBA85\uD574\uC904\uAC8C\uC694."
     characterSprite: {fileID: 0}
-    voiceClip: {fileID: 0}
-  - speakerName: "\uB0AF\uC120 \uC5EC\uC790"
+    voiceClip: {fileID: 8300000, guid: 79d733cdeec28c044961eb9e1c86efb0, type: 3}
+  - speakerName: "\uD558\uC6B0\uC2A4 \uB9C8\uC2A4\uD130"
     dialogue: "\uC778\uAC04\uC758 \uB1CC \uC548\uC5D0\uB294 '\uD3EC\uB974\uD22C\uB098
       \uCF54\uC5B4'\uB77C\uB294 \uC2E0\uACBD\uB9DD\uC774 \uC788\uC5B4\uC694.\n\uC5EC\uAE30\uC11C
       \uB098\uC624\uB294 \uC2E0\uD638\uAC00 \uD655\uB960\uC744 \uBE44\uD2C0\uC8E0."
     characterSprite: {fileID: 0}
-    voiceClip: {fileID: 0}
-  - speakerName: "\uB0AF\uC120 \uC5EC\uC790"
+    voiceClip: {fileID: 8300000, guid: 974da0633aec295478d17798c41c0ec9, type: 3}
+  - speakerName: "\uD558\uC6B0\uC2A4 \uB9C8\uC2A4\uD130"
     dialogue: "\uCD1D\uC54C\uC774 \uBE57\uB098\uAC00\uACE0, \uC0AC\uC5C5\uC774 \uC798
       \uD480\uB9AC\uACE0. \uC6B0\uB9AC\uB294 \uADF8\uAC78 \uD589\uC6B4\uC774\uB77C\uACE0
       \uBD80\uB974\uC796\uC544\uC694."
     characterSprite: {fileID: 0}
-    voiceClip: {fileID: 0}
-  - speakerName: "\uB0AF\uC120 \uC5EC\uC790"
+    voiceClip: {fileID: 8300000, guid: a06613cc366e2ed438e816d9dedce358, type: 3}
+  - speakerName: "\uD558\uC6B0\uC2A4 \uB9C8\uC2A4\uD130"
     dialogue: "\uADF8\uB7F0\uB370 \uC774\uAC74, \uCD94\uCD9C\uD574\uC11C \uD314 \uC218
       \uC788\uC5B4\uC694."
     characterSprite: {fileID: 0}
-    voiceClip: {fileID: 0}
-  - speakerName: "\uB0AF\uC120 \uC5EC\uC790"
+    voiceClip: {fileID: 8300000, guid: 04fb25806cd2e754e8f5d76e5ec5e020, type: 3}
+  - speakerName: "\uD558\uC6B0\uC2A4 \uB9C8\uC2A4\uD130"
     dialogue: "\uC774\uAC8C \uC774 \uC2DC\uB300\uC758 \uC0C8\uB85C\uC6B4 \uD654\uD3D0\uC778
       \u2014 LUX\uC608\uC694. "
     characterSprite: {fileID: 0}
-    voiceClip: {fileID: 0}
+    voiceClip: {fileID: 8300000, guid: e8107432446e1ef4cb48c32a0ed645e3, type: 3}
   typingSpeed: 0.035
   lineEndDelay: 0.08
   fadeDuration: 0.75
@@ -314,11 +317,12 @@ MonoBehaviour:
   titleAppearDelayAfterDialogue: 1.5
   titleFadeAfterCanvas2Delay: 1
   eyeOpenDuration: 1.15
+  mouthCycleDuration: 0.24
   voiceSource: {fileID: 337525892}
   titleMusicSource: {fileID: 337525894}
-  titleMusicClip: {fileID: 0}
-  titleMusicVolume: 1
-  titleMusicFadeInDuration: 1.5
+  titleMusicClip: {fileID: 8300000, guid: 2c20503d7c1a2f347b960cfb8137bcf8, type: 3}
+  titleMusicVolume: 0.4
+  titleMusicFadeInDuration: 2
 --- !u!82 &337525892
 AudioSource:
   m_ObjectHideFlags: 0
@@ -777,7 +781,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 3413723f489da6b4f855b3f8f7fe690f, type: 3}
+  m_Sprite: {fileID: 21300000, guid: ca21c025aba03af4a9e70672185fd117, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -1215,7 +1219,7 @@ Canvas:
   m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
-  m_SortingOrder: 0
+  m_SortingOrder: 5
   m_TargetDisplay: 0
 --- !u!224 &1338016891
 RectTransform:
@@ -1226,12 +1230,13 @@ RectTransform:
   m_GameObject: {fileID: 1338016886}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 0, y: 0, z: 0}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 993541231}
   - {fileID: 478076767}
   - {fileID: 1217217472}
+  - {fileID: 1667902128}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -1239,6 +1244,81 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 0}
+--- !u!1 &1667902125
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1667902128}
+  - component: {fileID: 1667902127}
+  - component: {fileID: 1667902126}
+  m_Layer: 0
+  m_Name: Canvas2MouthImage
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!114 &1667902126
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1667902125}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 0
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 0}
+  m_Type: 0
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
+--- !u!222 &1667902127
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1667902125}
+  m_CullTransparentMesh: 1
+--- !u!224 &1667902128
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1667902125}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1338016891}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: -283, y: 46}
+  m_SizeDelta: {x: 160, y: 80}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1734611969
 GameObject:
   m_ObjectHideFlags: 0
