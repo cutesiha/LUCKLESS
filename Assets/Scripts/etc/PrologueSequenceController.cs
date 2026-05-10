@@ -1,10 +1,41 @@
 using System.Collections;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 [System.Serializable]
 public class PrologueDialogueLine
+{
+    public string speakerName;
+
+    [TextArea(2, 6)]
+    public string dialogue;
+
+    public Sprite characterSprite;
+    public AudioClip voiceClip;
+
+    public bool hasChoices;
+    public PrologueChoiceOption[] choices;
+}
+
+[System.Serializable]
+public class PrologueDialogueCanvas
+{
+    public string canvasName;
+    public CanvasGroup canvasGroup;
+    public PrologueDialogueLine[] lines;
+}
+
+[System.Serializable]
+public class PrologueChoiceOption
+{
+    public string choiceText;
+    public PrologueChoiceResponseLine[] responseLines = new PrologueChoiceResponseLine[1];
+}
+
+[System.Serializable]
+public class PrologueChoiceResponseLine
 {
     public string speakerName;
 
@@ -18,8 +49,8 @@ public class PrologueDialogueLine
 public class PrologueSequenceController : MonoBehaviour
 {
     [Header("Canvas Flow")]
-    [SerializeField] private CanvasGroup canvas1Group;
-    [SerializeField] private CanvasGroup canvas2Group;
+    [HideInInspector] [SerializeField] private CanvasGroup canvas1Group;
+    [HideInInspector] [SerializeField] private CanvasGroup canvas2Group;
     [SerializeField] private GameObject dialogueCanvasRoot;
     [SerializeField] private CanvasGroup dialogueGroup;
     [SerializeField] private CanvasGroup titleGroup;
@@ -31,13 +62,12 @@ public class PrologueSequenceController : MonoBehaviour
     [SerializeField] private TMP_Text nameText;
     [SerializeField] private TMP_Text dialogueText;
     [SerializeField] private Image characterImage;
-    [SerializeField] private Image canvas2MouthImage;
-    [SerializeField] private Sprite mouthOpenSprite;
-    [SerializeField] private Sprite mouthClosedSprite;
 
     [Header("Dialogue")]
-    public PrologueDialogueLine[] canvas1Lines;
-    public PrologueDialogueLine[] canvas2Lines;
+    [SerializeField] private PrologueDialogueCanvas[] dialogueCanvases;
+    [HideInInspector] [SerializeField] private bool dialogueCanvasesMigrated;
+    [HideInInspector] public PrologueDialogueLine[] canvas1Lines;
+    [HideInInspector] public PrologueDialogueLine[] canvas2Lines;
 
     [Header("Timing")]
     [SerializeField] private float typingSpeed = 0.035f;
@@ -48,10 +78,10 @@ public class PrologueSequenceController : MonoBehaviour
     [SerializeField] private float titleAppearDelayAfterDialogue = 1.5f;
     [SerializeField] private float titleFadeAfterCanvas2Delay = 1f;
     [SerializeField] private float eyeOpenDuration = 1.15f;
-    [SerializeField] private float mouthCycleDuration = 0.24f;
 
     [Header("Audio")]
     [SerializeField] private AudioSource voiceSource;
+    [SerializeField] [Range(0f, 2f)] private float voiceVolume = 1f;
     [SerializeField] private AudioSource titleMusicSource;
     [SerializeField] private AudioClip titleMusicClip;
     [SerializeField] private float titleMusicVolume = 1f;
@@ -62,32 +92,40 @@ public class PrologueSequenceController : MonoBehaviour
     private bool advanceRequested;
     private bool skipTypingRequested;
     private Coroutine typingRoutine;
-    private Coroutine mouthRoutine;
     private Coroutine titleMusicFadeRoutine;
     private Vector2 topEyeClosedPosition;
     private Vector2 bottomEyeClosedPosition;
     private PrologueDialogueLine[] currentLines;
     private bool titleTransitionPlayed;
+    private RectTransform choicePanel;
+    private PrologueChoiceOption selectedChoice;
+    private bool choiceButtonsVisible;
 
     private void Awake()
     {
+        EnsureDialogueCanvases();
+        EnsureChoiceSlots();
         EnsureDialogueCanvas();
-        PrepareCanvas2();
+        PrepareDialogueCanvases();
 
-        SetGroup(canvas1Group, 1f, true);
-        SetGroup(canvas2Group, 0f, false);
+        SetActiveDialogueCanvas(0);
+
         SetDialogueVisible(true);
         SetGroup(titleGroup, 0f, false);
         CacheEyeCoverPositions();
         SetEyeCoversVisible(false);
-        SetMouthClosed();
-        SetMouthVisible(false);
 
         if (titleImage != null)
         {
             titleImage.gameObject.SetActive(false);
             BringTitleToFront();
         }
+    }
+
+    private void OnValidate()
+    {
+        EnsureDialogueCanvases();
+        EnsureChoiceSlots();
     }
 
     private void Start()
@@ -97,11 +135,16 @@ public class PrologueSequenceController : MonoBehaviour
 
     private IEnumerator PlaySequence()
     {
-        yield return PlayCanvas1();
+        yield return PlayDialogueCanvasSequence();
     }
 
     private void Update()
     {
+        if (choiceButtonsVisible)
+        {
+            return;
+        }
+
         if (Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Return))
         {
             if (isTyping)
@@ -114,18 +157,64 @@ public class PrologueSequenceController : MonoBehaviour
         }
     }
 
-    private IEnumerator PlayCanvas1()
+    private IEnumerator PlayDialogueCanvasSequence()
     {
-        if (canvas1Lines == null || canvas1Lines.Length == 0)
+        EnsureDialogueCanvases();
+
+        if (dialogueCanvases == null || dialogueCanvases.Length == 0)
         {
             yield return PlayTitleTransition();
             yield break;
         }
 
-        yield return PlayDialogueLines(canvas1Lines, true);
+        yield return PlayDialogueCanvas(0);
         yield return FadeGroup(dialogueGroup, 1f, 0f, fadeDuration, false);
         yield return new WaitForSecondsRealtime(titleAppearDelayAfterDialogue);
         yield return PlayTitleTransition();
+
+        for (int i = 1; i < dialogueCanvases.Length; i++)
+        {
+            yield return PlayDialogueCanvas(i);
+        }
+    }
+
+    private IEnumerator PlayDialogueCanvas(int canvasIndex)
+    {
+        if (dialogueCanvases == null || canvasIndex < 0 || canvasIndex >= dialogueCanvases.Length)
+        {
+            yield break;
+        }
+
+        PrologueDialogueCanvas dialogueCanvas = dialogueCanvases[canvasIndex];
+
+        if (dialogueCanvas == null)
+        {
+            yield break;
+        }
+
+        PrepareDialogueCanvas(dialogueCanvas.canvasGroup);
+        SetActiveDialogueCanvas(canvasIndex);
+        SetDialogueVisible(true);
+        yield return PlayDialogueLines(dialogueCanvas.lines, false);
+    }
+
+    private void SetActiveDialogueCanvas(int activeIndex)
+    {
+        if (dialogueCanvases == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < dialogueCanvases.Length; i++)
+        {
+            if (dialogueCanvases[i] == null)
+            {
+                continue;
+            }
+
+            bool isActive = i == activeIndex;
+            SetGroup(dialogueCanvases[i].canvasGroup, isActive ? 1f : 0f, isActive);
+        }
     }
 
     private IEnumerator PlayDialogueLines(PrologueDialogueLine[] lines, bool transitionWhenEmpty)
@@ -134,14 +223,13 @@ public class PrologueSequenceController : MonoBehaviour
         {
             if (transitionWhenEmpty)
             {
-                yield return PlayTitleTransition();
+                yield break;
             }
 
             yield break;
         }
 
         currentLines = lines;
-        SetMouthVisible(lines == canvas2Lines);
 
         for (lineIndex = 0; lineIndex < lines.Length; lineIndex++)
         {
@@ -150,12 +238,19 @@ public class PrologueSequenceController : MonoBehaviour
             yield return typingRoutine;
 
             yield return new WaitForSecondsRealtime(lineEndDelay);
+
+            if (ShouldShowChoices(lines[lineIndex]))
+            {
+                yield return ShowChoices(lines[lineIndex]);
+                yield return PlayChoiceResponse(lines[lineIndex], selectedChoice);
+                continue;
+            }
+
             advanceRequested = false;
             yield return new WaitUntil(() => advanceRequested);
             advanceRequested = false;
         }
 
-        SetMouthVisible(false);
     }
 
     private void EnsureDialogueCanvas()
@@ -215,23 +310,42 @@ public class PrologueSequenceController : MonoBehaviour
 
     private void ShowLine(PrologueDialogueLine line)
     {
+        ShowDialogue(line.speakerName, line.characterSprite, line.voiceClip);
+    }
+
+    private void ShowLine(PrologueChoiceResponseLine line, PrologueDialogueLine fallbackLine)
+    {
+        string speakerName = string.IsNullOrEmpty(line.speakerName)
+            ? fallbackLine.speakerName
+            : line.speakerName;
+        Sprite characterSprite = line.characterSprite != null
+            ? line.characterSprite
+            : fallbackLine.characterSprite;
+        AudioClip voiceClip = line.voiceClip;
+
+        ShowDialogue(speakerName, characterSprite, voiceClip);
+    }
+
+    private void ShowDialogue(string speakerName, Sprite characterSprite, AudioClip voiceClip)
+    {
         if (nameText != null)
         {
-            nameText.text = line.speakerName;
+            nameText.text = speakerName;
         }
 
         if (characterImage != null)
         {
-            characterImage.sprite = line.characterSprite;
-            characterImage.gameObject.SetActive(line.characterSprite != null);
+            characterImage.sprite = characterSprite;
+            characterImage.gameObject.SetActive(characterSprite != null);
         }
 
         if (voiceSource != null)
         {
             voiceSource.Stop();
-            voiceSource.clip = line.voiceClip;
+            voiceSource.clip = voiceClip;
+            voiceSource.volume = voiceVolume;
 
-            if (line.voiceClip != null)
+            if (voiceClip != null)
             {
                 voiceSource.Play();
             }
@@ -249,16 +363,6 @@ public class PrologueSequenceController : MonoBehaviour
             line = "";
         }
 
-        if (ShouldAnimateMouth())
-        {
-            if (mouthRoutine != null)
-            {
-                StopCoroutine(mouthRoutine);
-            }
-
-            mouthRoutine = StartCoroutine(AnimateMouthForLine(line));
-        }
-
         foreach (char character in line)
         {
             if (skipTypingRequested)
@@ -274,49 +378,281 @@ public class PrologueSequenceController : MonoBehaviour
         skipTypingRequested = false;
     }
 
-    private bool ShouldAnimateMouth()
+    private bool ShouldShowChoices(PrologueDialogueLine line)
     {
-        return currentLines == canvas2Lines
-            && canvas2MouthImage != null
-            && mouthOpenSprite != null
-            && mouthClosedSprite != null;
+        return line != null
+            && line.hasChoices
+            && line.choices != null
+            && GetChoiceCount(line) > 0;
     }
 
-    private IEnumerator AnimateMouthForLine(string line)
+    private void EnsureChoiceSlots()
     {
-        int cycleCount = CountVisibleCharacters(line);
-        float halfCycleDuration = Mathf.Max(0.02f, mouthCycleDuration * 0.5f);
-
-        for (int i = 0; i < cycleCount; i++)
+        if (dialogueCanvases != null)
         {
-            if (skipTypingRequested)
+            for (int i = 0; i < dialogueCanvases.Length; i++)
             {
-                break;
+                if (dialogueCanvases[i] != null)
+                {
+                    EnsureChoiceSlots(dialogueCanvases[i].lines);
+                }
             }
-
-            SetMouthOpen();
-            yield return new WaitForSecondsRealtime(halfCycleDuration);
-
-            SetMouthClosed();
-            yield return new WaitForSecondsRealtime(halfCycleDuration);
         }
 
-        SetMouthClosed();
-        mouthRoutine = null;
+        EnsureChoiceSlots(canvas1Lines);
+        EnsureChoiceSlots(canvas2Lines);
     }
 
-    private int CountVisibleCharacters(string line)
+    private void EnsureDialogueCanvases()
     {
-        if (string.IsNullOrEmpty(line))
+        if (dialogueCanvasesMigrated)
+        {
+            EnsureDialogueCanvasEntries();
+            return;
+        }
+
+        bool hasLegacyCanvas1 = canvas1Group != null || (canvas1Lines != null && canvas1Lines.Length > 0);
+        bool hasLegacyCanvas2 = canvas2Group != null || (canvas2Lines != null && canvas2Lines.Length > 0);
+        int legacyCount = (hasLegacyCanvas1 ? 1 : 0) + (hasLegacyCanvas2 ? 1 : 0);
+
+        if (legacyCount == 0)
+        {
+            dialogueCanvases = new PrologueDialogueCanvas[1];
+            dialogueCanvases[0] = new PrologueDialogueCanvas { canvasName = "Canvas 1" };
+            dialogueCanvasesMigrated = true;
+            return;
+        }
+
+        dialogueCanvases = new PrologueDialogueCanvas[legacyCount];
+        int index = 0;
+
+        if (hasLegacyCanvas1)
+        {
+            dialogueCanvases[index] = new PrologueDialogueCanvas
+            {
+                canvasName = "Canvas 1",
+                canvasGroup = canvas1Group,
+                lines = canvas1Lines
+            };
+            index++;
+        }
+
+        if (hasLegacyCanvas2)
+        {
+            dialogueCanvases[index] = new PrologueDialogueCanvas
+            {
+                canvasName = "Canvas 2",
+                canvasGroup = canvas2Group,
+                lines = canvas2Lines
+            };
+        }
+
+        EnsureDialogueCanvasEntries();
+        dialogueCanvasesMigrated = true;
+    }
+
+    private void EnsureDialogueCanvasEntries()
+    {
+        for (int i = 0; i < dialogueCanvases.Length; i++)
+        {
+            if (dialogueCanvases[i] == null)
+            {
+                dialogueCanvases[i] = new PrologueDialogueCanvas();
+            }
+
+            if (string.IsNullOrWhiteSpace(dialogueCanvases[i].canvasName))
+            {
+                dialogueCanvases[i].canvasName = "Canvas " + (i + 1);
+            }
+        }
+    }
+
+    private void EnsureChoiceSlots(PrologueDialogueLine[] lines)
+    {
+        if (lines == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < lines.Length; i++)
+        {
+            if (lines[i] == null)
+            {
+                continue;
+            }
+
+            if (lines[i].choices == null)
+            {
+                lines[i].choices = new PrologueChoiceOption[0];
+            }
+
+            for (int choiceIndex = 0; choiceIndex < lines[i].choices.Length; choiceIndex++)
+            {
+                if (lines[i].choices[choiceIndex] == null)
+                {
+                    lines[i].choices[choiceIndex] = new PrologueChoiceOption();
+                }
+
+                if (lines[i].choices[choiceIndex].responseLines == null)
+                {
+                    lines[i].choices[choiceIndex].responseLines = new PrologueChoiceResponseLine[1];
+                }
+
+                for (int responseIndex = 0; responseIndex < lines[i].choices[choiceIndex].responseLines.Length; responseIndex++)
+                {
+                    if (lines[i].choices[choiceIndex].responseLines[responseIndex] == null)
+                    {
+                        lines[i].choices[choiceIndex].responseLines[responseIndex] = new PrologueChoiceResponseLine();
+                    }
+                }
+            }
+        }
+    }
+
+    private IEnumerator ShowChoices(PrologueDialogueLine line)
+    {
+        EnsureChoicePanel(line);
+
+        if (choicePanel == null)
+        {
+            yield break;
+        }
+
+        selectedChoice = null;
+        choiceButtonsVisible = true;
+        choicePanel.gameObject.SetActive(true);
+        choicePanel.SetAsLastSibling();
+
+        EnsureEventSystem();
+
+        yield return new WaitUntil(() => selectedChoice != null);
+
+        choiceButtonsVisible = false;
+        choicePanel.gameObject.SetActive(false);
+    }
+
+    private IEnumerator PlayChoiceResponse(PrologueDialogueLine sourceLine, PrologueChoiceOption choice)
+    {
+        if (choice == null || choice.responseLines == null || choice.responseLines.Length == 0)
+        {
+            yield break;
+        }
+
+        for (int i = 0; i < choice.responseLines.Length; i++)
+        {
+            PrologueChoiceResponseLine responseLine = choice.responseLines[i];
+
+            if (responseLine == null || string.IsNullOrWhiteSpace(responseLine.dialogue))
+            {
+                continue;
+            }
+
+            ShowLine(responseLine, sourceLine);
+            typingRoutine = StartCoroutine(TypeLine(responseLine.dialogue));
+            yield return typingRoutine;
+
+            yield return new WaitForSecondsRealtime(lineEndDelay);
+            advanceRequested = false;
+            yield return new WaitUntil(() => advanceRequested);
+            advanceRequested = false;
+        }
+    }
+
+    private void EnsureChoicePanel(PrologueDialogueLine line)
+    {
+        if (choicePanel != null)
+        {
+            RefreshChoiceButtons(line);
+            return;
+        }
+
+        RectTransform dialoguePanel = dialogueText != null
+            ? dialogueText.transform.parent as RectTransform
+            : null;
+        Transform parent = dialogueCanvasRoot != null ? dialogueCanvasRoot.transform : null;
+
+        if (parent == null && dialoguePanel != null)
+        {
+            parent = dialoguePanel.parent;
+        }
+
+        if (parent == null)
+        {
+            return;
+        }
+
+        GameObject panelObject = new GameObject("DialogueChoices", typeof(RectTransform), typeof(VerticalLayoutGroup));
+        panelObject.transform.SetParent(parent, false);
+
+        choicePanel = panelObject.GetComponent<RectTransform>();
+        choicePanel.anchorMin = new Vector2(1f, 0f);
+        choicePanel.anchorMax = new Vector2(1f, 0f);
+        choicePanel.pivot = new Vector2(1f, 0f);
+        choicePanel.anchoredPosition = GetChoicePanelPosition(dialoguePanel);
+        choicePanel.sizeDelta = new Vector2(340f, 174f);
+
+        VerticalLayoutGroup layout = panelObject.GetComponent<VerticalLayoutGroup>();
+        layout.spacing = 10f;
+        layout.childAlignment = TextAnchor.UpperRight;
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = false;
+
+        RefreshChoiceButtons(line);
+        choicePanel.gameObject.SetActive(false);
+    }
+
+    private Vector2 GetChoicePanelPosition(RectTransform dialoguePanel)
+    {
+        if (dialoguePanel == null)
+        {
+            return new Vector2(-64f, 260f);
+        }
+
+        return new Vector2(
+            dialoguePanel.anchoredPosition.x + dialoguePanel.rect.xMax - 48f,
+            dialoguePanel.anchoredPosition.y + dialoguePanel.rect.yMax + 18f);
+    }
+
+    private void RefreshChoiceButtons(PrologueDialogueLine line)
+    {
+        if (choicePanel == null)
+        {
+            return;
+        }
+
+        for (int i = choicePanel.childCount - 1; i >= 0; i--)
+        {
+            Destroy(choicePanel.GetChild(i).gameObject);
+        }
+
+        for (int i = 0; i < line.choices.Length; i++)
+        {
+            PrologueChoiceOption option = line.choices[i];
+
+            if (option == null || string.IsNullOrWhiteSpace(option.choiceText))
+            {
+                continue;
+            }
+
+            CreateChoiceButton(option);
+        }
+    }
+
+    private int GetChoiceCount(PrologueDialogueLine line)
+    {
+        if (line == null || line.choices == null)
         {
             return 0;
         }
 
         int count = 0;
-
-        foreach (char character in line)
+        for (int i = 0; i < line.choices.Length; i++)
         {
-            if (!char.IsWhiteSpace(character))
+            PrologueChoiceOption option = line.choices[i];
+
+            if (option != null && !string.IsNullOrWhiteSpace(option.choiceText))
             {
                 count++;
             }
@@ -325,38 +661,75 @@ public class PrologueSequenceController : MonoBehaviour
         return count;
     }
 
-    private void SetMouthVisible(bool visible)
+    private void CreateChoiceButton(PrologueChoiceOption option)
     {
-        if (canvas2MouthImage != null)
-        {
-            canvas2MouthImage.gameObject.SetActive(visible);
-        }
+        GameObject buttonObject = new GameObject("ChoiceButton", typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
+        buttonObject.transform.SetParent(choicePanel, false);
 
-        if (!visible && mouthRoutine != null)
+        RectTransform rectTransform = buttonObject.GetComponent<RectTransform>();
+        rectTransform.sizeDelta = new Vector2(340f, 50f);
+
+        Image image = buttonObject.GetComponent<Image>();
+        image.color = new Color(0.05f, 0.05f, 0.06f, 0.88f);
+
+        Button button = buttonObject.GetComponent<Button>();
+        button.targetGraphic = image;
+        button.transition = Selectable.Transition.ColorTint;
+        button.colors = CreateChoiceButtonColors();
+        button.onClick.AddListener(() => SelectChoice(option));
+
+        LayoutElement layoutElement = buttonObject.GetComponent<LayoutElement>();
+        layoutElement.preferredHeight = 50f;
+        layoutElement.minHeight = 50f;
+
+        GameObject textObject = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
+        textObject.transform.SetParent(buttonObject.transform, false);
+
+        RectTransform textTransform = textObject.GetComponent<RectTransform>();
+        textTransform.anchorMin = Vector2.zero;
+        textTransform.anchorMax = Vector2.one;
+        textTransform.offsetMin = new Vector2(18f, 4f);
+        textTransform.offsetMax = new Vector2(-18f, -4f);
+
+        TextMeshProUGUI labelText = textObject.GetComponent<TextMeshProUGUI>();
+        labelText.text = option.choiceText;
+        labelText.fontSize = 32f;
+        labelText.color = Color.white;
+        labelText.alignment = TextAlignmentOptions.MidlineRight;
+        labelText.raycastTarget = false;
+
+        if (dialogueText != null && dialogueText.font != null)
         {
-            StopCoroutine(mouthRoutine);
-            mouthRoutine = null;
-            SetMouthClosed();
+            labelText.font = dialogueText.font;
         }
     }
 
-    private void SetMouthOpen()
+    private ColorBlock CreateChoiceButtonColors()
     {
-        if (canvas2MouthImage != null && mouthOpenSprite != null)
-        {
-            canvas2MouthImage.sprite = mouthOpenSprite;
-        }
+        ColorBlock colors = ColorBlock.defaultColorBlock;
+        colors.normalColor = new Color(0.05f, 0.05f, 0.06f, 0.88f);
+        colors.highlightedColor = new Color(0.18f, 0.16f, 0.12f, 0.95f);
+        colors.pressedColor = new Color(0.28f, 0.23f, 0.15f, 1f);
+        colors.selectedColor = colors.highlightedColor;
+        colors.disabledColor = new Color(0.45f, 0.45f, 0.45f, 0.5f);
+        colors.colorMultiplier = 1f;
+        colors.fadeDuration = 0.08f;
+        return colors;
     }
 
-    private void SetMouthClosed()
+    private void SelectChoice(PrologueChoiceOption option)
     {
-        if (canvas2MouthImage != null)
+        selectedChoice = option;
+    }
+
+    private void EnsureEventSystem()
+    {
+        if (EventSystem.current != null)
         {
-            if (mouthClosedSprite != null)
-            {
-                canvas2MouthImage.sprite = mouthClosedSprite;
-            }
+            return;
         }
+
+        new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
     }
 
     private IEnumerator PlayTitleTransition()
@@ -382,8 +755,13 @@ public class PrologueSequenceController : MonoBehaviour
         StartTitleMusic();
         yield return FadeGroup(titleGroup, 0f, 1f, titleFadeDuration, true);
         yield return new WaitForSecondsRealtime(titleHoldSeconds);
-        PrepareCanvas2();
-        SetGroup(canvas2Group, 1f, true);
+
+        if (dialogueCanvases != null && dialogueCanvases.Length > 1)
+        {
+            PrepareDialogueCanvas(dialogueCanvases[1].canvasGroup);
+            SetActiveDialogueCanvas(1);
+        }
+
         yield return OpenEyeCovers();
         BringTitleToFront();
         yield return new WaitForSecondsRealtime(titleFadeAfterCanvas2Delay);
@@ -395,7 +773,6 @@ public class PrologueSequenceController : MonoBehaviour
         }
 
         SetDialogueVisible(true);
-        yield return PlayDialogueLines(canvas2Lines, false);
     }
 
     private void StartTitleMusic()
@@ -468,31 +845,47 @@ public class PrologueSequenceController : MonoBehaviour
         return "";
     }
 
-    private void PrepareCanvas2()
+    private void PrepareDialogueCanvases()
     {
-        if (canvas2Group == null)
+        if (dialogueCanvases == null)
         {
             return;
         }
 
-        Transform canvas2Transform = canvas2Group.transform;
-
-        if (canvas2Transform.localScale == Vector3.zero)
+        for (int i = 0; i < dialogueCanvases.Length; i++)
         {
-            canvas2Transform.localScale = Vector3.one;
+            if (dialogueCanvases[i] != null)
+            {
+                PrepareDialogueCanvas(dialogueCanvases[i].canvasGroup);
+            }
+        }
+    }
+
+    private void PrepareDialogueCanvas(CanvasGroup canvasGroup)
+    {
+        if (canvasGroup == null)
+        {
+            return;
         }
 
-        Canvas canvas2 = canvas2Group.GetComponent<Canvas>();
+        Transform canvasTransform = canvasGroup.transform;
 
-        if (canvas2 != null)
+        if (canvasTransform.localScale == Vector3.zero)
         {
-            canvas2.renderMode = RenderMode.ScreenSpaceCamera;
-            canvas2.worldCamera = Camera.main;
-            canvas2.overrideSorting = true;
-            canvas2.sortingOrder = 5;
+            canvasTransform.localScale = Vector3.one;
         }
 
-        Transform background = canvas2Transform.Find("HouseMasterBackground");
+        Canvas canvas = canvasGroup.GetComponent<Canvas>();
+
+        if (canvas != null)
+        {
+            canvas.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas.worldCamera = Camera.main;
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = 5;
+        }
+
+        Transform background = canvasTransform.Find("HouseMasterBackground");
 
         if (background != null)
         {
