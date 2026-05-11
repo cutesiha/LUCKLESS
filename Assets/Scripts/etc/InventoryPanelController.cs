@@ -5,6 +5,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using UnityEngine.Audio;
 
 public enum WorldCodexBlockType
 {
@@ -59,6 +60,13 @@ public class InventoryPanelController : MonoBehaviour
     private const string OptionPanelName = "OptionPanel";
 
     public static event Action InventoryPanelClosed;
+
+    [Header("Audio Sources")]
+    [SerializeField] private AudioSource[] bgmAudioSources;
+    [SerializeField] private AudioSource[] sfxAudioSources;
+
+    [Header("Audio Mixer")]
+    [SerializeField] private AudioMixer audioMixer;
 
     [Header("World Info Panel")]
     [SerializeField] private TMP_FontAsset textFont;
@@ -478,7 +486,7 @@ public class InventoryPanelController : MonoBehaviour
         rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(0.5f, 0.5f);
         rt.anchoredPosition = Vector2.zero;
-        rt.sizeDelta = new Vector2(520f, 520f);
+        rt.sizeDelta = new Vector2(720f, 560f);
 
         Image bg = optionPanel.GetComponent<Image>();
         bg.color = Card;
@@ -513,121 +521,143 @@ public class InventoryPanelController : MonoBehaviour
         img.color = Bg2;
         img.raycastTarget = true;
 
-        TextMeshProUGUI tag = CreateText("Tag", bar.transform, "LUCKLESS", 13f, Pink, TextAlignmentOptions.Left);
-        SetStretch(tag.rectTransform, new Vector2(20f, 0f), new Vector2(-350f, 0f));
+        TextMeshProUGUI tag = CreateText("Tag", bar.transform, "LUCKLESS", 12f, Pink, TextAlignmentOptions.Left);
+        RectTransform tagRT = tag.rectTransform;
+        tagRT.anchorMin = new Vector2(0f, 0f);
+        tagRT.anchorMax = new Vector2(0f, 1f);
+        tagRT.pivot = new Vector2(0f, 0.5f);
+        tagRT.anchoredPosition = new Vector2(28f, 0f);
+        tagRT.sizeDelta = new Vector2(120f, 0f);
         tag.characterSpacing = 8f;
 
-        TextMeshProUGUI title = CreateText("Title", bar.transform, "SETTINGS / 설정", 14f, TextMuted, TextAlignmentOptions.Left);
-        SetStretch(title.rectTransform, new Vector2(155f, 0f), new Vector2(-60f, 0f));
-        title.characterSpacing = 3f;
+        TextMeshProUGUI title = CreateText("Title", bar.transform, "|  SETTINGS / 설정", 12f, TextMuted, TextAlignmentOptions.Left);
+        RectTransform titleRT = title.rectTransform;
+        titleRT.anchorMin = new Vector2(0f, 0f);
+        titleRT.anchorMax = new Vector2(1f, 1f);
+        titleRT.pivot = new Vector2(0f, 0.5f);
+        titleRT.anchoredPosition = new Vector2(134f, 0f);
+        titleRT.sizeDelta = new Vector2(-190f, 0f);
+        title.characterSpacing = 4f;
 
-        GameObject closeObj = CreateRectObject("OptionClose", bar.transform, typeof(Image), typeof(Button));
+        GameObject closeObj = CreateRectObject("OptionClose", bar.transform, typeof(Image), typeof(Button), typeof(Outline));
         RectTransform closeRT = closeObj.GetComponent<RectTransform>();
         closeRT.anchorMin = new Vector2(1f, 0.5f);
         closeRT.anchorMax = new Vector2(1f, 0.5f);
         closeRT.pivot = new Vector2(0.5f, 0.5f);
-        closeRT.anchoredPosition = new Vector2(-22f, 0f);
-        closeRT.sizeDelta = new Vector2(24f, 24f);
+        closeRT.anchoredPosition = new Vector2(-28f, 0f);
+        closeRT.sizeDelta = new Vector2(28f, 28f);
 
         Image closeImg = closeObj.GetComponent<Image>();
         closeImg.color = Color.clear;
         closeImg.raycastTarget = true;
 
+        Outline closeOutline = closeObj.GetComponent<Outline>();
+        closeOutline.effectColor = Border;
+        closeOutline.effectDistance = new Vector2(1f, -1f);
+
         Button closeBtn = closeObj.GetComponent<Button>();
         closeBtn.transition = Selectable.Transition.None;
         closeBtn.targetGraphic = closeImg;
+        closeBtn.onClick.RemoveAllListeners();
         closeBtn.onClick.AddListener(() => optionPanel.SetActive(false));
 
-        TextMeshProUGUI x = CreateText("X", closeObj.transform, "✕", 16f, TextMuted, TextAlignmentOptions.Center);
+        TextMeshProUGUI x = CreateText("X", closeObj.transform, "X", 15f, TextMuted, TextAlignmentOptions.Center);
         SetStretch(x.rectTransform, Vector2.zero, Vector2.zero);
     }
 
     private void CreateOptionBody(Transform parent)
     {
-        GameObject body = CreateRectObject("Body", parent, typeof(VerticalLayoutGroup));
-        RectTransform rt = body.GetComponent<RectTransform>();
-        rt.anchorMin = Vector2.zero;
-        rt.anchorMax = Vector2.one;
-        rt.offsetMin = new Vector2(32f, 32f);
-        rt.offsetMax = new Vector2(-32f, -72f);
+        CreateOptionSectionLabel(parent);
 
-        VerticalLayoutGroup vlg = body.GetComponent<VerticalLayoutGroup>();
-        vlg.spacing = 18f;
-        vlg.childControlWidth = true;
-        vlg.childControlHeight = false;
-        vlg.childForceExpandWidth = true;
-        vlg.childForceExpandHeight = false;
-
-        TextMeshProUGUI section = CreateText("Section", body.transform, "오디오 설정", 15f, Pink, TextAlignmentOptions.Left);
-        section.characterSpacing = 8f;
-        section.gameObject.AddComponent<LayoutElement>().preferredHeight = 32f;
-
-        CreateOptionSlider(body.transform, "마스터 볼륨", "MASTER", 80, true, out masterSlider, out masterValueText);
-        CreateOptionDivider(body.transform);
-        CreateOptionSlider(body.transform, "배경음악", "BGM", 70, false, out bgmSlider, out bgmValueText);
-        CreateOptionSlider(body.transform, "캐릭터 음성", "VOICE", 100, false, out voiceSlider, out voiceValueText);
-        CreateOptionSlider(body.transform, "효과음", "SFX", 75, false, out sfxSlider, out sfxValueText);
+        CreateOptionSliderAbsolute(parent, "Master", "마스터 볼륨", "MASTER", 80, true, -130f, out masterSlider, out masterValueText);
+        CreateOptionSliderAbsolute(parent, "BGM", "배경음악", "BGM", 70, false, -230f, out bgmSlider, out bgmValueText);
+        CreateOptionSliderAbsolute(parent, "Voice", "캐릭터 음성", "VOICE", 100, false, -330f, out voiceSlider, out voiceValueText);
+        CreateOptionSliderAbsolute(parent, "SFX", "효과음", "SFX", 75, false, -430f, out sfxSlider, out sfxValueText);
 
         CreateOptionFooter(parent);
     }
 
-    private void CreateOptionSlider(
+    private void CreateOptionSectionLabel(Transform parent)
+    {
+        TextMeshProUGUI section = CreateText("SectionLabel", parent, "오디오 설정", 15f, Pink, TextAlignmentOptions.Left);
+        RectTransform rt = section.rectTransform;
+        rt.anchorMin = new Vector2(0f, 1f);
+        rt.anchorMax = new Vector2(1f, 1f);
+        rt.pivot = new Vector2(0.5f, 1f);
+        rt.anchoredPosition = new Vector2(0f, -82f);
+        rt.sizeDelta = new Vector2(-64f, 28f);
+        rt.offsetMin = new Vector2(32f, rt.offsetMin.y);
+        rt.offsetMax = new Vector2(-32f, rt.offsetMax.y);
+        section.characterSpacing = 8f;
+    }
+
+    private void CreateOptionSliderAbsolute(
         Transform parent,
+        string objectName,
         string koreanName,
         string englishName,
         int defaultValue,
         bool isMaster,
+        float y,
         out Slider slider,
         out TextMeshProUGUI valueText)
     {
-        GameObject row = CreateRectObject(koreanName, parent, typeof(VerticalLayoutGroup), typeof(LayoutElement));
-        row.GetComponent<LayoutElement>().preferredHeight = 62f;
+        GameObject row = CreateRectObject("OptionSlider_" + objectName, parent, typeof(RectTransform));
+        RectTransform rowRT = row.GetComponent<RectTransform>();
+        rowRT.anchorMin = new Vector2(0f, 1f);
+        rowRT.anchorMax = new Vector2(1f, 1f);
+        rowRT.pivot = new Vector2(0.5f, 1f);
+        rowRT.anchoredPosition = new Vector2(0f, y);
+        rowRT.sizeDelta = new Vector2(-96f, 76f);
+        rowRT.offsetMin = new Vector2(48f, rowRT.offsetMin.y);
+        rowRT.offsetMax = new Vector2(-48f, rowRT.offsetMax.y);
 
-        VerticalLayoutGroup vlg = row.GetComponent<VerticalLayoutGroup>();
-        vlg.spacing = 8f;
-        vlg.childControlWidth = true;
-        vlg.childControlHeight = false;
-        vlg.childForceExpandWidth = true;
-        vlg.childForceExpandHeight = false;
+        TextMeshProUGUI label = CreateText("Label", row.transform,
+            koreanName + "  <size=65%><color=#7A7672>" + englishName + "</color></size>",
+            17f, TextColor, TextAlignmentOptions.Left);
 
-        GameObject meta = CreateRectObject("Meta", row.transform, typeof(HorizontalLayoutGroup), typeof(LayoutElement));
-        meta.GetComponent<LayoutElement>().preferredHeight = 22f;
+        RectTransform labelRT = label.rectTransform;
+        labelRT.anchorMin = new Vector2(0f, 1f);
+        labelRT.anchorMax = new Vector2(0.8f, 1f);
+        labelRT.pivot = new Vector2(0f, 1f);
+        labelRT.anchoredPosition = Vector2.zero;
+        labelRT.sizeDelta = new Vector2(0f, 28f);
 
-        HorizontalLayoutGroup hlg = meta.GetComponent<HorizontalLayoutGroup>();
-        hlg.childAlignment = TextAnchor.MiddleLeft;
-        hlg.childControlWidth = true;
-        hlg.childControlHeight = true;
-        hlg.childForceExpandWidth = false;
-        hlg.childForceExpandHeight = false;
+        valueText = CreateText("Value", row.transform, defaultValue.ToString(), 17f, isMaster ? Gold : PinkLight, TextAlignmentOptions.Right);
+        RectTransform valueRT = valueText.rectTransform;
+        valueRT.anchorMin = new Vector2(1f, 1f);
+        valueRT.anchorMax = new Vector2(1f, 1f);
+        valueRT.pivot = new Vector2(1f, 1f);
+        valueRT.anchoredPosition = Vector2.zero;
+        valueRT.sizeDelta = new Vector2(80f, 28f);
 
-        TextMeshProUGUI label = CreateText("Label", meta.transform, koreanName + "  <size=70%><color=#7A7672>" + englishName + "</color></size>", 17f, TextColor, TextAlignmentOptions.Left);
-        label.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1f;
+        GameObject sliderObj = CreateRectObject("Slider", row.transform, typeof(RectTransform), typeof(Slider));
+        RectTransform sliderRT = sliderObj.GetComponent<RectTransform>();
+        sliderRT.anchorMin = new Vector2(0f, 0f);
+        sliderRT.anchorMax = new Vector2(1f, 0f);
+        sliderRT.pivot = new Vector2(0.5f, 0f);
+        sliderRT.anchoredPosition = new Vector2(0f, 8f);
+        sliderRT.sizeDelta = new Vector2(0f, 28f);
 
-        valueText = CreateText("Value", meta.transform, defaultValue.ToString(), 17f, isMaster ? Gold : PinkLight, TextAlignmentOptions.Right);
-        valueText.gameObject.AddComponent<LayoutElement>().preferredWidth = 50f;
-
-        GameObject sliderObj = CreateRectObject("Slider", row.transform, typeof(Slider), typeof(LayoutElement));
-        sliderObj.GetComponent<LayoutElement>().preferredHeight = 24f;
-
-        RectTransform srt = sliderObj.GetComponent<RectTransform>();
-
-        GameObject bgObj = CreateRectObject("Background", sliderObj.transform, typeof(Image));
-        RectTransform bgRT = bgObj.GetComponent<RectTransform>();
+        GameObject backgroundObj = CreateRectObject("Background", sliderObj.transform, typeof(Image));
+        RectTransform bgRT = backgroundObj.GetComponent<RectTransform>();
         bgRT.anchorMin = new Vector2(0f, 0.5f);
         bgRT.anchorMax = new Vector2(1f, 0.5f);
         bgRT.pivot = new Vector2(0.5f, 0.5f);
-        bgRT.sizeDelta = new Vector2(0f, 4f);
+        bgRT.anchoredPosition = Vector2.zero;
+        bgRT.sizeDelta = new Vector2(0f, 2f);
 
-        Image bgImg = bgObj.GetComponent<Image>();
+        Image bgImg = backgroundObj.GetComponent<Image>();
         bgImg.color = Bg3;
         bgImg.raycastTarget = true;
 
         GameObject fillArea = CreateRectObject("Fill Area", sliderObj.transform, typeof(RectTransform));
-        RectTransform faRT = fillArea.GetComponent<RectTransform>();
-        faRT.anchorMin = new Vector2(0f, 0.5f);
-        faRT.anchorMax = new Vector2(1f, 0.5f);
-        faRT.pivot = new Vector2(0.5f, 0.5f);
-        faRT.sizeDelta = new Vector2(0f, 4f);
+        RectTransform fillAreaRT = fillArea.GetComponent<RectTransform>();
+        fillAreaRT.anchorMin = new Vector2(0f, 0.5f);
+        fillAreaRT.anchorMax = new Vector2(1f, 0.5f);
+        fillAreaRT.pivot = new Vector2(0.5f, 0.5f);
+        fillAreaRT.anchoredPosition = Vector2.zero;
+        fillAreaRT.sizeDelta = new Vector2(0f, 2f);
 
         GameObject fillObj = CreateRectObject("Fill", fillArea.transform, typeof(Image));
         RectTransform fillRT = fillObj.GetComponent<RectTransform>();
@@ -638,15 +668,16 @@ public class InventoryPanelController : MonoBehaviour
 
         Image fillImg = fillObj.GetComponent<Image>();
         fillImg.color = isMaster ? Gold : Pink;
+        fillImg.raycastTarget = false;
 
         GameObject handleArea = CreateRectObject("Handle Slide Area", sliderObj.transform, typeof(RectTransform));
-        RectTransform haRT = handleArea.GetComponent<RectTransform>();
-        haRT.anchorMin = Vector2.zero;
-        haRT.anchorMax = Vector2.one;
-        haRT.offsetMin = new Vector2(0f, 0f);
-        haRT.offsetMax = new Vector2(0f, 0f);
+        RectTransform handleAreaRT = handleArea.GetComponent<RectTransform>();
+        handleAreaRT.anchorMin = Vector2.zero;
+        handleAreaRT.anchorMax = Vector2.one;
+        handleAreaRT.offsetMin = Vector2.zero;
+        handleAreaRT.offsetMax = Vector2.zero;
 
-        GameObject handleObj = CreateRectObject("Handle", handleArea.transform, typeof(Image));
+        GameObject handleObj = CreateRectObject("Handle", handleArea.transform, typeof(Image), typeof(Outline));
         RectTransform handleRT = handleObj.GetComponent<RectTransform>();
         handleRT.sizeDelta = new Vector2(16f, 16f);
 
@@ -654,7 +685,7 @@ public class InventoryPanelController : MonoBehaviour
         handleImg.color = Bg2;
         handleImg.raycastTarget = true;
 
-        Outline handleOutline = handleObj.AddComponent<Outline>();
+        Outline handleOutline = handleObj.GetComponent<Outline>();
         handleOutline.effectColor = isMaster ? Gold : Pink;
         handleOutline.effectDistance = new Vector2(2f, -2f);
 
@@ -663,45 +694,82 @@ public class InventoryPanelController : MonoBehaviour
         slider.maxValue = 100;
         slider.wholeNumbers = true;
         slider.value = defaultValue;
-        slider.targetGraphic = handleImg;
+        slider.direction = Slider.Direction.LeftToRight;
         slider.fillRect = fillRT;
         slider.handleRect = handleRT;
-        slider.direction = Slider.Direction.LeftToRight;
+        slider.targetGraphic = handleImg;
 
-        TextMeshProUGUI capturedValueText = valueText;
+        TextMeshProUGUI capturedValue = valueText;
         slider.onValueChanged.AddListener(v =>
         {
-            capturedValueText.text = Mathf.RoundToInt(v).ToString();
+            capturedValue.text = Mathf.RoundToInt(v).ToString();
         });
-    }
-
-    private void CreateOptionDivider(Transform parent)
-    {
-        GameObject div = CreateRectObject("Divider", parent, typeof(Image), typeof(LayoutElement));
-        div.GetComponent<Image>().color = Border;
-        div.GetComponent<LayoutElement>().preferredHeight = 1f;
     }
 
     private void CreateOptionFooter(Transform parent)
     {
-        GameObject footer = CreateRectObject("Footer", parent, typeof(HorizontalLayoutGroup));
-        RectTransform rt = footer.GetComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0f, 0f);
+        GameObject line = CreateRectObject("FooterLine", parent, typeof(Image));
+        RectTransform lineRT = line.GetComponent<RectTransform>();
+        lineRT.anchorMin = new Vector2(0f, 0f);
+        lineRT.anchorMax = new Vector2(1f, 0f);
+        lineRT.pivot = new Vector2(0.5f, 0f);
+        lineRT.anchoredPosition = new Vector2(0f, 82f);
+        lineRT.sizeDelta = new Vector2(-96f, 1f);
+        line.GetComponent<Image>().color = Border;
+
+        CreateOptionButtonAbsolute(parent, "초기화", new Vector2(-104f, 38f), ResetOptionValues, false);
+        CreateOptionButtonAbsolute(parent, "적용", new Vector2(-20f, 38f), SaveOptionValues, true);
+    }
+
+    private void CreateOptionButtonAbsolute(Transform parent, string text, Vector2 pos, UnityEngine.Events.UnityAction onClick, bool primary)
+    {
+        GameObject obj = CreateRectObject("Button_" + text, parent, typeof(Image), typeof(Button), typeof(Outline));
+        RectTransform rt = obj.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(1f, 0f);
         rt.anchorMax = new Vector2(1f, 0f);
-        rt.pivot = new Vector2(0.5f, 0f);
-        rt.anchoredPosition = new Vector2(0f, 18f);
-        rt.sizeDelta = new Vector2(-64f, 42f);
+        rt.pivot = new Vector2(1f, 0.5f);
+        rt.anchoredPosition = pos;
+        rt.sizeDelta = new Vector2(76f, 32f);
 
-        HorizontalLayoutGroup hlg = footer.GetComponent<HorizontalLayoutGroup>();
-        hlg.spacing = 8f;
-        hlg.childAlignment = TextAnchor.MiddleRight;
-        hlg.childControlWidth = false;
-        hlg.childControlHeight = true;
-        hlg.childForceExpandWidth = false;
-        hlg.childForceExpandHeight = false;
+        Image img = obj.GetComponent<Image>();
+        img.color = primary ? PinkDim : Color.clear;
+        img.raycastTarget = true;
 
-        CreateOptionButton(footer.transform, "초기화", ResetOptionValues, false);
-        CreateOptionButton(footer.transform, "적용", SaveOptionValues, true);
+        Outline outline = obj.GetComponent<Outline>();
+        outline.effectColor = primary ? Pink : Border;
+        outline.effectDistance = new Vector2(1f, -1f);
+
+        Button btn = obj.GetComponent<Button>();
+        btn.transition = Selectable.Transition.None;
+        btn.targetGraphic = img;
+        btn.onClick.RemoveAllListeners();
+        btn.onClick.AddListener(onClick);
+
+        EventTrigger trigger = obj.GetComponent<EventTrigger>();
+        if (trigger == null)
+        {
+            trigger = obj.AddComponent<EventTrigger>();
+        }
+
+        Color normalColor = primary ? PinkDim : Color.clear;
+        Color hoverColor = primary ? Rgba(212, 83, 126, 0.28f) : Rgba(255, 255, 255, 0.04f);
+        Color normalOutline = primary ? Pink : Border;
+        Color hoverOutline = primary ? PinkLight : Rgba(255, 255, 255, 0.18f);
+
+        AddPointerEvent(trigger, EventTriggerType.PointerEnter, () =>
+        {
+            img.color = hoverColor;
+            outline.effectColor = hoverOutline;
+        });
+
+        AddPointerEvent(trigger, EventTriggerType.PointerExit, () =>
+        {
+            img.color = normalColor;
+            outline.effectColor = normalOutline;
+        });
+
+        TextMeshProUGUI label = CreateText("Text", obj.transform, text, 14f, primary ? PinkLight : TextMuted, TextAlignmentOptions.Center);
+        SetStretch(label.rectTransform, Vector2.zero, Vector2.zero);
     }
 
     private void CreateOptionButton(Transform parent, string text, UnityEngine.Events.UnityAction onClick, bool primary)
@@ -749,19 +817,61 @@ public class InventoryPanelController : MonoBehaviour
         if (sfxSlider != null) sfxSlider.value = PlayerPrefs.GetInt("Option_SFX", 75);
 
         RefreshOptionValueTexts();
+        ApplyOptionAudioValues();
     }
 
     private void SaveOptionValues()
     {
-        if (masterSlider != null) PlayerPrefs.SetInt("Option_Master", Mathf.RoundToInt(masterSlider.value));
-        if (bgmSlider != null) PlayerPrefs.SetInt("Option_BGM", Mathf.RoundToInt(bgmSlider.value));
-        if (voiceSlider != null) PlayerPrefs.SetInt("Option_Voice", Mathf.RoundToInt(voiceSlider.value));
-        if (sfxSlider != null) PlayerPrefs.SetInt("Option_SFX", Mathf.RoundToInt(sfxSlider.value));
+        int master = masterSlider != null ? Mathf.RoundToInt(masterSlider.value) : 80;
+        int bgm = bgmSlider != null ? Mathf.RoundToInt(bgmSlider.value) : 70;
+        int voice = voiceSlider != null ? Mathf.RoundToInt(voiceSlider.value) : 100;
+        int sfx = sfxSlider != null ? Mathf.RoundToInt(sfxSlider.value) : 75;
 
+        PlayerPrefs.SetInt("Option_Master", master);
+        PlayerPrefs.SetInt("Option_BGM", bgm);
+        PlayerPrefs.SetInt("Option_Voice", voice);
+        PlayerPrefs.SetInt("Option_SFX", sfx);
         PlayerPrefs.Save();
+
+        ApplyOptionAudioValues();
         RefreshOptionValueTexts();
     }
 
+    private void ApplyOptionAudioValues()
+    {
+        float master = masterSlider != null ? masterSlider.value / 100f : 0.8f;
+        float bgm = bgmSlider != null ? bgmSlider.value / 100f : 0.7f;
+        float voice = voiceSlider != null ? voiceSlider.value / 100f : 1f;
+        float sfx = sfxSlider != null ? sfxSlider.value / 100f : 0.75f;
+
+        foreach (AudioSource source in bgmAudioSources)
+        {
+            if (source != null)
+                source.volume = master * bgm;
+        }
+
+        foreach (AudioSource source in sfxAudioSources)
+        {
+            if (source != null)
+                source.volume = master * sfx;
+        }
+
+        if (audioMixer != null)
+        {
+            audioMixer.SetFloat("MasterVolume", LinearToDecibel(master));
+            audioMixer.SetFloat("VoiceVolume", LinearToDecibel(master * voice));
+            audioMixer.SetFloat("SFXVolume", LinearToDecibel(master * sfx));
+            audioMixer.SetFloat("BGMVolume", LinearToDecibel(master * bgm));
+        }
+    }
+
+    private float LinearToDecibel(float value)
+    {
+        if (value <= 0.0001f)
+            return -80f;
+
+        return Mathf.Log10(value) * 20f;
+    }
     private void ResetOptionValues()
     {
         if (masterSlider != null) masterSlider.value = 80;

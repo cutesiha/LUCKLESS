@@ -1375,7 +1375,7 @@ AudioSource:
   m_GameObject: {fileID: 337525890}
   m_Enabled: 1
   serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: 0}
+  OutputAudioMixerGroup: {fileID: 2419397164534876385, guid: 2c0fa5d69bf081d499a8e40f186edf5c, type: 2}
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 0
@@ -1487,7 +1487,7 @@ AudioSource:
   m_GameObject: {fileID: 337525890}
   m_Enabled: 1
   serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: 0}
+  OutputAudioMixerGroup: {fileID: 2419397164534876385, guid: 2c0fa5d69bf081d499a8e40f186edf5c, type: 2}
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 0
@@ -1594,7 +1594,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &385582247
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1697,6 +1697,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7f21755c52d94b74aa78a9f63f0d9a31, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  bgmAudioSources: []
+  sfxAudioSources: []
+  audioMixer: {fileID: 0}
   textFont: {fileID: 11400000, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
   worldInfoPanelSize: {x: 1440, y: 830}
   worldInfoPanelAlpha: 0.94
