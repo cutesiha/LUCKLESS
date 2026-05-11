@@ -1,7 +1,9 @@
 using System.Collections;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 [System.Serializable]
@@ -81,16 +83,29 @@ public class PrologueSequenceController : MonoBehaviour
 
     [Header("Audio")]
     [SerializeField] private AudioSource voiceSource;
-    [SerializeField] [Range(0f, 2f)] private float voiceVolume = 1f;
+    [SerializeField] [Range(0f, 5f)] private float voiceVolume = 1f;
     [SerializeField] private AudioSource titleMusicSource;
     [SerializeField] private AudioClip titleMusicClip;
     [SerializeField] private float titleMusicVolume = 1f;
     [SerializeField] private float titleMusicFadeInDuration = 1.5f;
 
+    [Header("Handbook Reward")]
+    [SerializeField] private int handbookRewardAfterCanvasNumber = 3;
+    [SerializeField] private GameObject handbookPanelPrefab;
+    [SerializeField] private string handbookRewardMessage = "\uD640\uB85C\uADF8\uB7A8 \uD578\uB4DC\uBD81\uC744 \uC5BB\uC5C8\uC2B5\uB2C8\uB2E4!";
+    [SerializeField] private string handbookClickPrompt = "<- \uC778\uBCA4\uD1A0\uB9AC\uB97C \uD074\uB9AD\uD558\uC138\uC694";
+    [SerializeField] private float handbookDimAlpha = 0.42f;
+    [SerializeField] private float handbookRewardBlinkSeconds = 2.4f;
+    [SerializeField] private float handbookRewardBlinkInterval = 0.22f;
+
+    [Header("Control Buttons")]
+    [SerializeField] private string mainSceneName = "MainScene";
+
     private int lineIndex;
     private bool isTyping;
     private bool advanceRequested;
     private bool skipTypingRequested;
+    private bool autoModeEnabled;
     private Coroutine typingRoutine;
     private Coroutine titleMusicFadeRoutine;
     private Vector2 topEyeClosedPosition;
@@ -100,6 +115,18 @@ public class PrologueSequenceController : MonoBehaviour
     private RectTransform choicePanel;
     private PrologueChoiceOption selectedChoice;
     private bool choiceButtonsVisible;
+    private bool handbookRewardPlayed;
+    private RectTransform rewardOverlay;
+    private Image rewardDimImage;
+    private TextMeshProUGUI rewardMessageText;
+    private CanvasGroup rewardMessageGroup;
+    private TextMeshProUGUI handbookPromptText;
+    private GameObject handbookPanelInstance;
+    private RectTransform dialogueControlPanel;
+    private TextMeshProUGUI autoButtonText;
+    private const float ChoiceButtonHeight = 58f;
+    private const float ChoiceFontSize = 38f;
+    private const float ChoicePanelWidth = 680f;
 
     private void Awake()
     {
@@ -107,6 +134,7 @@ public class PrologueSequenceController : MonoBehaviour
         EnsureChoiceSlots();
         EnsureDialogueCanvas();
         PrepareDialogueCanvases();
+        EnsureDialogueControlButtons();
 
         SetActiveDialogueCanvas(0);
 
@@ -141,6 +169,11 @@ public class PrologueSequenceController : MonoBehaviour
     private void Update()
     {
         if (choiceButtonsVisible)
+        {
+            return;
+        }
+
+        if (IsPointerOverDialogueControls())
         {
             return;
         }
@@ -196,6 +229,11 @@ public class PrologueSequenceController : MonoBehaviour
         SetActiveDialogueCanvas(canvasIndex);
         SetDialogueVisible(true);
         yield return PlayDialogueLines(dialogueCanvas.lines, false);
+
+        if (ShouldPlayHandbookReward(canvasIndex))
+        {
+            yield return PlayHandbookReward();
+        }
     }
 
     private void SetActiveDialogueCanvas(int activeIndex)
@@ -247,7 +285,7 @@ public class PrologueSequenceController : MonoBehaviour
             }
 
             advanceRequested = false;
-            yield return new WaitUntil(() => advanceRequested);
+            yield return WaitForAdvanceOrAuto();
             advanceRequested = false;
         }
 
@@ -297,6 +335,7 @@ public class PrologueSequenceController : MonoBehaviour
     private void SetDialogueVisible(bool visible)
     {
         EnsureDialogueCanvas();
+        EnsureDialogueControlButtons();
 
         if (dialogueGroup != null)
         {
@@ -305,6 +344,147 @@ public class PrologueSequenceController : MonoBehaviour
         else if (dialogueCanvasRoot != null)
         {
             dialogueCanvasRoot.SetActive(visible);
+        }
+    }
+
+    private void EnsureDialogueControlButtons()
+    {
+        EnsureEventSystem();
+
+        if (dialogueControlPanel != null)
+        {
+            dialogueControlPanel.SetAsLastSibling();
+            return;
+        }
+
+        RectTransform dialoguePanel = dialogueText != null
+            ? dialogueText.transform.parent as RectTransform
+            : null;
+
+        if (dialoguePanel == null)
+        {
+            return;
+        }
+
+        GameObject panelObject = new GameObject("DialogueControlButtons", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+        panelObject.transform.SetParent(dialoguePanel, false);
+
+        dialogueControlPanel = panelObject.GetComponent<RectTransform>();
+        dialogueControlPanel.anchorMin = new Vector2(1f, 0f);
+        dialogueControlPanel.anchorMax = new Vector2(1f, 0f);
+        dialogueControlPanel.pivot = new Vector2(1f, 0f);
+        dialogueControlPanel.anchoredPosition = new Vector2(-54f, 24f);
+        dialogueControlPanel.sizeDelta = new Vector2(190f, 42f);
+
+        HorizontalLayoutGroup layout = panelObject.GetComponent<HorizontalLayoutGroup>();
+        layout.spacing = 10f;
+        layout.childAlignment = TextAnchor.MiddleRight;
+        layout.childControlWidth = false;
+        layout.childControlHeight = false;
+        layout.childForceExpandWidth = false;
+        layout.childForceExpandHeight = false;
+
+        CreateControlButton("Skip", OnSkipClicked);
+        autoButtonText = CreateControlButton("Auto", ToggleAutoMode);
+        dialogueControlPanel.SetAsLastSibling();
+    }
+
+    private bool IsPointerOverDialogueControls()
+    {
+        if (dialogueControlPanel == null || !dialogueControlPanel.gameObject.activeInHierarchy)
+        {
+            return false;
+        }
+
+        Canvas canvas = dialogueControlPanel.GetComponentInParent<Canvas>();
+        Camera eventCamera = canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay
+            ? canvas.worldCamera
+            : null;
+
+        return RectTransformUtility.RectangleContainsScreenPoint(dialogueControlPanel, Input.mousePosition, eventCamera);
+    }
+
+    private TextMeshProUGUI CreateControlButton(string label, UnityEngine.Events.UnityAction onClick)
+    {
+        GameObject buttonObject = new GameObject(label + "Button", typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement), typeof(EventTrigger));
+        buttonObject.transform.SetParent(dialogueControlPanel, false);
+
+        RectTransform buttonTransform = buttonObject.GetComponent<RectTransform>();
+        buttonTransform.sizeDelta = new Vector2(86f, 38f);
+
+        Image image = buttonObject.GetComponent<Image>();
+        image.color = new Color(0.35f, 0.35f, 0.35f, 0.28f);
+
+        Button button = buttonObject.GetComponent<Button>();
+        button.targetGraphic = image;
+        button.transition = Selectable.Transition.None;
+        button.onClick.AddListener(onClick);
+
+        LayoutElement layoutElement = buttonObject.GetComponent<LayoutElement>();
+        layoutElement.preferredWidth = 86f;
+        layoutElement.preferredHeight = 38f;
+
+        GameObject textObject = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
+        textObject.transform.SetParent(buttonObject.transform, false);
+
+        RectTransform textTransform = textObject.GetComponent<RectTransform>();
+        textTransform.anchorMin = Vector2.zero;
+        textTransform.anchorMax = Vector2.one;
+        textTransform.offsetMin = Vector2.zero;
+        textTransform.offsetMax = Vector2.zero;
+
+        TextMeshProUGUI labelText = textObject.GetComponent<TextMeshProUGUI>();
+        labelText.text = label;
+        labelText.fontSize = 30f;
+        labelText.color = new Color(0.58f, 0.58f, 0.58f, 1f);
+        labelText.alignment = TextAlignmentOptions.Center;
+        labelText.raycastTarget = false;
+
+        if (dialogueText != null && dialogueText.font != null)
+        {
+            labelText.font = dialogueText.font;
+        }
+
+        AddTextHover(buttonObject.GetComponent<EventTrigger>(), labelText);
+        return labelText;
+    }
+
+    private void AddTextHover(EventTrigger trigger, TextMeshProUGUI labelText)
+    {
+        trigger.triggers.Clear();
+        AddPointerEvent(trigger, EventTriggerType.PointerEnter, () => labelText.color = Color.white);
+        AddPointerEvent(trigger, EventTriggerType.PointerExit, () => labelText.color = GetControlTextColor(labelText == autoButtonText));
+    }
+
+    private void AddPointerEvent(EventTrigger trigger, EventTriggerType eventType, UnityEngine.Events.UnityAction callback)
+    {
+        EventTrigger.Entry entry = new EventTrigger.Entry { eventID = eventType };
+        entry.callback.AddListener(_ => callback());
+        trigger.triggers.Add(entry);
+    }
+
+    private Color GetControlTextColor(bool isAutoButton)
+    {
+        if (isAutoButton && autoModeEnabled)
+        {
+            return new Color(0.82f, 0.82f, 0.82f, 1f);
+        }
+
+        return new Color(0.58f, 0.58f, 0.58f, 1f);
+    }
+
+    private void OnSkipClicked()
+    {
+        SceneManager.LoadScene(mainSceneName);
+    }
+
+    private void ToggleAutoMode()
+    {
+        autoModeEnabled = !autoModeEnabled;
+
+        if (autoButtonText != null)
+        {
+            autoButtonText.color = GetControlTextColor(true);
         }
     }
 
@@ -553,28 +733,48 @@ public class PrologueSequenceController : MonoBehaviour
 
             yield return new WaitForSecondsRealtime(lineEndDelay);
             advanceRequested = false;
-            yield return new WaitUntil(() => advanceRequested);
+            yield return WaitForAdvanceOrAuto();
             advanceRequested = false;
+        }
+    }
+
+    private IEnumerator WaitForAdvanceOrAuto()
+    {
+        if (autoModeEnabled)
+        {
+            yield return WaitForVoiceToFinish();
+            yield break;
+        }
+
+        yield return new WaitUntil(() => advanceRequested);
+    }
+
+    private IEnumerator WaitForVoiceToFinish()
+    {
+        if (voiceSource != null && voiceSource.isPlaying)
+        {
+            yield return new WaitWhile(() => voiceSource != null && voiceSource.isPlaying);
+        }
+        else
+        {
+            yield return new WaitForSecondsRealtime(0.35f);
         }
     }
 
     private void EnsureChoicePanel(PrologueDialogueLine line)
     {
+        RectTransform dialoguePanel = dialogueText != null
+            ? dialogueText.transform.parent as RectTransform
+            : null;
+
         if (choicePanel != null)
         {
+            PlaceChoicePanel(dialoguePanel);
             RefreshChoiceButtons(line);
             return;
         }
 
-        RectTransform dialoguePanel = dialogueText != null
-            ? dialogueText.transform.parent as RectTransform
-            : null;
-        Transform parent = dialogueCanvasRoot != null ? dialogueCanvasRoot.transform : null;
-
-        if (parent == null && dialoguePanel != null)
-        {
-            parent = dialoguePanel.parent;
-        }
+        Transform parent = dialoguePanel != null ? dialoguePanel : dialogueCanvasRoot != null ? dialogueCanvasRoot.transform : null;
 
         if (parent == null)
         {
@@ -585,34 +785,39 @@ public class PrologueSequenceController : MonoBehaviour
         panelObject.transform.SetParent(parent, false);
 
         choicePanel = panelObject.GetComponent<RectTransform>();
-        choicePanel.anchorMin = new Vector2(1f, 0f);
-        choicePanel.anchorMax = new Vector2(1f, 0f);
-        choicePanel.pivot = new Vector2(1f, 0f);
-        choicePanel.anchoredPosition = GetChoicePanelPosition(dialoguePanel);
-        choicePanel.sizeDelta = new Vector2(340f, 174f);
+        PlaceChoicePanel(dialoguePanel);
 
         VerticalLayoutGroup layout = panelObject.GetComponent<VerticalLayoutGroup>();
         layout.spacing = 10f;
-        layout.childAlignment = TextAnchor.UpperRight;
-        layout.childControlWidth = true;
+        layout.childAlignment = TextAnchor.LowerRight;
+        layout.childControlWidth = false;
         layout.childControlHeight = true;
-        layout.childForceExpandWidth = true;
+        layout.childForceExpandWidth = false;
         layout.childForceExpandHeight = false;
 
         RefreshChoiceButtons(line);
         choicePanel.gameObject.SetActive(false);
     }
 
-    private Vector2 GetChoicePanelPosition(RectTransform dialoguePanel)
+    private void PlaceChoicePanel(RectTransform dialoguePanel)
     {
-        if (dialoguePanel == null)
+        if (choicePanel == null)
         {
-            return new Vector2(-64f, 260f);
+            return;
         }
 
-        return new Vector2(
-            dialoguePanel.anchoredPosition.x + dialoguePanel.rect.xMax - 48f,
-            dialoguePanel.anchoredPosition.y + dialoguePanel.rect.yMax + 18f);
+        Transform parent = dialoguePanel != null ? dialoguePanel : dialogueCanvasRoot != null ? dialogueCanvasRoot.transform : null;
+
+        if (parent != null && choicePanel.parent != parent)
+        {
+            choicePanel.SetParent(parent, false);
+        }
+
+        choicePanel.anchorMin = new Vector2(1f, 1f);
+        choicePanel.anchorMax = new Vector2(1f, 1f);
+        choicePanel.pivot = new Vector2(1f, 0f);
+        choicePanel.anchoredPosition = new Vector2(-48f, 18f);
+        choicePanel.sizeDelta = new Vector2(ChoicePanelWidth, 204f);
     }
 
     private void RefreshChoiceButtons(PrologueDialogueLine line)
@@ -666,11 +871,12 @@ public class PrologueSequenceController : MonoBehaviour
         GameObject buttonObject = new GameObject("ChoiceButton", typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
         buttonObject.transform.SetParent(choicePanel, false);
 
+        float buttonWidth = GetChoiceButtonWidth(option.choiceText);
         RectTransform rectTransform = buttonObject.GetComponent<RectTransform>();
-        rectTransform.sizeDelta = new Vector2(340f, 50f);
+        rectTransform.sizeDelta = new Vector2(buttonWidth, ChoiceButtonHeight);
 
         Image image = buttonObject.GetComponent<Image>();
-        image.color = new Color(0.05f, 0.05f, 0.06f, 0.88f);
+        image.color = new Color(0.05f, 0.05f, 0.06f, 0.94f);
 
         Button button = buttonObject.GetComponent<Button>();
         button.targetGraphic = image;
@@ -679,8 +885,10 @@ public class PrologueSequenceController : MonoBehaviour
         button.onClick.AddListener(() => SelectChoice(option));
 
         LayoutElement layoutElement = buttonObject.GetComponent<LayoutElement>();
-        layoutElement.preferredHeight = 50f;
-        layoutElement.minHeight = 50f;
+        layoutElement.preferredWidth = buttonWidth;
+        layoutElement.minWidth = buttonWidth;
+        layoutElement.preferredHeight = ChoiceButtonHeight;
+        layoutElement.minHeight = ChoiceButtonHeight;
 
         GameObject textObject = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
         textObject.transform.SetParent(buttonObject.transform, false);
@@ -693,9 +901,11 @@ public class PrologueSequenceController : MonoBehaviour
 
         TextMeshProUGUI labelText = textObject.GetComponent<TextMeshProUGUI>();
         labelText.text = option.choiceText;
-        labelText.fontSize = 32f;
+        labelText.fontSize = ChoiceFontSize;
         labelText.color = Color.white;
         labelText.alignment = TextAlignmentOptions.MidlineRight;
+        labelText.enableWordWrapping = false;
+        labelText.overflowMode = TextOverflowModes.Overflow;
         labelText.raycastTarget = false;
 
         if (dialogueText != null && dialogueText.font != null)
@@ -704,11 +914,39 @@ public class PrologueSequenceController : MonoBehaviour
         }
     }
 
+    private float GetChoiceButtonWidth(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return 300f;
+        }
+
+        float width = 72f;
+
+        foreach (char character in text)
+        {
+            if (char.IsWhiteSpace(character))
+            {
+                width += 14f;
+            }
+            else if (character <= 0x007f)
+            {
+                width += 21f;
+            }
+            else
+            {
+                width += 38f;
+            }
+        }
+
+        return Mathf.Clamp(width, 300f, ChoicePanelWidth);
+    }
+
     private ColorBlock CreateChoiceButtonColors()
     {
         ColorBlock colors = ColorBlock.defaultColorBlock;
-        colors.normalColor = new Color(0.05f, 0.05f, 0.06f, 0.88f);
-        colors.highlightedColor = new Color(0.18f, 0.16f, 0.12f, 0.95f);
+        colors.normalColor = new Color(0.05f, 0.05f, 0.06f, 0.94f);
+        colors.highlightedColor = new Color(0.18f, 0.16f, 0.12f, 1f);
         colors.pressedColor = new Color(0.28f, 0.23f, 0.15f, 1f);
         colors.selectedColor = colors.highlightedColor;
         colors.disabledColor = new Color(0.45f, 0.45f, 0.45f, 0.5f);
@@ -730,6 +968,251 @@ public class PrologueSequenceController : MonoBehaviour
         }
 
         new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+    }
+
+    private bool ShouldPlayHandbookReward(int canvasIndex)
+    {
+        return !handbookRewardPlayed && canvasIndex == handbookRewardAfterCanvasNumber - 1;
+    }
+
+    private IEnumerator PlayHandbookReward()
+    {
+        handbookRewardPlayed = true;
+        EnsureRewardOverlay();
+
+        if (rewardOverlay == null)
+        {
+            yield break;
+        }
+
+        rewardOverlay.gameObject.SetActive(true);
+        rewardOverlay.SetAsLastSibling();
+
+        if (rewardDimImage != null)
+        {
+            rewardDimImage.color = Color.clear;
+            yield return FadeImageAlpha(rewardDimImage, 0f, handbookDimAlpha, 0.45f);
+        }
+
+        if (rewardMessageText != null)
+        {
+            rewardMessageText.text = handbookRewardMessage;
+        }
+
+        if (rewardMessageGroup != null)
+        {
+            rewardMessageGroup.alpha = 1f;
+            yield return BlinkRewardMessage();
+            rewardMessageGroup.alpha = 0f;
+        }
+
+        ShowHandbookPanel();
+        ShowHandbookPrompt();
+
+        yield return null;
+        yield return new WaitUntil(HasAnyClick);
+
+        if (handbookPromptText != null)
+        {
+            handbookPromptText.gameObject.SetActive(false);
+        }
+    }
+
+    private void EnsureRewardOverlay()
+    {
+        if (rewardOverlay != null)
+        {
+            return;
+        }
+
+        GameObject overlayObject = new GameObject(
+            "HandbookRewardOverlay",
+            typeof(RectTransform),
+            typeof(Canvas),
+            typeof(CanvasScaler),
+            typeof(GraphicRaycaster));
+
+        rewardOverlay = overlayObject.GetComponent<RectTransform>();
+        rewardOverlay.anchorMin = Vector2.zero;
+        rewardOverlay.anchorMax = Vector2.one;
+        rewardOverlay.offsetMin = Vector2.zero;
+        rewardOverlay.offsetMax = Vector2.zero;
+
+        Canvas overlayCanvas = overlayObject.GetComponent<Canvas>();
+        overlayCanvas.renderMode = RenderMode.ScreenSpaceCamera;
+        overlayCanvas.worldCamera = Camera.main;
+        overlayCanvas.overrideSorting = true;
+        overlayCanvas.sortingOrder = 200;
+
+        CanvasScaler canvasScaler = overlayObject.GetComponent<CanvasScaler>();
+        canvasScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        canvasScaler.referenceResolution = new Vector2(1920f, 1080f);
+        canvasScaler.matchWidthOrHeight = 0.5f;
+
+        GameObject dimObject = new GameObject("Dim", typeof(RectTransform), typeof(Image));
+        dimObject.transform.SetParent(rewardOverlay, false);
+        RectTransform dimTransform = dimObject.GetComponent<RectTransform>();
+        dimTransform.anchorMin = Vector2.zero;
+        dimTransform.anchorMax = Vector2.one;
+        dimTransform.offsetMin = Vector2.zero;
+        dimTransform.offsetMax = Vector2.zero;
+        rewardDimImage = dimObject.GetComponent<Image>();
+        rewardDimImage.color = Color.clear;
+        rewardDimImage.raycastTarget = false;
+
+        GameObject messageObject = new GameObject("RewardMessage", typeof(RectTransform), typeof(TextMeshProUGUI), typeof(CanvasGroup), typeof(Outline));
+        messageObject.transform.SetParent(rewardOverlay, false);
+        RectTransform messageTransform = messageObject.GetComponent<RectTransform>();
+        messageTransform.anchorMin = new Vector2(0.5f, 0.5f);
+        messageTransform.anchorMax = new Vector2(0.5f, 0.5f);
+        messageTransform.pivot = new Vector2(0.5f, 0.5f);
+        messageTransform.anchoredPosition = Vector2.zero;
+        messageTransform.sizeDelta = new Vector2(1500f, 180f);
+
+        rewardMessageText = messageObject.GetComponent<TextMeshProUGUI>();
+        rewardMessageText.alignment = TextAlignmentOptions.Center;
+        rewardMessageText.color = Color.white;
+        rewardMessageText.fontSize = 78f;
+        rewardMessageText.enableWordWrapping = false;
+        rewardMessageText.raycastTarget = false;
+
+        if (dialogueText != null && dialogueText.font != null)
+        {
+            rewardMessageText.font = dialogueText.font;
+        }
+
+        Outline outline = messageObject.GetComponent<Outline>();
+        outline.effectColor = Color.black;
+        outline.effectDistance = new Vector2(4f, -4f);
+
+        rewardMessageGroup = messageObject.GetComponent<CanvasGroup>();
+        rewardMessageGroup.alpha = 0f;
+
+        rewardOverlay.gameObject.SetActive(false);
+    }
+
+    private IEnumerator BlinkRewardMessage()
+    {
+        float elapsed = 0f;
+        bool visible = true;
+
+        while (elapsed < handbookRewardBlinkSeconds)
+        {
+            rewardMessageGroup.alpha = visible ? 1f : 0.25f;
+            visible = !visible;
+            yield return new WaitForSecondsRealtime(handbookRewardBlinkInterval);
+            elapsed += handbookRewardBlinkInterval;
+        }
+    }
+
+    private void ShowHandbookPanel()
+    {
+        if (handbookPanelInstance != null)
+        {
+            handbookPanelInstance.SetActive(true);
+            NormalizeHandbookPanelInstance(handbookPanelInstance);
+            handbookPanelInstance.transform.SetAsLastSibling();
+            return;
+        }
+
+        if (handbookPanelPrefab == null || rewardOverlay == null)
+        {
+            return;
+        }
+
+        handbookPanelInstance = Instantiate(handbookPanelPrefab, rewardOverlay);
+        handbookPanelInstance.name = "HandbookPanel";
+        handbookPanelInstance.SetActive(true);
+        NormalizeHandbookPanelInstance(handbookPanelInstance);
+        handbookPanelInstance.transform.SetAsLastSibling();
+    }
+
+    private void NormalizeHandbookPanelInstance(GameObject panelInstance)
+    {
+        RectTransform panelTransform = panelInstance.GetComponent<RectTransform>();
+
+        if (panelTransform != null)
+        {
+            panelTransform.anchorMin = Vector2.zero;
+            panelTransform.anchorMax = Vector2.one;
+            panelTransform.offsetMin = Vector2.zero;
+            panelTransform.offsetMax = Vector2.zero;
+            panelTransform.localScale = Vector3.one;
+        }
+
+        Canvas panelCanvas = panelInstance.GetComponent<Canvas>();
+
+        if (panelCanvas != null)
+        {
+            panelCanvas.renderMode = RenderMode.ScreenSpaceCamera;
+            panelCanvas.worldCamera = Camera.main;
+            panelCanvas.overrideSorting = false;
+        }
+    }
+
+    private void ShowHandbookPrompt()
+    {
+        if (rewardOverlay == null)
+        {
+            return;
+        }
+
+        if (handbookPromptText == null)
+        {
+            GameObject promptObject = new GameObject("HandbookClickPrompt", typeof(RectTransform), typeof(TextMeshProUGUI), typeof(Outline));
+            promptObject.transform.SetParent(rewardOverlay, false);
+
+            RectTransform promptTransform = promptObject.GetComponent<RectTransform>();
+            promptTransform.anchorMin = new Vector2(0.5f, 0.5f);
+            promptTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            promptTransform.pivot = new Vector2(0f, 0.5f);
+            promptTransform.anchoredPosition = new Vector2(230f, 0f);
+            promptTransform.sizeDelta = new Vector2(560f, 80f);
+
+            handbookPromptText = promptObject.GetComponent<TextMeshProUGUI>();
+            handbookPromptText.alignment = TextAlignmentOptions.MidlineLeft;
+            handbookPromptText.color = Color.white;
+            handbookPromptText.fontSize = 40f;
+            handbookPromptText.enableWordWrapping = false;
+            handbookPromptText.raycastTarget = false;
+
+            if (dialogueText != null && dialogueText.font != null)
+            {
+                handbookPromptText.font = dialogueText.font;
+            }
+
+            Outline outline = promptObject.GetComponent<Outline>();
+            outline.effectColor = Color.black;
+            outline.effectDistance = new Vector2(2f, -2f);
+        }
+
+        handbookPromptText.text = handbookClickPrompt;
+        handbookPromptText.gameObject.SetActive(true);
+        handbookPromptText.transform.SetAsLastSibling();
+    }
+
+    private IEnumerator FadeImageAlpha(Image image, float from, float to, float duration)
+    {
+        float startTime = Time.realtimeSinceStartup;
+
+        while (true)
+        {
+            float elapsed = Time.realtimeSinceStartup - startTime;
+            float t = duration <= 0f ? 1f : Mathf.Clamp01(elapsed / duration);
+            image.color = new Color(0f, 0f, 0f, Mathf.Lerp(from, to, t));
+
+            if (t >= 1f)
+            {
+                break;
+            }
+
+            yield return null;
+        }
+    }
+
+    private bool HasAnyClick()
+    {
+        return Input.GetMouseButtonDown(0) || Input.touchCount > 0;
     }
 
     private IEnumerator PlayTitleTransition()
