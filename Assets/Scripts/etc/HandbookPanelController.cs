@@ -1,14 +1,9 @@
-using System.Collections;
-using System.Collections.Generic;
-using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 public class HandbookPanelController : MonoBehaviour
 {
-    private const string InventoryCloseButtonName = "InventoryCloseButton";
-
     private static readonly string[] InventoryPanelNames =
     {
         "InventoryPanel1",
@@ -19,8 +14,6 @@ public class HandbookPanelController : MonoBehaviour
 
     [SerializeField] private Image handbookClickImage;
     [SerializeField] private GameObject inventoryPanel;
-
-    private readonly List<Coroutine> floatRoutines = new List<Coroutine>();
     private bool handbookInteractionsReady;
 
     private void OnEnable()
@@ -39,8 +32,12 @@ public class HandbookPanelController : MonoBehaviour
 
         targetPanel.SetActive(true);
         targetPanel.transform.SetAsLastSibling();
-        EnsureInventoryCloseButton(targetPanel);
-        SetupInventoryImageEffects(targetPanel);
+        InventoryPanelController inventoryController = targetPanel.GetComponent<InventoryPanelController>();
+
+        if (inventoryController != null)
+        {
+            inventoryController.SetupInventoryPanel();
+        }
     }
 
     private GameObject GetInventoryPanel()
@@ -86,110 +83,6 @@ public class HandbookPanelController : MonoBehaviour
         }
 
         return null;
-    }
-
-    private void SetupInventoryImageEffects(GameObject targetPanel)
-    {
-        StopFloatRoutines();
-
-        Image[] images = targetPanel.GetComponentsInChildren<Image>(true);
-
-        for (int i = 0; i < images.Length; i++)
-        {
-            Image image = images[i];
-            SetupPinkHover(image, GetLightPinkHoverColor);
-
-            if (image.gameObject.name == "Image")
-            {
-                continue;
-            }
-
-            RectTransform rectTransform = image.rectTransform;
-            Vector2 basePosition = rectTransform.anchoredPosition;
-            float amplitude = 8f + (i % 4) * 2.5f;
-            float speed = 0.65f + (i % 5) * 0.18f;
-            float phase = i * 0.71f;
-            floatRoutines.Add(StartCoroutine(FloatInventoryImage(rectTransform, basePosition, amplitude, speed, phase)));
-        }
-    }
-
-    private void EnsureInventoryCloseButton(GameObject targetPanel)
-    {
-        EnsureEventSystem();
-
-        RectTransform panelTransform = targetPanel.transform as RectTransform;
-
-        if (panelTransform == null)
-        {
-            return;
-        }
-
-        Transform existingButton = targetPanel.transform.Find(InventoryCloseButtonName);
-        TextMeshProUGUI closeText;
-        Button closeButton;
-
-        if (existingButton != null)
-        {
-            closeText = existingButton.GetComponent<TextMeshProUGUI>();
-            closeButton = existingButton.GetComponent<Button>();
-        }
-        else
-        {
-            GameObject closeObject = new GameObject(InventoryCloseButtonName, typeof(RectTransform), typeof(TextMeshProUGUI), typeof(Button));
-            closeObject.transform.SetParent(panelTransform, false);
-
-            RectTransform closeTransform = closeObject.GetComponent<RectTransform>();
-            closeTransform.anchorMin = new Vector2(1f, 1f);
-            closeTransform.anchorMax = new Vector2(1f, 1f);
-            closeTransform.pivot = new Vector2(0.5f, 0.5f);
-            closeTransform.anchoredPosition = new Vector2(-48f, -44f);
-            closeTransform.sizeDelta = new Vector2(80f, 80f);
-
-            closeText = closeObject.GetComponent<TextMeshProUGUI>();
-            closeButton = closeObject.GetComponent<Button>();
-        }
-
-        if (closeText != null)
-        {
-            closeText.text = "X";
-            closeText.fontSize = 50f;
-            closeText.color = Color.white;
-            closeText.alignment = TextAlignmentOptions.Center;
-            closeText.raycastTarget = true;
-        }
-
-        if (closeButton != null)
-        {
-            closeButton.transition = Selectable.Transition.None;
-            closeButton.targetGraphic = closeText;
-            closeButton.onClick.RemoveAllListeners();
-            closeButton.onClick.AddListener(() => CloseInventoryPanel(targetPanel));
-        }
-
-        if (existingButton != null)
-        {
-            existingButton.SetAsLastSibling();
-        }
-        else
-        {
-            targetPanel.transform.Find(InventoryCloseButtonName)?.SetAsLastSibling();
-        }
-    }
-
-    private void CloseInventoryPanel(GameObject targetPanel)
-    {
-        StopFloatRoutines();
-        targetPanel.SetActive(false);
-    }
-
-    private void EnsureEventSystem()
-    {
-        if (EventSystem.current != null)
-        {
-            return;
-        }
-
-        new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
     }
 
     private void SetupHandbookInteractions()
@@ -246,29 +139,6 @@ public class HandbookPanelController : MonoBehaviour
         return handbookClickImage;
     }
 
-    private void StopFloatRoutines()
-    {
-        for (int i = 0; i < floatRoutines.Count; i++)
-        {
-            if (floatRoutines[i] != null)
-            {
-                StopCoroutine(floatRoutines[i]);
-            }
-        }
-
-        floatRoutines.Clear();
-    }
-
-    private IEnumerator FloatInventoryImage(RectTransform rectTransform, Vector2 basePosition, float amplitude, float speed, float phase)
-    {
-        while (rectTransform != null && rectTransform.gameObject.activeInHierarchy)
-        {
-            float offsetY = Mathf.Sin(Time.unscaledTime * speed + phase) * amplitude;
-            rectTransform.anchoredPosition = basePosition + Vector2.up * offsetY;
-            yield return null;
-        }
-    }
-
     private void SetupPinkHover(Image image, System.Func<Color, Color> getHoverColor)
     {
         if (image == null)
@@ -312,14 +182,9 @@ public class HandbookPanelController : MonoBehaviour
         trigger.triggers.Add(entry);
     }
 
-    private Color GetLightPinkHoverColor(Color originalColor)
-    {
-        return Color.Lerp(originalColor, new Color(1f, 0.72f, 0.86f, originalColor.a), 0.35f);
-    }
-
     private Color GetDarkPinkHoverColor(Color originalColor)
     {
-        Color tintedColor = Color.Lerp(originalColor, new Color(0.72f, 0.34f, 0.5f, originalColor.a), 0.38f);
+        Color tintedColor = Color.Lerp(originalColor, new Color(1f, 0.12f, 0.78f, originalColor.a), 0.38f);
         return Color.Lerp(tintedColor, Color.black, 0.12f);
     }
 }

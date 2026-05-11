@@ -124,9 +124,20 @@ public class PrologueSequenceController : MonoBehaviour
     private GameObject handbookPanelInstance;
     private RectTransform dialogueControlPanel;
     private TextMeshProUGUI autoButtonText;
+    private bool mainSceneTransitionStarted;
     private const float ChoiceButtonHeight = 58f;
-    private const float ChoiceFontSize = 38f;
+    private const float ChoiceFontSize = 41f;
     private const float ChoicePanelWidth = 680f;
+
+    private void OnEnable()
+    {
+        InventoryPanelController.InventoryPanelClosed += OnInventoryPanelClosed;
+    }
+
+    private void OnDisable()
+    {
+        InventoryPanelController.InventoryPanelClosed -= OnInventoryPanelClosed;
+    }
 
     private void Awake()
     {
@@ -232,6 +243,7 @@ public class PrologueSequenceController : MonoBehaviour
 
         if (ShouldPlayHandbookReward(canvasIndex))
         {
+            yield return FadeOutDialoguePanel();
             yield return PlayHandbookReward();
         }
     }
@@ -410,7 +422,7 @@ public class PrologueSequenceController : MonoBehaviour
         buttonObject.transform.SetParent(dialogueControlPanel, false);
 
         RectTransform buttonTransform = buttonObject.GetComponent<RectTransform>();
-        buttonTransform.sizeDelta = new Vector2(86f, 38f);
+        buttonTransform.sizeDelta = new Vector2(92f, 44f);
 
         Image image = buttonObject.GetComponent<Image>();
         image.color = new Color(0.35f, 0.35f, 0.35f, 0.28f);
@@ -421,8 +433,8 @@ public class PrologueSequenceController : MonoBehaviour
         button.onClick.AddListener(onClick);
 
         LayoutElement layoutElement = buttonObject.GetComponent<LayoutElement>();
-        layoutElement.preferredWidth = 86f;
-        layoutElement.preferredHeight = 38f;
+        layoutElement.preferredWidth = 92f;
+        layoutElement.preferredHeight = 44f;
 
         GameObject textObject = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
         textObject.transform.SetParent(buttonObject.transform, false);
@@ -435,8 +447,8 @@ public class PrologueSequenceController : MonoBehaviour
 
         TextMeshProUGUI labelText = textObject.GetComponent<TextMeshProUGUI>();
         labelText.text = label;
-        labelText.fontSize = 30f;
-        labelText.color = new Color(0.58f, 0.58f, 0.58f, 1f);
+        labelText.fontSize = 34f;
+        labelText.color = new Color(0.42f, 0.42f, 0.42f, 1f);
         labelText.alignment = TextAlignmentOptions.Center;
         labelText.raycastTarget = false;
 
@@ -467,15 +479,25 @@ public class PrologueSequenceController : MonoBehaviour
     {
         if (isAutoButton && autoModeEnabled)
         {
-            return new Color(0.82f, 0.82f, 0.82f, 1f);
+            return new Color(0.62f, 0.62f, 0.62f, 1f);
         }
 
-        return new Color(0.58f, 0.58f, 0.58f, 1f);
+        return new Color(0.42f, 0.42f, 0.42f, 1f);
     }
 
     private void OnSkipClicked()
     {
         SceneManager.LoadScene(mainSceneName);
+    }
+
+    private void OnInventoryPanelClosed()
+    {
+        if (!handbookRewardPlayed || mainSceneTransitionStarted)
+        {
+            return;
+        }
+
+        StartCoroutine(FadeToMainScene());
     }
 
     private void ToggleAutoMode()
@@ -711,6 +733,16 @@ public class PrologueSequenceController : MonoBehaviour
         choicePanel.gameObject.SetActive(false);
     }
 
+    private void HideChoiceButtons()
+    {
+        choiceButtonsVisible = false;
+
+        if (choicePanel != null)
+        {
+            choicePanel.gameObject.SetActive(false);
+        }
+    }
+
     private IEnumerator PlayChoiceResponse(PrologueDialogueLine sourceLine, PrologueChoiceOption choice)
     {
         if (choice == null || choice.responseLines == null || choice.responseLines.Length == 0)
@@ -868,7 +900,7 @@ public class PrologueSequenceController : MonoBehaviour
 
     private void CreateChoiceButton(PrologueChoiceOption option)
     {
-        GameObject buttonObject = new GameObject("ChoiceButton", typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
+        GameObject buttonObject = new GameObject("ChoiceButton", typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement), typeof(EventTrigger));
         buttonObject.transform.SetParent(choicePanel, false);
 
         float buttonWidth = GetChoiceButtonWidth(option.choiceText);
@@ -912,6 +944,10 @@ public class PrologueSequenceController : MonoBehaviour
         {
             labelText.font = dialogueText.font;
         }
+
+        EventTrigger trigger = buttonObject.GetComponent<EventTrigger>();
+        AddPointerEvent(trigger, EventTriggerType.PointerEnter, () => labelText.color = new Color(0.62f, 0.62f, 0.62f, 1f));
+        AddPointerEvent(trigger, EventTriggerType.PointerExit, () => labelText.color = Color.white);
     }
 
     private float GetChoiceButtonWidth(string text)
@@ -975,6 +1011,28 @@ public class PrologueSequenceController : MonoBehaviour
         return !handbookRewardPlayed && canvasIndex == handbookRewardAfterCanvasNumber - 1;
     }
 
+    private IEnumerator FadeOutDialoguePanel()
+    {
+        HideChoiceButtons();
+
+        if (dialogueControlPanel != null)
+        {
+            dialogueControlPanel.gameObject.SetActive(false);
+        }
+
+        if (dialogueGroup != null)
+        {
+            float startAlpha = dialogueGroup.alpha;
+            yield return FadeGroup(dialogueGroup, startAlpha, 0f, fadeDuration, false);
+            yield break;
+        }
+
+        if (dialogueCanvasRoot != null)
+        {
+            dialogueCanvasRoot.SetActive(false);
+        }
+    }
+
     private IEnumerator PlayHandbookReward()
     {
         handbookRewardPlayed = true;
@@ -1016,6 +1074,36 @@ public class PrologueSequenceController : MonoBehaviour
         {
             handbookPromptText.gameObject.SetActive(false);
         }
+    }
+
+    private IEnumerator FadeToMainScene()
+    {
+        mainSceneTransitionStarted = true;
+        EnsureRewardOverlay();
+
+        if (handbookPromptText != null)
+        {
+            handbookPromptText.gameObject.SetActive(false);
+        }
+
+        if (rewardOverlay != null)
+        {
+            rewardOverlay.gameObject.SetActive(true);
+            rewardOverlay.SetAsLastSibling();
+        }
+
+        if (rewardDimImage != null)
+        {
+            rewardDimImage.raycastTarget = true;
+            float startAlpha = rewardDimImage.color.a;
+            yield return FadeImageAlpha(rewardDimImage, startAlpha, 1f, 0.75f);
+        }
+        else
+        {
+            yield return new WaitForSecondsRealtime(0.75f);
+        }
+
+        SceneManager.LoadScene(mainSceneName);
     }
 
     private void EnsureRewardOverlay()
@@ -1188,7 +1276,69 @@ public class PrologueSequenceController : MonoBehaviour
 
         handbookPromptText.text = handbookClickPrompt;
         handbookPromptText.gameObject.SetActive(true);
+        PositionHandbookPromptNearImage();
         handbookPromptText.transform.SetAsLastSibling();
+    }
+
+    private void PositionHandbookPromptNearImage()
+    {
+        if (handbookPanelInstance == null || handbookPromptText == null || rewardOverlay == null)
+        {
+            return;
+        }
+
+        Image targetImage = FindHandbookPromptTargetImage();
+        RectTransform promptTransform = handbookPromptText.rectTransform;
+
+        if (targetImage == null)
+        {
+            promptTransform.anchoredPosition = new Vector2(230f, 0f);
+            return;
+        }
+
+        RectTransform imageTransform = targetImage.rectTransform;
+        Vector3[] imageCorners = new Vector3[4];
+        imageTransform.GetWorldCorners(imageCorners);
+
+        Vector3 rightCenterWorld = (imageCorners[2] + imageCorners[3]) * 0.5f;
+        Canvas overlayCanvas = rewardOverlay.GetComponentInParent<Canvas>();
+        Camera overlayCamera = overlayCanvas != null && overlayCanvas.renderMode != RenderMode.ScreenSpaceOverlay
+            ? overlayCanvas.worldCamera
+            : null;
+        Vector2 screenPoint = RectTransformUtility.WorldToScreenPoint(overlayCamera, rightCenterWorld);
+
+        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(rewardOverlay, screenPoint, overlayCamera, out Vector2 localPoint))
+        {
+            promptTransform.anchoredPosition = localPoint + new Vector2(26f, 0f);
+        }
+    }
+
+    private Image FindHandbookPromptTargetImage()
+    {
+        Transform zeroPortrait = handbookPanelInstance.transform.Find("ZeroPortrait");
+
+        if (zeroPortrait != null && zeroPortrait.TryGetComponent(out Image zeroImage))
+        {
+            return zeroImage;
+        }
+
+        Image[] images = handbookPanelInstance.GetComponentsInChildren<Image>(true);
+        Image largestImage = null;
+        float largestArea = 0f;
+
+        for (int i = 0; i < images.Length; i++)
+        {
+            RectTransform rectTransform = images[i].rectTransform;
+            float area = rectTransform.rect.width * rectTransform.rect.height;
+
+            if (area > largestArea)
+            {
+                largestArea = area;
+                largestImage = images[i];
+            }
+        }
+
+        return largestImage;
     }
 
     private IEnumerator FadeImageAlpha(Image image, float from, float to, float duration)

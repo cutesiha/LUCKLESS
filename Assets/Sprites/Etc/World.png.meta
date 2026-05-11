@@ -8,15 +8,6 @@ TextureImporter:
   - first:
       213: -8534894273049571422
     second: World_1
-  - first:
-      213: 8177263847542002924
-    second: World_2
-  - first:
-      213: -5295642606570213826
-    second: World_3
-  - first:
-      213: 7708607840569659304
-    second: World_4
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -115,10 +106,10 @@ TextureImporter:
       name: World_0
       rect:
         serializedVersion: 2
-        x: 677
-        y: 855
-        width: 186
-        height: 18
+        x: 33
+        y: 97
+        width: 305
+        height: 282
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -137,10 +128,10 @@ TextureImporter:
       name: World_1
       rect:
         serializedVersion: 2
-        x: 482
-        y: 539
-        width: 304
-        height: 283
+        x: 28
+        y: 3
+        width: 313
+        height: 91
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -151,72 +142,6 @@ TextureImporter:
       bones: []
       spriteID: 2af4d53e0e6fd8980800000000000000
       internalID: -8534894273049571422
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: World_2
-      rect:
-        serializedVersion: 2
-        x: 477
-        y: 445
-        width: 312
-        height: 91
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: ce49263f42a7b7170800000000000000
-      internalID: 8177263847542002924
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: World_3
-      rect:
-        serializedVersion: 2
-        x: 481
-        y: 380
-        width: 15
-        height: 15
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: e3e65f95b191286b0800000000000000
-      internalID: -5295642606570213826
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: World_4
-      rect:
-        serializedVersion: 2
-        x: 774
-        y: 388
-        width: 10
-        height: 7
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 8af02f13df97afa60800000000000000
-      internalID: 7708607840569659304
       vertices: []
       indices: 
       edges: []
@@ -237,9 +162,6 @@ TextureImporter:
     nameFileIdTable:
       World_0: -7881571413208391433
       World_1: -8534894273049571422
-      World_2: 8177263847542002924
-      World_3: -5295642606570213826
-      World_4: 7708607840569659304
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

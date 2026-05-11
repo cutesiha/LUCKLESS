@@ -20,15 +20,6 @@ TextureImporter:
   - first:
       213: -1397173366241106226
     second: Save_5
-  - first:
-      213: 7585751826650645690
-    second: Save_6
-  - first:
-      213: 7191324637132557986
-    second: Save_7
-  - first:
-      213: 108848890864361097
-    second: Save_8
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -127,10 +118,10 @@ TextureImporter:
       name: Save_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 1241
-        width: 354
-        height: 13
+        x: 26
+        y: 313
+        width: 28
+        height: 30
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -149,10 +140,10 @@ TextureImporter:
       name: Save_1
       rect:
         serializedVersion: 2
-        x: 434
-        y: 1242
-        width: 105
-        height: 12
+        x: 39
+        y: 117
+        width: 262
+        height: 256
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -171,10 +162,10 @@ TextureImporter:
       name: Save_2
       rect:
         serializedVersion: 2
-        x: 30
-        y: 634
-        width: 49
-        height: 385
+        x: 23
+        y: 243
+        width: 15
+        height: 19
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -193,10 +184,10 @@ TextureImporter:
       name: Save_3
       rect:
         serializedVersion: 2
-        x: 518
-        y: 661
-        width: 14
-        height: 19
+        x: 288
+        y: 169
+        width: 23
+        height: 27
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -215,10 +206,10 @@ TextureImporter:
       name: Save_4
       rect:
         serializedVersion: 2
-        x: 521
-        y: 731
-        width: 27
-        height: 30
+        x: 295
+        y: 194
+        width: 25
+        height: 28
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -237,10 +228,10 @@ TextureImporter:
       name: Save_5
       rect:
         serializedVersion: 2
-        x: 534
-        y: 535
-        width: 261
-        height: 267
+        x: 12
+        y: 2
+        width: 315
+        height: 95
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -251,72 +242,6 @@ TextureImporter:
       bones: []
       spriteID: ec6ef87d93e3c9ce0800000000000000
       internalID: -1397173366241106226
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Save_6
-      rect:
-        serializedVersion: 2
-        x: 790
-        y: 612
-        width: 24
-        height: 27
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: ab448c56811064960800000000000000
-      internalID: 7585751826650645690
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Save_7
-      rect:
-        serializedVersion: 2
-        x: 783
-        y: 587
-        width: 22
-        height: 26
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 2ae0dccf7a7bcc360800000000000000
-      internalID: 7191324637132557986
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Save_8
-      rect:
-        serializedVersion: 2
-        x: 507
-        y: 420
-        width: 314
-        height: 94
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 98e5a225d75b28100800000000000000
-      internalID: 108848890864361097
       vertices: []
       indices: 
       edges: []
@@ -341,9 +266,6 @@ TextureImporter:
       Save_3: -4789897373589555142
       Save_4: -806666959835977145
       Save_5: -1397173366241106226
-      Save_6: 7585751826650645690
-      Save_7: 7191324637132557986
-      Save_8: 108848890864361097
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
