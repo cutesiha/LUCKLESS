@@ -568,7 +568,7 @@ public class PrologueSequenceController : MonoBehaviour
         {
             voiceSource.Stop();
             voiceSource.clip = voiceClip;
-            voiceSource.volume = voiceVolume;
+            voiceSource.volume = GameAudioSettings.GetVoiceSourceVolume(voiceVolume);
 
             if (voiceClip != null)
             {
@@ -1127,6 +1127,7 @@ public class PrologueSequenceController : MonoBehaviour
             yield return new WaitForSecondsRealtime(0.75f);
         }
 
+        yield return new WaitForSecondsRealtime(1f);
         SceneManager.LoadScene(mainSceneName);
     }
 
@@ -1470,7 +1471,7 @@ public class PrologueSequenceController : MonoBehaviour
             titleMusicSource.Play();
         }
 
-        titleMusicFadeRoutine = StartCoroutine(FadeAudio(titleMusicSource, titleMusicVolume, titleMusicFadeInDuration));
+        titleMusicFadeRoutine = StartCoroutine(FadeAudio(titleMusicSource, GameAudioSettings.GetBgmSourceVolume(titleMusicVolume), titleMusicFadeInDuration));
     }
 
     private IEnumerator FadeAudio(AudioSource source, float targetVolume, float duration)

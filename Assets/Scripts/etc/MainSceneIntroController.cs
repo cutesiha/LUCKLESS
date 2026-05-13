@@ -250,6 +250,7 @@ public class MainSceneIntroController : MonoBehaviour
         for (int i = 0; i < musicTargetVolumes.Length; i++)
         {
             AudioSource source = musicSources[i];
+            GameAudioSettings.ApplyBgmSource(source, source.volume);
             musicTargetVolumes[i] = source.volume;
             source.volume = 0f;
 

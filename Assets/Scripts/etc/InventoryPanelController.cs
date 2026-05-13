@@ -704,6 +704,7 @@ public class InventoryPanelController : MonoBehaviour
         slider.onValueChanged.AddListener(v =>
         {
             capturedValue.text = Mathf.RoundToInt(v).ToString();
+            ApplyOptionAudioValues();
         });
     }
 
@@ -812,10 +813,10 @@ public class InventoryPanelController : MonoBehaviour
 
     private void LoadOptionValues()
     {
-        if (masterSlider != null) masterSlider.value = PlayerPrefs.GetInt("Option_Master", 80);
-        if (bgmSlider != null) bgmSlider.value = PlayerPrefs.GetInt("Option_BGM", 70);
-        if (voiceSlider != null) voiceSlider.value = PlayerPrefs.GetInt("Option_Voice", 100);
-        if (sfxSlider != null) sfxSlider.value = PlayerPrefs.GetInt("Option_SFX", 75);
+        if (masterSlider != null) masterSlider.value = PlayerPrefs.GetInt(GameAudioSettings.MasterKey, 80);
+        if (bgmSlider != null) bgmSlider.value = PlayerPrefs.GetInt(GameAudioSettings.BgmKey, 70);
+        if (voiceSlider != null) voiceSlider.value = PlayerPrefs.GetInt(GameAudioSettings.VoiceKey, 100);
+        if (sfxSlider != null) sfxSlider.value = PlayerPrefs.GetInt(GameAudioSettings.SfxKey, 75);
 
         RefreshOptionValueTexts();
         ApplyOptionAudioValues();
@@ -828,11 +829,7 @@ public class InventoryPanelController : MonoBehaviour
         int voice = voiceSlider != null ? Mathf.RoundToInt(voiceSlider.value) : 100;
         int sfx = sfxSlider != null ? Mathf.RoundToInt(sfxSlider.value) : 75;
 
-        PlayerPrefs.SetInt("Option_Master", master);
-        PlayerPrefs.SetInt("Option_BGM", bgm);
-        PlayerPrefs.SetInt("Option_Voice", voice);
-        PlayerPrefs.SetInt("Option_SFX", sfx);
-        PlayerPrefs.Save();
+        GameAudioSettings.Save(master, bgm, voice, sfx);
 
         ApplyOptionAudioValues();
         RefreshOptionValueTexts();
@@ -840,38 +837,17 @@ public class InventoryPanelController : MonoBehaviour
 
     private void ApplyOptionAudioValues()
     {
-        float master = masterSlider != null ? masterSlider.value / 100f : 0.8f;
-        float bgm = bgmSlider != null ? bgmSlider.value / 100f : 0.7f;
-        float voice = voiceSlider != null ? voiceSlider.value / 100f : 1f;
-        float sfx = sfxSlider != null ? sfxSlider.value / 100f : 0.75f;
+        int master = masterSlider != null ? Mathf.RoundToInt(masterSlider.value) : 80;
+        int bgm = bgmSlider != null ? Mathf.RoundToInt(bgmSlider.value) : 70;
+        int voice = voiceSlider != null ? Mathf.RoundToInt(voiceSlider.value) : 100;
+        int sfx = sfxSlider != null ? Mathf.RoundToInt(sfxSlider.value) : 75;
 
-        foreach (AudioSource source in bgmAudioSources)
-        {
-            if (source != null)
-                source.volume = master * bgm;
-        }
+        PlayerPrefs.SetInt(GameAudioSettings.MasterKey, master);
+        PlayerPrefs.SetInt(GameAudioSettings.BgmKey, bgm);
+        PlayerPrefs.SetInt(GameAudioSettings.VoiceKey, voice);
+        PlayerPrefs.SetInt(GameAudioSettings.SfxKey, sfx);
 
-        foreach (AudioSource source in sfxAudioSources)
-        {
-            if (source != null)
-                source.volume = master * sfx;
-        }
-
-        if (audioMixer != null)
-        {
-            audioMixer.SetFloat("MasterVolume", LinearToDecibel(master));
-            audioMixer.SetFloat("VoiceVolume", LinearToDecibel(master * voice));
-            audioMixer.SetFloat("SFXVolume", LinearToDecibel(master * sfx));
-            audioMixer.SetFloat("BGMVolume", LinearToDecibel(master * bgm));
-        }
-    }
-
-    private float LinearToDecibel(float value)
-    {
-        if (value <= 0.0001f)
-            return -80f;
-
-        return Mathf.Log10(value) * 20f;
+        GameAudioSettings.ApplyCurrentSettings(bgmAudioSources, audioMixer);
     }
     private void ResetOptionValues()
     {
@@ -881,6 +857,7 @@ public class InventoryPanelController : MonoBehaviour
         if (sfxSlider != null) sfxSlider.value = 75;
 
         RefreshOptionValueTexts();
+        ApplyOptionAudioValues();
     }
 
     private void RefreshOptionValueTexts()

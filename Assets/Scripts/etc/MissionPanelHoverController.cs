@@ -14,6 +14,7 @@ public class MissionPanelHoverController : MonoBehaviour
     [SerializeField] private string lockedMessage = "잠금 해제되지 않았습니다!";
     [SerializeField] private string firstMissionSceneName = "Idapen";
     [SerializeField] private float sceneFadeDuration = 0.8f;
+    [SerializeField] private float sceneLoadHoldSeconds = 1f;
 
     private TextMeshProUGUI lockedMessageText;
     private CanvasGroup lockedMessageGroup;
@@ -317,6 +318,7 @@ public class MissionPanelHoverController : MonoBehaviour
     {
         Image fadeImage = CreateSceneFadeImage();
         yield return FadeImage(fadeImage, 0f, 1f, sceneFadeDuration);
+        yield return new WaitForSecondsRealtime(sceneLoadHoldSeconds);
 
         if (!string.IsNullOrWhiteSpace(firstMissionSceneName))
         {

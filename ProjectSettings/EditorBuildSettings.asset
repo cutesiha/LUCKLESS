@@ -17,6 +17,12 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/Idapen.unity
     guid: 09f0d38848baa2343972e5e3e4dcbbcf
+  - enabled: 1
+    path: Assets/Scenes/BattleScene.unity
+    guid: 812a70138b922564287442ac61509dc1
+  - enabled: 1
+    path: Assets/Scenes/WinScene.unity
+    guid: 7544a25a5e44f3742a94c509241b304a
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}
   m_UseUCBPForAssetBundles: 0

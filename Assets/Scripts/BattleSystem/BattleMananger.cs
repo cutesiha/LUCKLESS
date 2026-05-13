@@ -95,6 +95,10 @@ public class BattleManager : MonoBehaviour
     public int turn = 1;
     private bool battleEnded = false;
     private bool battleStarted = false;
+    [SerializeField] private string gameOverSceneName = "MainScene";
+    [SerializeField] private string victorySceneName = "WinScene";
+    [SerializeField] private float resultFadeDuration = 0.8f;
+    [SerializeField] private float resultHoldDuration = 2f;
 
     [Header("Panels")]
     public GameObject bettingPanel;
@@ -166,7 +170,6 @@ public class BattleManager : MonoBehaviour
     public GameObject tooltipPanel;
     public TMP_Text tooltipDescriptionText;
     public TMP_Text tooltipNameText;
-    public TMP_Text probabilityRerollText;
 
     public bool reflectNextDamage = false;
     private bool zeroDamageThisTurn = false;
@@ -204,22 +207,13 @@ public class BattleManager : MonoBehaviour
     private int currentCardLuxCost = 0;
     private int currentCardLuxGain = 0;
     private int currentCardPlayerDamageTaken = 0;
-    private Button testRestartButton;
+    private bool resultTransitionStarted = false;
     private readonly List<FailedGambleRecord> failedGambleRecordsThisTurn = new List<FailedGambleRecord>();
 
     private struct FailedGambleRecord
     {
         public int chance;
         public int successDamage;
-        public int failureDamage;
-        public FailedGambleKind kind;
-    }
-
-    private enum FailedGambleKind
-    {
-        Regular,
-        CoinTriple,
-        DoubleDice
     }
 
     private enum LuxState
@@ -252,7 +246,7 @@ public class BattleManager : MonoBehaviour
         if (tooltipDescriptionText != null)
         {
             tooltipDescriptionText.richText = true;
-            tooltipDescriptionText.text = FormatCardDescription(card);
+            tooltipDescriptionText.text = FormatCardDescription(card.description);
         }
     }
 
@@ -264,17 +258,19 @@ public class BattleManager : MonoBehaviour
     private void Start()
     {
         battleEnded = false;
-        battleStarted = false;
+        battleStarted = true;
+        selectedBet = 0;
+        rewardLux = 0;
 
-        if (bettingPanel != null) bettingPanel.SetActive(true);
-        if (battlePanel != null) battlePanel.SetActive(false);
+        if (bettingPanel != null) bettingPanel.SetActive(false);
+        if (battlePanel != null) battlePanel.SetActive(true);
         if (endPanel != null) endPanel.SetActive(false);
         if (negotiationButton != null) negotiationButton.gameObject.SetActive(false);
 
         InitializePlayerHitEffect();
         InitializeDiceRollEffect();
         InitializeCoinTossEffect();
-        UpdateBettingUI();
+        EnsureHandPanel();
         UpdateUI();
         UpdateEnemyDialogue();
         UpdateEnemySprite();
@@ -440,21 +436,7 @@ public class BattleManager : MonoBehaviour
             PlayPlayerHitEffect();
         }
 
-        if (playerHP <= 0 && battleStarted && !battleEnded)
-        {
-            LoseBattle();
-        }
-
         return actualDamage;
-    }
-
-    private bool ShouldDrawGambleCardInCurrentLuxState(CardData card)
-    {
-        if (card == null) return false;
-        if (GetLuxState() != LuxState.Poverty) return true;
-        if (card.cardType != CardType.Gamble) return true;
-
-        return Random.value < 0.2f;
     }
 
     private void PlayPlayerHitEffect()
@@ -1086,6 +1068,13 @@ public class BattleManager : MonoBehaviour
 
     private void RefreshHandUI()
 {
+    EnsureHandPanel();
+    if (handPanel == null)
+    {
+        Debug.LogError("[BattleManager] HandPanel을 찾을 수 없습니다.", this);
+        return;
+    }
+
     if (handRoutine != null)
     {
         StopCoroutine(handRoutine);
@@ -1094,8 +1083,63 @@ public class BattleManager : MonoBehaviour
     handRoutine = StartCoroutine(RefreshHandUIRoutine());
 }
 
+    private void EnsureHandPanel()
+    {
+        if (handPanel != null)
+        {
+            return;
+        }
+
+        GameObject existingHandPanel = GameObject.Find("HandPanel");
+        if (existingHandPanel != null)
+        {
+            handPanel = existingHandPanel.transform;
+            return;
+        }
+
+        Transform parent = battlePanel != null ? battlePanel.transform : null;
+        if (parent == null)
+        {
+#if UNITY_2023_1_OR_NEWER
+            Canvas canvas = FindFirstObjectByType<Canvas>();
+#else
+            Canvas canvas = FindObjectOfType<Canvas>();
+#endif
+            parent = canvas != null ? canvas.transform : transform;
+        }
+
+        GameObject handPanelObject = new GameObject("HandPanel", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter));
+        handPanelObject.transform.SetParent(parent, false);
+        handPanel = handPanelObject.transform;
+
+        RectTransform rectTransform = handPanelObject.GetComponent<RectTransform>();
+        rectTransform.anchorMin = new Vector2(0.5f, 0f);
+        rectTransform.anchorMax = new Vector2(0.5f, 0f);
+        rectTransform.pivot = new Vector2(0.5f, 0f);
+        rectTransform.anchoredPosition = new Vector2(0f, 40f);
+        rectTransform.sizeDelta = new Vector2(980f, 260f);
+
+        HorizontalLayoutGroup layout = handPanelObject.GetComponent<HorizontalLayoutGroup>();
+        layout.spacing = 18f;
+        layout.childAlignment = TextAnchor.MiddleCenter;
+        layout.childControlWidth = false;
+        layout.childControlHeight = false;
+        layout.childForceExpandWidth = false;
+        layout.childForceExpandHeight = false;
+
+        ContentSizeFitter fitter = handPanelObject.GetComponent<ContentSizeFitter>();
+        fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+        fitter.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
+    }
+
     private IEnumerator CreateStartingHandRoutine()
 {
+    EnsureHandPanel();
+    if (handPanel == null)
+    {
+        yield break;
+    }
+
     foreach (Transform child in handPanel)
     {
         Destroy(child.gameObject);
@@ -1204,14 +1248,6 @@ private int CalculateRewardLux(int bet)
         return card.isGambleCard || forcedGambleCards.Contains(card);
     }
 
-    private bool ResolvesGambleInSpecialEffect(CardData card)
-    {
-        if (card == null) return false;
-
-        return card.specialEffect == SpecialCardEffect.BankruptcyDeclaration
-            || card.specialEffect == SpecialCardEffect.Lucky7777;
-    }
-
     private void AddBleedStack(int amount, string reason)
     {
         bleedStacks += amount;
@@ -1236,10 +1272,7 @@ private int CalculateRewardLux(int bet)
 
     private bool IsLuxTypeCard(CardData card)
     {
-        return card.cardType == CardType.Flux
-            || card.luxGain > 0
-            || card.specialEffect == SpecialCardEffect.LuxDrain
-            || card.specialEffect == SpecialCardEffect.IllegalLoan;
+        return card.luxGain > 0 || card.specialEffect == SpecialCardEffect.LuxDrain;
     }
 
     private int CalculateLuxGain(CardData card)
@@ -1248,7 +1281,7 @@ private int CalculateRewardLux(int bet)
 
         float percentBonus = 1f + (excitementStacks * 0.05f);
         int scaled = Mathf.RoundToInt(card.luxGain * percentBonus);
-        return scaled + (greedStacks * 5);
+        return scaled + (greedStacks * 3);
     }
 
     private int GetEffectiveLuxCost(CardData card)
@@ -1263,24 +1296,17 @@ private int CalculateRewardLux(int bet)
 
     public string GetCardButtonLabel(CardData card)
     {
-        if (card == null) return string.Empty;
-
-        return $"{card.cardName}\n<LUX {GetLuxCostDisplayText(card)}>";
-    }
-
-    private string GetLuxCostDisplayText(CardData card)
-    {
-        if (card == null) return "0";
-
-        int originalCost = Mathf.Max(card.luxCost, 0);
-        int effectiveCost = GetEffectiveLuxCost(card);
-
-        if (overloadTurnsRemaining > 0 && originalCost > 0 && effectiveCost < originalCost)
+        if (card == null)
         {
-            return $"<color=#888888>{originalCost}</color> <color=#ffd63d>{effectiveCost}</color>";
+            return "";
         }
 
-        return originalCost.ToString();
+        int effectiveCost = GetEffectiveLuxCost(card);
+        string costText = effectiveCost == card.luxCost
+            ? $"LUX {effectiveCost}"
+            : $"LUX <s>{card.luxCost}</s> {effectiveCost}";
+
+        return $"{card.cardName}\n<{costText}>";
     }
 
     private int ApplyOutgoingCardBonuses(int damage, CardType effectiveType)
@@ -1475,12 +1501,6 @@ private int CalculateRewardLux(int bet)
             reflectNextDamage = true;
         }
 
-        if (card.specialEffect == SpecialCardEffect.ProbabilityLaundering)
-        {
-            StartCoroutine(ResolveProbabilityLaunderingRoutine(card));
-            return;
-        }
-
         ApplySpecialCardEffect(card);
 
         // 체력 회복
@@ -1612,13 +1632,7 @@ private int CalculateRewardLux(int bet)
             int incoming = ModifyIncomingDamage(20);
             if (ApplyPlayerDamage(incoming) > 0) AddBleedStack(1, "주사위 실패 반동으로");
             failedGambleCountThisTurn += 1;
-            failedGambleRecordsThisTurn.Add(new FailedGambleRecord
-            {
-                chance = chance,
-                successDamage = 25,
-                failureDamage = 20,
-                kind = FailedGambleKind.DoubleDice
-            });
+            failedGambleRecordsThisTurn.Add(new FailedGambleRecord { chance = chance, successDamage = 25 });
         }
 
         WriteLog($"<color=#ffd166>주사위:</color> {d1} + {d2} = {total} {(success ? "성공" : "실패")}");
@@ -1719,16 +1733,15 @@ private int CalculateRewardLux(int bet)
         WriteLog(string.Join(". ", parts));
     }
 
-    private string FormatCardDescription(CardData card)
+    private string FormatCardDescription(string description)
     {
-        string description = card != null ? card.description : null;
         if (string.IsNullOrEmpty(description)) return description;
 
         string formatted = description;
         formatted = Regex.Replace(
             formatted,
             @"(Lux\s*cost\s*:\s*\d+)",
-            match => FormatLuxCostDescriptionMatch(card, match.Value),
+            "<color=#ffd63d>$1</color>",
             RegexOptions.IgnoreCase);
         formatted = Regex.Replace(
             formatted,
@@ -1745,26 +1758,6 @@ private int CalculateRewardLux(int bet)
             "<color=red>$1</color>");
 
         return formatted;
-    }
-
-    private string FormatLuxCostDescriptionMatch(CardData card, string luxCostText)
-    {
-        Match numberMatch = Regex.Match(luxCostText, @"\d+");
-        if (!numberMatch.Success)
-        {
-            return $"<color=#ffd63d>{luxCostText}</color>";
-        }
-
-        int originalCost = int.Parse(numberMatch.Value);
-        int effectiveCost = card != null ? GetEffectiveLuxCost(card) : originalCost;
-
-        if (overloadTurnsRemaining <= 0 || originalCost <= 0 || effectiveCost >= originalCost)
-        {
-            return $"<color=#ffd63d>{luxCostText}</color>";
-        }
-
-        string prefix = luxCostText.Substring(0, numberMatch.Index);
-        return $"<color=#ffd63d>{prefix}</color><color=#888888>{originalCost}</color> <color=#ffd63d>{effectiveCost}</color>";
     }
 
     private IEnumerator ResolveCoinTripleCardRoutine(CardData card, CardType effectiveType)
@@ -1814,13 +1807,7 @@ private int CalculateRewardLux(int bet)
             int incoming = ModifyIncomingDamage(20);
             if (ApplyPlayerDamage(incoming) > 0) AddBleedStack(1, "코인 실패 반동으로");
             failedGambleCountThisTurn += 1;
-            failedGambleRecordsThisTurn.Add(new FailedGambleRecord
-            {
-                chance = GetAdjustedGambleSuccessChance(50, false),
-                successDamage = 40,
-                failureDamage = 20,
-                kind = FailedGambleKind.CoinTriple
-            });
+            failedGambleRecordsThisTurn.Add(new FailedGambleRecord { chance = GetAdjustedGambleSuccessChance(50, false), successDamage = 40 });
             WriteLog($"<color=#ffd166>코인 3연속:</color> 앞면 {heads}/3 실패, 제로가 20 피해를 받습니다.");
         }
 
@@ -1915,7 +1902,7 @@ private int CalculateRewardLux(int bet)
             return damage;
         }
 
-        if (IsCardTreatedAsGamble(card) && !ResolvesGambleInSpecialEffect(card))
+        if (IsCardTreatedAsGamble(card))
         {
             int chance = GetAdjustedGambleSuccessChance(card.gambleSuccessChance, true);
             int roll = Random.Range(1, 101);
@@ -1935,9 +1922,7 @@ private int CalculateRewardLux(int bet)
                 failedGambleRecordsThisTurn.Add(new FailedGambleRecord
                 {
                     chance = chance,
-                    successDamage = Mathf.Max(card.damage, 0),
-                    failureDamage = Mathf.Max(card.selfDamage, 0),
-                    kind = FailedGambleKind.Regular
+                    successDamage = Mathf.Max(card.damage, 0)
                 });
 
                 WriteLog($"<color=red>{card.cardName} 실패!</color> ({roll}/{chance}) 제로가 {card.selfDamage} 피해를 받았습니다.");
@@ -2043,7 +2028,37 @@ private int CalculateRewardLux(int bet)
                 break;
             }
             case SpecialCardEffect.ProbabilityLaundering:
+            {
+                if (failedGambleRecordsThisTurn.Count <= 0)
+                {
+                    WriteLog("<color=#8fd3ff>확률 세탁:</color> 재판정할 실패 도박이 없습니다.");
+                    break;
+                }
+
+                FailedGambleRecord record = failedGambleRecordsThisTurn[failedGambleRecordsThisTurn.Count - 1];
+                failedGambleRecordsThisTurn.RemoveAt(failedGambleRecordsThisTurn.Count - 1);
+                failedGambleCountThisTurn = Mathf.Max(0, failedGambleCountThisTurn - 1);
+
+                int reroll = Random.Range(1, 101);
+                if (reroll <= record.chance)
+                {
+                    int rerollDamage = ApplyOutgoingCardBonuses(record.successDamage, CardType.Gamble);
+                    rerollDamage = ApplyTurnDamageModifiers(rerollDamage);
+                    if (enemyRaged && rerollDamage > 0)
+                    {
+                        rerollDamage = Mathf.Max(0, rerollDamage - rageAttackReduction);
+                    }
+                    ApplyEnemyDamage(rerollDamage);
+                    WriteLog($"<color=#8fd3ff>확률 세탁:</color> 재판정 성공! 추가 피해 {rerollDamage}");
+                }
+                else
+                {
+                    failedGambleCountThisTurn += 1;
+                    failedGambleRecordsThisTurn.Add(record);
+                    WriteLog("<color=#8fd3ff>확률 세탁:</color> 재판정도 실패했습니다.");
+                }
                 break;
+            }
             case SpecialCardEffect.FakeLuck:
                 firstGambleGuaranteedThisTurn = true;
                 firstGambleUsedThisTurn = false;
@@ -2059,8 +2074,6 @@ private int CalculateRewardLux(int bet)
                     lux = 0;
                     int damage = Mathf.RoundToInt(currentLux * 2f);
                     ApplyEnemyDamage(damage);
-                    gambleResolvedThisUse = true;
-                    gambleSucceededThisUse = true;
                     WriteLog($"<color=#8fd3ff>파산 선언 성공:</color> LUX {currentLux} 소모, {damage} 피해.");
                 }
                 else
@@ -2068,16 +2081,6 @@ private int CalculateRewardLux(int bet)
                     lux = 0;
                     int incoming = ModifyIncomingDamage(15);
                     if (ApplyPlayerDamage(incoming) > 0) AddBleedStack(1, "파산 선언 실패 반동으로");
-                    gambleResolvedThisUse = true;
-                    gambleSucceededThisUse = false;
-                    failedGambleCountThisTurn += 1;
-                    failedGambleRecordsThisTurn.Add(new FailedGambleRecord
-                    {
-                        chance = 50,
-                        successDamage = Mathf.RoundToInt(currentLux * 2f),
-                        failureDamage = 15,
-                        kind = FailedGambleKind.Regular
-                    });
                     WriteLog("<color=#8fd3ff>파산 선언 실패:</color> LUX 전부 소실, HP -15.");
                 }
                 break;
@@ -2088,215 +2091,28 @@ private int CalculateRewardLux(int bet)
                 if (roll == 0)
                 {
                     ApplyEnemyDamage(7);
-                    gambleResolvedThisUse = true;
-                    gambleSucceededThisUse = true;
                     WriteLog("<color=#8fd3ff>7777:</color> 7 피해");
                 }
                 else if (roll == 1)
                 {
                     ApplyEnemyDamage(14);
-                    gambleResolvedThisUse = true;
-                    gambleSucceededThisUse = true;
                     WriteLog("<color=#8fd3ff>7777:</color> 14 피해");
                 }
                 else if (roll == 2)
                 {
                     ApplyEnemyDamage(21);
-                    gambleResolvedThisUse = true;
-                    gambleSucceededThisUse = true;
                     WriteLog("<color=#8fd3ff>7777:</color> 21 피해");
                 }
                 else
                 {
                     int incoming = ModifyIncomingDamage(7);
                     if (ApplyPlayerDamage(incoming) > 0) AddBleedStack(1, "7777 역반동으로");
-                    gambleResolvedThisUse = true;
-                    gambleSucceededThisUse = false;
-                    failedGambleCountThisTurn += 1;
-                    failedGambleRecordsThisTurn.Add(new FailedGambleRecord
-                    {
-                        chance = 75,
-                        successDamage = 21,
-                        failureDamage = 7,
-                        kind = FailedGambleKind.Regular
-                    });
                     WriteLog("<color=#8fd3ff>7777:</color> 역효과! 제로가 7 피해.");
                 }
                 enemyHP = Mathf.Clamp(enemyHP, 0, enemyMaxHP);
                 break;
             }
         }
-    }
-
-    private IEnumerator ResolveProbabilityLaunderingRoutine(CardData card)
-    {
-        isCardResolving = true;
-
-        if (failedGambleRecordsThisTurn.Count <= 0)
-        {
-            WriteLog("<color=#8fd3ff>확률 세탁:</color> 재판정할 실패 도박이 없습니다.");
-            FinishCardUseAfterSpecialRoutine(card, 0);
-            isCardResolving = false;
-            yield break;
-        }
-
-        FailedGambleRecord record = failedGambleRecordsThisTurn[failedGambleRecordsThisTurn.Count - 1];
-        failedGambleRecordsThisTurn.RemoveAt(failedGambleRecordsThisTurn.Count - 1);
-        failedGambleCountThisTurn = Mathf.Max(0, failedGambleCountThisTurn - 1);
-
-        bool success = Random.Range(1, 101) <= record.chance;
-        int finalDamage = 0;
-
-        if (record.kind == FailedGambleKind.CoinTriple)
-        {
-            InitializeCoinTossEffect();
-            bool[] results = CreateCoinRerollResults(success);
-            yield return PlayCoinTossRoutine(results);
-        }
-        else if (record.kind == FailedGambleKind.DoubleDice)
-        {
-            InitializeDiceRollEffect();
-            RollDoubleDiceForResult(success, out int d1, out int d2);
-            yield return PlayDoubleDiceRollRoutine(d1, d2);
-        }
-        else
-        {
-            yield return ShowProbabilityRerollTextRoutine();
-        }
-
-        if (success)
-        {
-            finalDamage = ApplyRerolledGambleSuccess(record);
-            WriteLog($"<color=#8fd3ff>확률 세탁:</color> 재판정 성공! 추가 피해 {finalDamage}");
-        }
-        else
-        {
-            ApplyRerolledGambleFailure(record);
-            failedGambleCountThisTurn += 1;
-            failedGambleRecordsThisTurn.Add(record);
-            WriteLog("<color=#8fd3ff>확률 세탁:</color> 재판정도 실패했습니다.");
-        }
-
-        FinishCardUseAfterSpecialRoutine(card, finalDamage);
-        isCardResolving = false;
-    }
-
-    private int ApplyRerolledGambleSuccess(FailedGambleRecord record)
-    {
-        int rerollDamage = ApplyOutgoingCardBonuses(record.successDamage, CardType.Gamble);
-        rerollDamage = ApplyTurnDamageModifiers(rerollDamage);
-        if (enemyRaged && rerollDamage > 0)
-        {
-            rerollDamage = Mathf.Max(0, rerollDamage - rageAttackReduction);
-        }
-
-        ApplyEnemyDamage(rerollDamage);
-        return rerollDamage;
-    }
-
-    private void ApplyRerolledGambleFailure(FailedGambleRecord record)
-    {
-        int incoming = ModifyIncomingDamage(record.failureDamage);
-        if (ApplyPlayerDamage(incoming) > 0)
-        {
-            AddBleedStack(1, "확률 세탁 재판정 실패로");
-        }
-    }
-
-    private bool[] CreateCoinRerollResults(bool success)
-    {
-        bool[] results = new bool[3];
-        int heads = 0;
-
-        for (int i = 0; i < results.Length; i++)
-        {
-            results[i] = Random.value < 0.5f;
-            if (results[i]) heads++;
-        }
-
-        if (success)
-        {
-            for (int i = 0; i < results.Length && heads < 2; i++)
-            {
-                if (!results[i])
-                {
-                    results[i] = true;
-                    heads++;
-                }
-            }
-        }
-        else
-        {
-            for (int i = 0; i < results.Length && heads >= 2; i++)
-            {
-                if (results[i])
-                {
-                    results[i] = false;
-                    heads--;
-                }
-            }
-        }
-
-        return results;
-    }
-
-    private IEnumerator ShowProbabilityRerollTextRoutine()
-    {
-        EnsureProbabilityRerollText();
-        if (probabilityRerollText == null)
-        {
-            yield return new WaitForSeconds(2f);
-            yield break;
-        }
-
-        probabilityRerollText.gameObject.SetActive(true);
-
-        float elapsed = 0f;
-        while (elapsed < 2f)
-        {
-            int dotCount = Mathf.FloorToInt(elapsed / 0.35f) % 3 + 1;
-            probabilityRerollText.text = "재판정 중입니다" + new string('.', dotCount);
-            elapsed += Time.deltaTime;
-            yield return null;
-        }
-
-        probabilityRerollText.gameObject.SetActive(false);
-    }
-
-    private void EnsureProbabilityRerollText()
-    {
-        if (probabilityRerollText != null) return;
-
-        Canvas canvas = null;
-        if (battlePanel != null)
-        {
-            canvas = battlePanel.GetComponentInParent<Canvas>(true);
-        }
-
-        if (canvas == null)
-        {
-            canvas = GetComponentInParent<Canvas>(true);
-        }
-
-        if (canvas == null) return;
-
-        GameObject textObject = new GameObject("ProbabilityRerollText", typeof(RectTransform), typeof(TextMeshProUGUI));
-        textObject.transform.SetParent(canvas.transform, false);
-        textObject.transform.SetAsLastSibling();
-
-        RectTransform rectTransform = textObject.GetComponent<RectTransform>();
-        rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
-        rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-        rectTransform.pivot = new Vector2(0.5f, 0.5f);
-        rectTransform.sizeDelta = new Vector2(520f, 90f);
-        rectTransform.anchoredPosition = Vector2.zero;
-
-        probabilityRerollText = textObject.GetComponent<TextMeshProUGUI>();
-        probabilityRerollText.alignment = TextAlignmentOptions.Center;
-        probabilityRerollText.fontSize = 42f;
-        probabilityRerollText.color = Color.white;
-        probabilityRerollText.raycastTarget = false;
-        probabilityRerollText.gameObject.SetActive(false);
     }
 
     private int ResolveSpecialCardDamage(CardData card)
@@ -2330,13 +2146,7 @@ private int CalculateRewardLux(int bet)
                 gambleResolvedThisUse = true;
                 gambleSucceededThisUse = false;
                 failedGambleCountThisTurn += 1;
-                failedGambleRecordsThisTurn.Add(new FailedGambleRecord
-                {
-                    chance = GetAdjustedGambleSuccessChance(50, false),
-                    successDamage = 40,
-                    failureDamage = 20,
-                    kind = FailedGambleKind.CoinTriple
-                });
+                failedGambleRecordsThisTurn.Add(new FailedGambleRecord { chance = GetAdjustedGambleSuccessChance(50, false), successDamage = 40 });
                 WriteLog($"<color=#ffd166>코인 3연속:</color> 앞면 {heads}/3 실패, 제로가 20 피해를 받았습니다.");
                 return 0;
             }
@@ -2351,13 +2161,7 @@ private int CalculateRewardLux(int bet)
                 if (!success)
                 {
                     failedGambleCountThisTurn += 1;
-                    failedGambleRecordsThisTurn.Add(new FailedGambleRecord
-                    {
-                        chance = chance,
-                        successDamage = 25,
-                        failureDamage = 20,
-                        kind = FailedGambleKind.DoubleDice
-                    });
+                    failedGambleRecordsThisTurn.Add(new FailedGambleRecord { chance = chance, successDamage = 25 });
                 }
                 WriteLog($"<color=#ffd166>주사위:</color> {d1} + {d2} = {total} {(success ? "성공" : "실패")}");
                 return success ? 25 : 0;
@@ -2400,13 +2204,17 @@ private int CalculateRewardLux(int bet)
         else
         {
             int finalDamage = enemyDamage;
-            bool missTriggerActive = reduceEnemyDamageNextTurn;
-            reduceEnemyDamageNextTurn = false;
             
             // 분노 상태일 때 추가 피해
             if (enemyRaged)
             {
                 finalDamage += rageBonusDamage;
+            }
+
+            if (reduceEnemyDamageNextTurn)
+            {
+                finalDamage = Mathf.RoundToInt(finalDamage * 0.3f);
+                reduceEnemyDamageNextTurn = false;
             }
 
             // 공격 무시
@@ -2420,12 +2228,6 @@ private int CalculateRewardLux(int bet)
                 // 데미지 감소
                 finalDamage -= damageReduction;
                 finalDamage = Mathf.Max(finalDamage, 0);
-                finalDamage = ModifyIncomingDamage(finalDamage);
-
-                if (missTriggerActive && finalDamage > 0)
-                {
-                    finalDamage = Mathf.Max(1, Mathf.CeilToInt(finalDamage * 0.3f));
-                }
 
                 // 쉴드 먼저 적용
                 if (shield > 0)
@@ -2435,24 +2237,18 @@ private int CalculateRewardLux(int bet)
                     finalDamage -= absorbed;
                 }
 
-                int actualDamage = ApplyPlayerDamage(finalDamage);
-                if (battleEnded) return;
+                finalDamage = ModifyIncomingDamage(finalDamage);
+                ApplyPlayerDamage(finalDamage);
 
-                resultLog = $"적의 공격 발동. 제로가 {actualDamage} 피해를 받았습니다.";
+                resultLog = $"적의 공격 발동. 제로가 {finalDamage} 피해를 받았습니다.";
 
-                if (reflectNextDamage)
+                if (reflectNextDamage && finalDamage > 0)
                 {
-                    reflectNextDamage = false;
+                    ApplyEnemyDamage(finalDamage);
 
-                    if (actualDamage > 0)
-                    {
-                        ApplyEnemyDamage(actualDamage);
-                        resultLog += $"\n반사 발동! 적에게 {actualDamage} 피해를 되돌렸습니다.";
-                    }
-                    else
-                    {
-                        resultLog += "\n반사 발동! 하지만 제로가 받은 피해가 없어 되돌릴 피해가 없습니다.";
-                    }
+                    resultLog += $"\n반사 발동! 적에게 {finalDamage} 피해를 되돌렸습니다.";
+
+                    reflectNextDamage = false;
                 }
             }
         }
@@ -2616,7 +2412,6 @@ private int CalculateRewardLux(int bet)
         {
             endPanel.SetActive(true);
         }
-        EnsureTestRestartButton();
 
         UpdateUI();
     }
@@ -2630,20 +2425,13 @@ private int CalculateRewardLux(int bet)
 
         WriteLog($"표적 제압 완료. 베팅 성공! 보상 +{rewardLux} LUX. 현재 LUX: {lux}");
 
-        if (endPanel != null)
-        {
-            endPanel.SetActive(true);
-        }
-        EnsureTestRestartButton();
-
         UpdateUI();
         UpdateEnemyDialogue();
+        StartResultTransition("전투에서 승리하였습니다!", victorySceneName, 0.62f);
     }
 
     private void LoseBattle()
     {
-        if (battleEnded) return;
-
         battleEnded = true;
 
         int extraLoss = selectedBet;
@@ -2652,68 +2440,83 @@ private int CalculateRewardLux(int bet)
 
         WriteLog($"제로가 쓰러졌습니다. 베팅 실패. 추가 손실 -{extraLoss} LUX. 현재 LUX: {lux}");
 
-        if (endPanel != null)
-        {
-            endPanel.SetActive(true);
-        }
-        EnsureTestRestartButton();
-
         UpdateUI();
+        StartResultTransition("GAME OVER!", gameOverSceneName, 1f);
     }
 
-    private void EnsureTestRestartButton()
+    private void StartResultTransition(string message, string sceneName, float targetDimAlpha)
     {
-        if (testRestartButton != null)
+        if (resultTransitionStarted)
         {
-            testRestartButton.gameObject.SetActive(true);
             return;
         }
 
-        Transform parent = endPanel != null ? endPanel.transform : null;
-        if (parent == null)
-        {
-            Canvas canvas = GetComponentInParent<Canvas>(true);
-            if (canvas == null) return;
-            parent = canvas.transform;
-        }
-
-        GameObject buttonObject = new GameObject("TestRestartButton", typeof(RectTransform), typeof(Image), typeof(Button));
-        buttonObject.transform.SetParent(parent, false);
-
-        RectTransform buttonTransform = buttonObject.GetComponent<RectTransform>();
-        buttonTransform.anchorMin = new Vector2(0.5f, 0f);
-        buttonTransform.anchorMax = new Vector2(0.5f, 0f);
-        buttonTransform.pivot = new Vector2(0.5f, 0f);
-        buttonTransform.sizeDelta = new Vector2(220f, 58f);
-        buttonTransform.anchoredPosition = new Vector2(0f, 32f);
-
-        Image buttonImage = buttonObject.GetComponent<Image>();
-        buttonImage.color = new Color(0.12f, 0.12f, 0.16f, 0.92f);
-
-        testRestartButton = buttonObject.GetComponent<Button>();
-        testRestartButton.onClick.AddListener(RestartCurrentSceneForTest);
-
-        GameObject textObject = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
-        textObject.transform.SetParent(buttonObject.transform, false);
-
-        RectTransform textTransform = textObject.GetComponent<RectTransform>();
-        textTransform.anchorMin = Vector2.zero;
-        textTransform.anchorMax = Vector2.one;
-        textTransform.offsetMin = Vector2.zero;
-        textTransform.offsetMax = Vector2.zero;
-
-        TextMeshProUGUI text = textObject.GetComponent<TextMeshProUGUI>();
-        text.text = "RESTART";
-        text.alignment = TextAlignmentOptions.Center;
-        text.fontSize = 26f;
-        text.color = Color.white;
-        text.raycastTarget = false;
+        resultTransitionStarted = true;
+        StartCoroutine(ResultTransitionRoutine(message, sceneName, targetDimAlpha));
     }
 
-    private void RestartCurrentSceneForTest()
+    private IEnumerator ResultTransitionRoutine(string message, string sceneName, float targetDimAlpha)
     {
-        Scene activeScene = SceneManager.GetActiveScene();
-        SceneManager.LoadScene(activeScene.buildIndex);
+        Canvas canvas = GetComponentInParent<Canvas>(true);
+        if (canvas == null)
+        {
+#if UNITY_2023_1_OR_NEWER
+            canvas = FindFirstObjectByType<Canvas>();
+#else
+            canvas = FindObjectOfType<Canvas>();
+#endif
+        }
+
+        Transform parent = canvas != null ? canvas.transform : transform;
+        GameObject overlayObject = new GameObject("BattleResultOverlay", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        overlayObject.transform.SetParent(parent, false);
+        overlayObject.transform.SetAsLastSibling();
+
+        RectTransform overlayRect = overlayObject.GetComponent<RectTransform>();
+        overlayRect.anchorMin = Vector2.zero;
+        overlayRect.anchorMax = Vector2.one;
+        overlayRect.offsetMin = Vector2.zero;
+        overlayRect.offsetMax = Vector2.zero;
+
+        Image overlayImage = overlayObject.GetComponent<Image>();
+        overlayImage.color = new Color(0f, 0f, 0f, 0f);
+        overlayImage.raycastTarget = true;
+
+        GameObject textObject = new GameObject("ResultText", typeof(RectTransform), typeof(TextMeshProUGUI));
+        textObject.transform.SetParent(overlayObject.transform, false);
+
+        RectTransform textRect = textObject.GetComponent<RectTransform>();
+        textRect.anchorMin = new Vector2(0.5f, 0.5f);
+        textRect.anchorMax = new Vector2(0.5f, 0.5f);
+        textRect.pivot = new Vector2(0.5f, 0.5f);
+        textRect.anchoredPosition = Vector2.zero;
+        textRect.sizeDelta = new Vector2(1100f, 160f);
+
+        TextMeshProUGUI resultText = textObject.GetComponent<TextMeshProUGUI>();
+        resultText.text = message;
+        resultText.fontSize = 74f;
+        resultText.alignment = TextAlignmentOptions.Center;
+        resultText.color = new Color(1f, 1f, 1f, 0f);
+        resultText.raycastTarget = false;
+
+        float elapsed = 0f;
+        while (elapsed < resultFadeDuration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float t = resultFadeDuration <= 0f ? 1f : Mathf.Clamp01(elapsed / resultFadeDuration);
+            overlayImage.color = new Color(0f, 0f, 0f, Mathf.Lerp(0f, targetDimAlpha, t));
+            resultText.color = new Color(1f, 1f, 1f, t);
+            yield return null;
+        }
+
+        overlayImage.color = new Color(0f, 0f, 0f, targetDimAlpha);
+        resultText.color = Color.white;
+        yield return new WaitForSecondsRealtime(resultHoldDuration);
+
+        if (!string.IsNullOrWhiteSpace(sceneName))
+        {
+            SceneManager.LoadScene(sceneName);
+        }
     }
 
     private void UpdateBettingUI()
@@ -2818,7 +2621,7 @@ private void DrawCards(int count)
             }
         }
 
-        if (CanDrawCardInCurrentLuxState(card) && ShouldDrawGambleCardInCurrentLuxState(card))
+        if (CanDrawCardInCurrentLuxState(card))
         {
             hand.Add(card);
         }
@@ -2872,7 +2675,7 @@ private bool IsLowLuxGuaranteedLuxCard(CardData card)
     if (card == null) return false;
     if (card.isJackpot) return false;
 
-    return IsLuxTypeCard(card);
+    return card.luxGain > 0 || card.specialEffect == SpecialCardEffect.LuxDrain;
 }
 
 private void ReshuffleDiscardIntoDeck()
@@ -2901,6 +2704,12 @@ private void Shuffle(List<CardData> list)
 
 private IEnumerator RefreshHandUIRoutine()
 {
+    EnsureHandPanel();
+    if (handPanel == null)
+    {
+        yield break;
+    }
+
     foreach (Transform child in handPanel)
     {
         Destroy(child.gameObject);
@@ -3107,31 +2916,31 @@ private void CheckEnemyRage()
 
         if (enemyHP <= 0)
         {
-            enemyDialogueText.text = "카림은 쓰러졌지만, 그녀의 기록 장치는 아직 깜빡이고 있다.";
+            enemyDialogueText.text = "...";
         }
         else if (hpRate <= 0.15f)
         {
-            enemyDialogueText.text = "하하… 하하하… 재미있네요. 같은 피해자끼리 비극을 만들다니.";
+            enemyDialogueText.text = "하하.. 하하하... 악마같은 사람.";
         }
         else if (hpRate <= 0.30f)
         {
-            enemyDialogueText.text = "“당신이 날 죽여도 영상은 업로드될 겁니다. 무얼 위해서 날 처리하려는 거죠?”";
+            enemyDialogueText.text = "“...절 죽일 셈이군요.”";
         }
         else if (hpRate <= 0.45f)
         {
-            enemyDialogueText.text = "“당신도 같은 피해자입니다. 안타깝게도.”";
+            enemyDialogueText.text = "“안타깝게도 전 물러서지 않을 겁니다.”";
         }
         else if (hpRate <= 0.60f)
         {
-            enemyDialogueText.text = "“당신도 저 벽에 있어요. 23번.”";
+            enemyDialogueText.text = "“할머니가 무슨 죄를 지었다고 이러는 겁니까.”";
         }
         else if (hpRate <= 0.80f)
         {
-            enemyDialogueText.text = "“내 아내는 LUX를 팔고 죽었습니다. 당신들 때문에.”";
+            enemyDialogueText.text = "“당신들 때문에 지하 구역 시민들은 죽어나가고 있습니다.”";
         }
         else
         {
-            enemyDialogueText.text = "“당신 같은 사람이 올 줄 알았습니다. 난 이미 각오했습니다.”";
+            enemyDialogueText.text = "“전 이미 각오했습니다. 덤벼요.”";
         }
     }
 
