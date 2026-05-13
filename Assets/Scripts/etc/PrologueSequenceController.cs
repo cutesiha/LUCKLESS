@@ -67,6 +67,7 @@ public class PrologueSequenceController : MonoBehaviour
 
     [Header("Dialogue")]
     [SerializeField] private PrologueDialogueCanvas[] dialogueCanvases;
+    [SerializeField] private int firstDialogueCanvasIndex = 1;
     [HideInInspector] [SerializeField] private bool dialogueCanvasesMigrated;
     [HideInInspector] public PrologueDialogueLine[] canvas1Lines;
     [HideInInspector] public PrologueDialogueLine[] canvas2Lines;
@@ -147,9 +148,10 @@ public class PrologueSequenceController : MonoBehaviour
         PrepareDialogueCanvases();
         EnsureDialogueControlButtons();
 
-        SetActiveDialogueCanvas(0);
+        bool startAtTitle = GetFirstDialogueCanvasIndex() > 0;
 
-        SetDialogueVisible(true);
+        SetActiveDialogueCanvas(startAtTitle ? -1 : GetFirstDialogueCanvasIndex());
+        SetDialogueVisible(!startAtTitle);
         SetGroup(titleGroup, 0f, false);
         CacheEyeCoverPositions();
         SetEyeCoversVisible(false);
@@ -211,15 +213,36 @@ public class PrologueSequenceController : MonoBehaviour
             yield break;
         }
 
-        yield return PlayDialogueCanvas(0);
-        yield return FadeGroup(dialogueGroup, 1f, 0f, fadeDuration, false);
-        yield return new WaitForSecondsRealtime(titleAppearDelayAfterDialogue);
-        yield return PlayTitleTransition();
+        int firstCanvasIndex = GetFirstDialogueCanvasIndex();
 
-        for (int i = 1; i < dialogueCanvases.Length; i++)
+        if (firstCanvasIndex == 0)
+        {
+            yield return PlayDialogueCanvas(0);
+            yield return FadeGroup(dialogueGroup, 1f, 0f, fadeDuration, false);
+            yield return new WaitForSecondsRealtime(titleAppearDelayAfterDialogue);
+            yield return PlayTitleTransition();
+            firstCanvasIndex = 1;
+        }
+        else
+        {
+            SetDialogueVisible(false);
+            yield return PlayTitleTransition();
+        }
+
+        for (int i = firstCanvasIndex; i < dialogueCanvases.Length; i++)
         {
             yield return PlayDialogueCanvas(i);
         }
+    }
+
+    private int GetFirstDialogueCanvasIndex()
+    {
+        if (dialogueCanvases == null || dialogueCanvases.Length == 0)
+        {
+            return 0;
+        }
+
+        return Mathf.Clamp(firstDialogueCanvasIndex, 0, dialogueCanvases.Length - 1);
     }
 
     private IEnumerator PlayDialogueCanvas(int canvasIndex)
@@ -1365,7 +1388,7 @@ public class PrologueSequenceController : MonoBehaviour
         return Input.GetMouseButtonDown(0) || Input.touchCount > 0;
     }
 
-    private IEnumerator PlayTitleTransition()
+    private IEnumerator PlayTitleTransition(bool titleAlreadyVisible = false)
     {
         if (titleTransitionPlayed)
         {
@@ -1386,7 +1409,16 @@ public class PrologueSequenceController : MonoBehaviour
         }
 
         StartTitleMusic();
-        yield return FadeGroup(titleGroup, 0f, 1f, titleFadeDuration, true);
+
+        if (titleAlreadyVisible)
+        {
+            SetGroup(titleGroup, 1f, true);
+        }
+        else
+        {
+            yield return FadeGroup(titleGroup, 0f, 1f, titleFadeDuration, true);
+        }
+
         yield return new WaitForSecondsRealtime(titleHoldSeconds);
 
         if (dialogueCanvases != null && dialogueCanvases.Length > 1)

@@ -1197,8 +1197,10 @@ MonoBehaviour:
   clickAction: 2
   prologueSceneName: Prologue
   flashTime: 0.18
-  fadeTime: 0.55
+  fadeTime: 0.8
+  audioFadeTime: 2
   sceneLoadDelayAfterFade: 2
+  audioSourcesToFade: []
 --- !u!1 &1081182486
 GameObject:
   m_ObjectHideFlags: 0
@@ -1248,7 +1250,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: 021ef4fedfc089847b64366b04b5aa8a, type: 3}
   m_PlayOnAwake: 1
-  m_Volume: 0.74
+  m_Volume: 0.651
   m_Pitch: 1
   Loop: 1
   Mute: 0
@@ -1946,8 +1948,10 @@ MonoBehaviour:
   clickAction: 0
   prologueSceneName: Prologue
   flashTime: 0.18
-  fadeTime: 0.55
+  fadeTime: 0.8
+  audioFadeTime: 2
   sceneLoadDelayAfterFade: 2
+  audioSourcesToFade: []
 --- !u!1 &1679658907
 GameObject:
   m_ObjectHideFlags: 0
@@ -2308,8 +2312,10 @@ MonoBehaviour:
   clickAction: 0
   prologueSceneName: Prologue
   flashTime: 0.18
-  fadeTime: 0.55
+  fadeTime: 0.8
+  audioFadeTime: 2
   sceneLoadDelayAfterFade: 2
+  audioSourcesToFade: []
 --- !u!1 &1974189349
 GameObject:
   m_ObjectHideFlags: 0
@@ -2403,8 +2409,10 @@ MonoBehaviour:
   clickAction: 1
   prologueSceneName: Prologue
   flashTime: 0.18
-  fadeTime: 0.55
+  fadeTime: 0.8
+  audioFadeTime: 2
   sceneLoadDelayAfterFade: 2
+  audioSourcesToFade: []
 --- !u!1 &2023935777
 GameObject:
   m_ObjectHideFlags: 0

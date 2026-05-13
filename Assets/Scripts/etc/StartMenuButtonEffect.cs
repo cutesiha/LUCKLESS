@@ -23,8 +23,10 @@ public class StartMenuButtonEffect : MonoBehaviour, IPointerEnterHandler, IPoint
     [SerializeField] private ClickAction clickAction = ClickAction.AutoByObjectName;
     [SerializeField] private string prologueSceneName = "Prologue";
     [SerializeField] private float flashTime = 0.18f;
-    [SerializeField] private float fadeTime = 0.55f;
+    [SerializeField] private float fadeTime = 0.8f;
+    [SerializeField] private float audioFadeTime = 2f;
     [SerializeField] private float sceneLoadDelayAfterFade = 2f;
+    [SerializeField] private AudioSource[] audioSourcesToFade;
 
     private RectTransform rectTransform;
     private Image image;
@@ -151,7 +153,7 @@ public class StartMenuButtonEffect : MonoBehaviour, IPointerEnterHandler, IPoint
         }
 
         yield return FlashButton();
-        yield return FadeScreenToBlack();
+        yield return FadeOutScreenAndAudio();
 
         if (resolvedAction == ClickAction.LoadPrologue)
         {
@@ -209,6 +211,74 @@ public class StartMenuButtonEffect : MonoBehaviour, IPointerEnterHandler, IPoint
         flashImage.raycastTarget = false;
         flashImage.color = new Color(1f, 1f, 1f, 0f);
         return flashImage;
+    }
+
+    private IEnumerator FadeOutScreenAndAudio()
+    {
+        Coroutine audioFadeRoutine = StartCoroutine(FadeOutAudioSources());
+        yield return FadeScreenToBlack();
+
+        if (audioFadeRoutine != null)
+        {
+            yield return audioFadeRoutine;
+        }
+    }
+
+    private IEnumerator FadeOutAudioSources()
+    {
+        AudioSource[] sources = GetAudioSourcesToFade();
+
+        if (sources.Length == 0)
+        {
+            yield break;
+        }
+
+        float[] startVolumes = new float[sources.Length];
+
+        for (int i = 0; i < sources.Length; i++)
+        {
+            if (sources[i] != null)
+            {
+                startVolumes[i] = sources[i].volume;
+            }
+        }
+
+        float elapsed = 0f;
+
+        while (elapsed < audioFadeTime)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsed / audioFadeTime);
+
+            for (int i = 0; i < sources.Length; i++)
+            {
+                if (sources[i] != null)
+                {
+                    sources[i].volume = Mathf.Lerp(startVolumes[i], 0f, t);
+                }
+            }
+
+            yield return null;
+        }
+
+        for (int i = 0; i < sources.Length; i++)
+        {
+            if (sources[i] != null)
+            {
+                sources[i].volume = 0f;
+                sources[i].Stop();
+            }
+        }
+    }
+
+    private AudioSource[] GetAudioSourcesToFade()
+    {
+        if (audioSourcesToFade != null && audioSourcesToFade.Length > 0)
+        {
+            return audioSourcesToFade;
+        }
+
+        return FindObjectsByType<AudioSource>(FindObjectsSortMode.None);
     }
 
     private IEnumerator FadeScreenToBlack()

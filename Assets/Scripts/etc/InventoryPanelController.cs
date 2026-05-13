@@ -429,6 +429,7 @@ public class InventoryPanelController : MonoBehaviour
 
         glossaryPanel.SetActive(true);
         glossaryPanel.transform.SetAsLastSibling();
+        RebuildGlossaryListLayout();
         BringCloseButtonToFront();
         ResetInventoryImageHoverColors();
     }
@@ -1312,7 +1313,7 @@ public class InventoryPanelController : MonoBehaviour
         item.arrow.text = item.isOpen ? "▼" : "▶";
         item.arrow.color = item.isOpen ? Pink : TextDim;
         Canvas.ForceUpdateCanvases();
-        if (glossaryTermList != null) LayoutRebuilder.ForceRebuildLayoutImmediate(glossaryTermList);
+        RebuildGlossaryListLayout();
     }
 
     private void OnGlossarySearchChanged(string query)
@@ -1388,7 +1389,29 @@ public class InventoryPanelController : MonoBehaviour
             item.root.SetActive(catOk && srchOk);
         }
         Canvas.ForceUpdateCanvases();
-        if (glossaryTermList != null) LayoutRebuilder.ForceRebuildLayoutImmediate(glossaryTermList);
+        RebuildGlossaryListLayout();
+    }
+
+    private void RebuildGlossaryListLayout()
+    {
+        if (glossaryTermList == null)
+        {
+            return;
+        }
+
+        Canvas.ForceUpdateCanvases();
+        LayoutRebuilder.ForceRebuildLayoutImmediate(glossaryTermList);
+
+        float preferredHeight = LayoutUtility.GetPreferredHeight(glossaryTermList);
+        float viewportHeight = glossaryScroll != null && glossaryScroll.viewport != null
+            ? glossaryScroll.viewport.rect.height
+            : 0f;
+
+        glossaryTermList.SetSizeWithCurrentAnchors(
+            RectTransform.Axis.Vertical,
+            Mathf.Max(preferredHeight, viewportHeight + 1f));
+
+        Canvas.ForceUpdateCanvases();
     }
 
     private (Color bg, Color txt) GetGlossaryBadgeColors(string cat)
