@@ -1118,6 +1118,7 @@ public class PrologueSequenceController : MonoBehaviour
         if (rewardDimImage != null)
         {
             rewardDimImage.raycastTarget = true;
+            rewardDimImage.transform.SetAsLastSibling();
             float startAlpha = rewardDimImage.color.a;
             yield return FadeImageAlpha(rewardDimImage, startAlpha, 1f, 0.75f);
         }

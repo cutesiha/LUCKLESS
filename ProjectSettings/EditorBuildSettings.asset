@@ -6,11 +6,17 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/Canvas.unity
-    guid: 8c9cfa26abfee488c85f1582747f6a02
+    path: Assets/Scenes/Start.unity
+    guid: ec37ac090f0f5d340aa3e6b82acdab35
   - enabled: 1
     path: Assets/Scenes/Prologue.unity
     guid: df7761d50c210784f93393f53d9b1f24
+  - enabled: 1
+    path: Assets/Scenes/MainScene.unity
+    guid: 66c346ed4a5a0594d8a3e57ac6e43ce9
+  - enabled: 1
+    path: Assets/Scenes/Idapen.unity
+    guid: 09f0d38848baa2343972e5e3e4dcbbcf
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}
   m_UseUCBPForAssetBundles: 0

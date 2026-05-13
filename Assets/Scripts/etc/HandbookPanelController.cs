@@ -21,6 +21,11 @@ public class HandbookPanelController : MonoBehaviour
         SetupHandbookInteractions();
     }
 
+    public void SetInventoryPanel(GameObject panel)
+    {
+        inventoryPanel = panel;
+    }
+
     public void OpenInventoryPanel()
     {
         GameObject targetPanel = GetInventoryPanel();
