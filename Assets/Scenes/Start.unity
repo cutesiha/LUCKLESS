@@ -1115,13 +1115,14 @@ GameObject:
   - component: {fileID: 867182530}
   - component: {fileID: 867182532}
   - component: {fileID: 867182531}
+  - component: {fileID: 867182533}
   m_Layer: 5
   m_Name: MenuButtonLayer_04
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &867182530
 RectTransform:
   m_ObjectHideFlags: 0
@@ -1138,8 +1139,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -15, y: 28}
-  m_SizeDelta: {x: 1954.76, y: 1172.85}
+  m_AnchoredPosition: {x: 788, y: -487}
+  m_SizeDelta: {x: 368.37, y: 104.34}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &867182531
 MonoBehaviour:
@@ -1161,7 +1162,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: e5529995dfa86f144ad88146817a784b, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 4ba64591c6f2e0a43a87b67d74358f41, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -1179,6 +1180,25 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 867182529}
   m_CullTransparentMesh: 1
+--- !u!114 &867182533
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 867182529}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5d5b9422babb20644a6b3add57af8596, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::StartMenuButtonEffect
+  hoverOffsetX: 34
+  hoverMoveTime: 0.16
+  clickAction: 2
+  prologueSceneName: Prologue
+  flashTime: 0.18
+  fadeTime: 0.55
+  sceneLoadDelayAfterFade: 2
 --- !u!1 &1081182486
 GameObject:
   m_ObjectHideFlags: 0
@@ -1844,13 +1864,14 @@ GameObject:
   - component: {fileID: 1678879194}
   - component: {fileID: 1678879196}
   - component: {fileID: 1678879195}
+  - component: {fileID: 1678879197}
   m_Layer: 5
   m_Name: MenuButtonLayer_03
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1678879194
 RectTransform:
   m_ObjectHideFlags: 0
@@ -1867,8 +1888,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -15, y: 28}
-  m_SizeDelta: {x: 1954.76, y: 1172.85}
+  m_AnchoredPosition: {x: 695.11, y: -382.45}
+  m_SizeDelta: {x: 571.93, y: 100.83}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1678879195
 MonoBehaviour:
@@ -1890,7 +1911,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 14f458b74e1c18b448794d763c886d40, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 47ea03dc82aefda43b5c0b6d34893e50, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -1908,6 +1929,25 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1678879193}
   m_CullTransparentMesh: 1
+--- !u!114 &1678879197
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1678879193}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5d5b9422babb20644a6b3add57af8596, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::StartMenuButtonEffect
+  hoverOffsetX: 34
+  hoverMoveTime: 0.16
+  clickAction: 0
+  prologueSceneName: Prologue
+  flashTime: 0.18
+  fadeTime: 0.55
+  sceneLoadDelayAfterFade: 2
 --- !u!1 &1679658907
 GameObject:
   m_ObjectHideFlags: 0
@@ -2186,13 +2226,14 @@ GameObject:
   - component: {fileID: 1900981071}
   - component: {fileID: 1900981073}
   - component: {fileID: 1900981072}
+  - component: {fileID: 1900981074}
   m_Layer: 5
   m_Name: MenuButtonLayer_02
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1900981071
 RectTransform:
   m_ObjectHideFlags: 0
@@ -2209,8 +2250,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -15, y: 28}
-  m_SizeDelta: {x: 1954.76, y: 1172.85}
+  m_AnchoredPosition: {x: 767, y: -284}
+  m_SizeDelta: {x: 385.78, y: 94.96}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1900981072
 MonoBehaviour:
@@ -2232,7 +2273,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 0234987dcf2da1842a683e82f299a552, type: 3}
+  m_Sprite: {fileID: 21300000, guid: dadca2b2f1dbb8f47a2e1b1ff114568b, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -2250,6 +2291,25 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1900981070}
   m_CullTransparentMesh: 1
+--- !u!114 &1900981074
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1900981070}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5d5b9422babb20644a6b3add57af8596, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::StartMenuButtonEffect
+  hoverOffsetX: 34
+  hoverMoveTime: 0.16
+  clickAction: 0
+  prologueSceneName: Prologue
+  flashTime: 0.18
+  fadeTime: 0.55
+  sceneLoadDelayAfterFade: 2
 --- !u!1 &1974189349
 GameObject:
   m_ObjectHideFlags: 0
@@ -2261,13 +2321,14 @@ GameObject:
   - component: {fileID: 1974189350}
   - component: {fileID: 1974189352}
   - component: {fileID: 1974189351}
+  - component: {fileID: 1974189353}
   m_Layer: 5
   m_Name: MenuButtonLayer_01
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1974189350
 RectTransform:
   m_ObjectHideFlags: 0
@@ -2284,8 +2345,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -15, y: 28}
-  m_SizeDelta: {x: 1954.76, y: 1172.85}
+  m_AnchoredPosition: {x: 733, y: -182}
+  m_SizeDelta: {x: 474.34, y: 94.26}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1974189351
 MonoBehaviour:
@@ -2307,7 +2368,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: a9fc1aa4021b2e44a941ce854d54ff9d, type: 3}
+  m_Sprite: {fileID: 21300000, guid: f27bab779e2e8d54eb04fcbd00183842, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -2325,6 +2386,25 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1974189349}
   m_CullTransparentMesh: 1
+--- !u!114 &1974189353
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1974189349}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5d5b9422babb20644a6b3add57af8596, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::StartMenuButtonEffect
+  hoverOffsetX: 34
+  hoverMoveTime: 0.16
+  clickAction: 1
+  prologueSceneName: Prologue
+  flashTime: 0.18
+  fadeTime: 0.55
+  sceneLoadDelayAfterFade: 2
 --- !u!1 &2023935777
 GameObject:
   m_ObjectHideFlags: 0

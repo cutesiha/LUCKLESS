@@ -7,11 +7,11 @@ public static class HideTextMeshProGameViewIcons
 {
     static HideTextMeshProGameViewIcons()
     {
-        EditorApplication.delayCall += HideTextMeshProIcons;
-        EditorApplication.playModeStateChanged += _ => EditorApplication.delayCall += HideTextMeshProIcons;
+        EditorApplication.delayCall += HideNoisyGameViewIcons;
+        EditorApplication.playModeStateChanged += _ => EditorApplication.delayCall += HideNoisyGameViewIcons;
     }
 
-    private static void HideTextMeshProIcons()
+    private static void HideNoisyGameViewIcons()
     {
         try
         {
@@ -30,6 +30,12 @@ public static class HideTextMeshProGameViewIcons
                 BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public,
                 null,
                 new[] { typeof(int), typeof(string), typeof(int) },
+                null);
+            MethodInfo setGizmoEnabled = annotationUtility.GetMethod(
+                "SetGizmoEnabled",
+                BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public,
+                null,
+                new[] { typeof(int), typeof(string), typeof(int), typeof(bool) },
                 null);
 
             if (getAnnotations == null || setIconEnabled == null)
@@ -55,15 +61,15 @@ public static class HideTextMeshProGameViewIcons
                     continue;
                 }
 
+                int classId = (int)classIdField.GetValue(annotation);
                 string scriptClass = scriptClassField.GetValue(annotation) as string;
 
-                if (string.IsNullOrEmpty(scriptClass) || !scriptClass.Contains("TextMeshPro"))
-                {
-                    continue;
-                }
-
-                int classId = (int)classIdField.GetValue(annotation);
                 setIconEnabled.Invoke(null, new object[] { classId, scriptClass, 0 });
+
+                if (setGizmoEnabled != null)
+                {
+                    setGizmoEnabled.Invoke(null, new object[] { classId, scriptClass, 0, false });
+                }
             }
         }
         catch
