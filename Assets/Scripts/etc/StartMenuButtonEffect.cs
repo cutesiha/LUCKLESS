@@ -28,6 +28,10 @@ public class StartMenuButtonEffect : MonoBehaviour, IPointerEnterHandler, IPoint
     [SerializeField] private float sceneLoadDelayAfterFade = 2f;
     [SerializeField] private AudioSource[] audioSourcesToFade;
 
+    [Header("SFX")]
+    [SerializeField] private AudioSource sfxSource;
+    [SerializeField] private AudioClip clickClip;
+
     private RectTransform rectTransform;
     private Image image;
     private Vector2 restPosition;
@@ -86,7 +90,19 @@ public class StartMenuButtonEffect : MonoBehaviour, IPointerEnterHandler, IPoint
             return;
         }
 
+        PlayClickSfx();
         StartCoroutine(PlayClickAndRun(resolvedAction));
+    }
+
+    private void PlayClickSfx()
+    {
+        if (sfxSource == null || clickClip == null)
+        {
+            return;
+        }
+
+        float volume = Mathf.Clamp01(PlayerPrefs.GetFloat("SFX", 1f));
+        sfxSource.PlayOneShot(clickClip, volume);
     }
 
     private ClickAction ResolveAction()

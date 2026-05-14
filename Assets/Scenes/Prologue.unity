@@ -2559,8 +2559,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Canvas 2
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
+  m_sharedMaterial: {fileID: 6301557175569863728, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -3155,8 +3155,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Canvas 2
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
+  m_sharedMaterial: {fileID: 6301557175569863728, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -4140,6 +4140,14 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 647398584774403148, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
+      propertyPath: m_fontAsset
+      value: 
+      objectReference: {fileID: 11400000, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
+    - target: {fileID: 647398584774403148, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
+      propertyPath: m_sharedMaterial
+      value: 
+      objectReference: {fileID: 6301557175569863728, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
     - target: {fileID: 1985871486617541855, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
       propertyPath: m_IsActive
       value: 0
@@ -4152,6 +4160,14 @@ PrefabInstance:
       propertyPath: m_IsActive
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 5581896004677586602, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
+      propertyPath: m_fontAsset
+      value: 
+      objectReference: {fileID: 11400000, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
+    - target: {fileID: 5581896004677586602, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
+      propertyPath: m_sharedMaterial
+      value: 
+      objectReference: {fileID: 6301557175569863728, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
     - target: {fileID: 6859003354056574574, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
       propertyPath: m_SizeDelta.x
       value: 669.9288

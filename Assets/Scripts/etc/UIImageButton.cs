@@ -18,8 +18,14 @@ public class UIImageButton : MonoBehaviour, IPointerClickHandler
     public ButtonType buttonType;
     public StartMenu menu;
 
+    [Header("SFX")]
+    [SerializeField] private AudioSource sfxSource;
+    [SerializeField] private AudioClip clickClip;
+
     public void OnPointerClick(PointerEventData eventData)
     {
+        PlayClickSfx();
+
         switch (buttonType)
         {
             case ButtonType.Start:
@@ -54,5 +60,16 @@ public class UIImageButton : MonoBehaviour, IPointerClickHandler
                 menu.CloseLoad();
                 break;
         }
+    }
+
+    private void PlayClickSfx()
+    {
+        if (sfxSource == null || clickClip == null)
+        {
+            return;
+        }
+
+        float volume = Mathf.Clamp01(PlayerPrefs.GetFloat("SFX", 1f));
+        sfxSource.PlayOneShot(clickClip, volume);
     }
 }

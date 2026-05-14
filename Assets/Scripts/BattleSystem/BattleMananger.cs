@@ -99,6 +99,8 @@ public class BattleManager : MonoBehaviour
     [SerializeField] private string victorySceneName = "WinScene";
     [SerializeField] private float resultFadeDuration = 0.8f;
     [SerializeField] private float resultHoldDuration = 2f;
+    [SerializeField] private string missionScoreId = BattleScoreStore.DefaultMissionId;
+
 
     [Header("Panels")]
     public GameObject bettingPanel;
@@ -2427,7 +2429,10 @@ private int CalculateRewardLux(int bet)
 
         UpdateUI();
         UpdateEnemyDialogue();
-        StartResultTransition("전투에서 승리하였습니다!", victorySceneName, 0.62f);
+
+        int score = BattleScoreStore.CalculateScore(turn);
+        BattleScoreStore.SaveScore(missionScoreId, score);
+        StartResultTransition("전투에서 승리하였습니다!", victorySceneName, score);
     }
 
     private void LoseBattle()
@@ -2441,10 +2446,10 @@ private int CalculateRewardLux(int bet)
         WriteLog($"제로가 쓰러졌습니다. 베팅 실패. 추가 손실 -{extraLoss} LUX. 현재 LUX: {lux}");
 
         UpdateUI();
-        StartResultTransition("GAME OVER!", gameOverSceneName, 1f);
+        StartResultTransition("GAME OVER!", gameOverSceneName);
     }
 
-    private void StartResultTransition(string message, string sceneName, float targetDimAlpha)
+    private void StartResultTransition(string message, string sceneName, int score = -1)
     {
         if (resultTransitionStarted)
         {
@@ -2452,10 +2457,10 @@ private int CalculateRewardLux(int bet)
         }
 
         resultTransitionStarted = true;
-        StartCoroutine(ResultTransitionRoutine(message, sceneName, targetDimAlpha));
+        StartCoroutine(ResultTransitionRoutine(message, sceneName, score));
     }
 
-    private IEnumerator ResultTransitionRoutine(string message, string sceneName, float targetDimAlpha)
+    private IEnumerator ResultTransitionRoutine(string message, string sceneName, int score)
     {
         Canvas canvas = GetComponentInParent<Canvas>(true);
         if (canvas == null)
@@ -2489,28 +2494,69 @@ private int CalculateRewardLux(int bet)
         textRect.anchorMin = new Vector2(0.5f, 0.5f);
         textRect.anchorMax = new Vector2(0.5f, 0.5f);
         textRect.pivot = new Vector2(0.5f, 0.5f);
-        textRect.anchoredPosition = Vector2.zero;
+        textRect.anchoredPosition = score >= 0 ? new Vector2(0f, 42f) : Vector2.zero;
         textRect.sizeDelta = new Vector2(1100f, 160f);
 
         TextMeshProUGUI resultText = textObject.GetComponent<TextMeshProUGUI>();
         resultText.text = message;
+        if (TMP_Settings.defaultFontAsset != null)
+        {
+            resultText.font = TMP_Settings.defaultFontAsset;
+        }
+
         resultText.fontSize = 74f;
         resultText.alignment = TextAlignmentOptions.Center;
         resultText.color = new Color(1f, 1f, 1f, 0f);
         resultText.raycastTarget = false;
+
+        TextMeshProUGUI scoreText = null;
+        if (score >= 0)
+        {
+            GameObject scoreObject = new GameObject("ResultScoreText", typeof(RectTransform), typeof(TextMeshProUGUI));
+            scoreObject.transform.SetParent(overlayObject.transform, false);
+
+            RectTransform scoreRect = scoreObject.GetComponent<RectTransform>();
+            scoreRect.anchorMin = new Vector2(0.5f, 0.5f);
+            scoreRect.anchorMax = new Vector2(0.5f, 0.5f);
+            scoreRect.pivot = new Vector2(0.5f, 0.5f);
+            scoreRect.anchoredPosition = new Vector2(0f, -52f);
+            scoreRect.sizeDelta = new Vector2(780f, 80f);
+
+            scoreText = scoreObject.GetComponent<TextMeshProUGUI>();
+            scoreText.text = $"점수: {score}";
+            if (TMP_Settings.defaultFontAsset != null)
+            {
+                scoreText.font = TMP_Settings.defaultFontAsset;
+            }
+            scoreText.fontSize = 44f;
+            scoreText.alignment = TextAlignmentOptions.Center;
+            scoreText.color = new Color(1f, 1f, 1f, 0f);
+            scoreText.raycastTarget = false;
+        }
+
 
         float elapsed = 0f;
         while (elapsed < resultFadeDuration)
         {
             elapsed += Time.unscaledDeltaTime;
             float t = resultFadeDuration <= 0f ? 1f : Mathf.Clamp01(elapsed / resultFadeDuration);
-            overlayImage.color = new Color(0f, 0f, 0f, Mathf.Lerp(0f, targetDimAlpha, t));
+            overlayImage.color = new Color(0f, 0f, 0f, t);
             resultText.color = new Color(1f, 1f, 1f, t);
+            if (scoreText != null)
+            {
+                scoreText.color = new Color(1f, 1f, 1f, t);
+            }
+
             yield return null;
         }
 
-        overlayImage.color = new Color(0f, 0f, 0f, targetDimAlpha);
+        overlayImage.color = Color.black;
         resultText.color = Color.white;
+        if (scoreText != null)
+        {
+            scoreText.color = Color.white;
+        }
+
         yield return new WaitForSecondsRealtime(resultHoldDuration);
 
         if (!string.IsNullOrWhiteSpace(sceneName))

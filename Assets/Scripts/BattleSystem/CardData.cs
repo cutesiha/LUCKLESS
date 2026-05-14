@@ -13,6 +13,7 @@ public class CardData : ScriptableObject
     public int emotionGain;
 
     [Header("Card Extra")]
+    public Sprite cardImage;
     public int selfDamage;
     public int gambleSuccessChance = 50;
     public 

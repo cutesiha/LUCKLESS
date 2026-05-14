@@ -15,6 +15,10 @@ public class MissionPanelHoverController : MonoBehaviour
     [SerializeField] private string firstMissionSceneName = "Idapen";
     [SerializeField] private float sceneFadeDuration = 0.8f;
     [SerializeField] private float sceneLoadHoldSeconds = 1f;
+    [SerializeField] private Vector2 missionScoreLabelOffset = new Vector2(18f, 0f);
+    [SerializeField] private Vector2 missionScoreLabelSize = new Vector2(260f, 136f);
+    [SerializeField] private float missionScoreFontSize = 22f;
+
 
     private TextMeshProUGUI lockedMessageText;
     private CanvasGroup lockedMessageGroup;
@@ -81,6 +85,12 @@ public class MissionPanelHoverController : MonoBehaviour
 
         EnsureLockedMessage();
     }
+
+private void OnEnable()
+    {
+        EnsureMissionScoreLabels();
+    }
+
 
     private void SetupGrayHover(Image image)
     {
@@ -294,6 +304,8 @@ public class MissionPanelHoverController : MonoBehaviour
     private void ShowLockedMessage()
     {
         EnsureLockedMessage();
+        EnsureMissionScoreLabels();
+
 
         if (lockedMessageRoutine != null)
         {
@@ -413,5 +425,78 @@ public class MissionPanelHoverController : MonoBehaviour
         EventTrigger.Entry entry = new EventTrigger.Entry { eventID = eventType };
         entry.callback.AddListener(_ => callback());
         trigger.triggers.Add(entry);
+    }
+
+
+private void EnsureMissionScoreLabels()
+    {
+        Image[] images = GetComponentsInChildren<Image>(true);
+
+        for (int i = 0; i < images.Length; i++)
+        {
+            Image image = images[i];
+            if (image == null || !IsMissionButton(image.name))
+            {
+                continue;
+            }
+
+            TextMeshProUGUI label = GetOrCreateMissionScoreLabel(image.rectTransform);
+            string missionId = GetMissionId(image.name);
+            int currentScore = BattleScoreStore.GetCurrentScore(missionId);
+            int bestScore = BattleScoreStore.GetBestScore(missionId);
+            label.text = $"현재점수: {currentScore}\n최고점수: {bestScore}";
+        }
+    }
+
+    private TextMeshProUGUI GetOrCreateMissionScoreLabel(RectTransform buttonTransform)
+    {
+        const string labelName = "MissionScoreText";
+        Transform existing = buttonTransform.Find(labelName);
+        TextMeshProUGUI label;
+
+        if (existing != null)
+        {
+            label = existing.GetComponent<TextMeshProUGUI>();
+        }
+        else
+        {
+            GameObject labelObject = new GameObject(labelName, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            labelObject.transform.SetParent(buttonTransform, false);
+            label = labelObject.GetComponent<TextMeshProUGUI>();
+        }
+
+        RectTransform labelTransform = label.rectTransform;
+        labelTransform.anchorMin = new Vector2(1f, 0.5f);
+        labelTransform.anchorMax = new Vector2(1f, 0.5f);
+        labelTransform.pivot = new Vector2(0f, 0.5f);
+        labelTransform.anchoredPosition = missionScoreLabelOffset;
+        labelTransform.sizeDelta = missionScoreLabelSize;
+
+        if (TMP_Settings.defaultFontAsset != null)
+        {
+            label.font = TMP_Settings.defaultFontAsset;
+        }
+
+        label.fontSize = missionScoreFontSize;
+        label.color = Color.white;
+        label.alignment = TextAlignmentOptions.MidlineLeft;
+        label.raycastTarget = false;
+        label.textWrappingMode = TextWrappingModes.NoWrap;
+        return label;
+    }
+
+    private string GetMissionId(string objectName)
+    {
+        if (objectName == "MButton" || objectName == "MButton1")
+        {
+            return BattleScoreStore.DefaultMissionId;
+        }
+
+        if (objectName == "MButton2" || objectName == "MButton (1)")
+        {
+            return "Mission2";
+        }
+
+        return "Mission3";
     }
 }

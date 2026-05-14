@@ -1,6 +1,7 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 {
@@ -8,6 +9,17 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     public BattleManager battleManager;
 
     public TMP_Text cardNameText;
+
+    [Header("Card Image")]
+    [SerializeField] private Image cardImage;
+    [SerializeField] private Sprite dealImage;
+    [SerializeField] private Sprite houseImage;
+    [SerializeField] private Sprite gambleImage;
+    [SerializeField] private Sprite povertyImage;
+    [SerializeField] private Sprite negotiationImage;
+    [SerializeField] private Sprite manipulationImage;
+    [SerializeField] private Sprite fluxImage;
+    [SerializeField] private Sprite barrierImage;
 
     private void Start()
     {
@@ -35,6 +47,47 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
         cardNameText.text = battleManager != null
             ? battleManager.GetCardButtonLabel(cardData)
             : $"{cardData.cardName}\n<LUX {cardData.luxCost}>";
+
+        ApplyCardImage();
+    }
+
+    private void ApplyCardImage()
+    {
+        if (cardImage == null || cardData == null)
+        {
+            return;
+        }
+
+        Sprite sprite = cardData.cardImage != null ? cardData.cardImage : GetTypeImage(cardData.cardType);
+        if (sprite != null)
+        {
+            cardImage.sprite = sprite;
+        }
+    }
+
+    private Sprite GetTypeImage(CardType cardType)
+    {
+        switch (cardType)
+        {
+            case CardType.Deal:
+                return dealImage;
+            case CardType.House:
+                return houseImage;
+            case CardType.Gamble:
+                return gambleImage;
+            case CardType.Poverty:
+                return povertyImage;
+            case CardType.Negotiation:
+                return negotiationImage;
+            case CardType.Manipulation:
+                return manipulationImage;
+            case CardType.Flux:
+                return fluxImage;
+            case CardType.Barrier:
+                return barrierImage;
+            default:
+                return null;
+        }
     }
 
     public void OnClickCard()

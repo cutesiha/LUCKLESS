@@ -5,9 +5,9 @@ using UnityEngine.UI;
 using System.Collections;
 using System;
 
-public class SlumUIManager : MonoBehaviour
+public class UIManager : MonoBehaviour
 {
-    public static SlumUIManager Instance;
+    public static UIManager Instance;
 
     [Header("하단 HUD")]
     public TextMeshProUGUI luxText;

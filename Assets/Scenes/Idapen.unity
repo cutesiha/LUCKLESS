@@ -590,6 +590,14 @@ PrefabInstance:
       propertyPath: m_SortingOrder
       value: 100
       objectReference: {fileID: 0}
+    - target: {fileID: 647398584774403148, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
+      propertyPath: m_fontAsset
+      value: 
+      objectReference: {fileID: 11400000, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
+    - target: {fileID: 647398584774403148, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
+      propertyPath: m_sharedMaterial
+      value: 
+      objectReference: {fileID: 6301557175569863728, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
     - target: {fileID: 5115026756069746307, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
       propertyPath: m_Name
       value: DialogueCanvas
@@ -598,6 +606,14 @@ PrefabInstance:
       propertyPath: m_IsActive
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 5581896004677586602, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
+      propertyPath: m_fontAsset
+      value: 
+      objectReference: {fileID: 11400000, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
+    - target: {fileID: 5581896004677586602, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
+      propertyPath: m_sharedMaterial
+      value: 
+      objectReference: {fileID: 6301557175569863728, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
     - target: {fileID: 8369987043188565258, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
       propertyPath: m_Pivot.x
       value: 0
@@ -737,6 +753,14 @@ PrefabInstance:
       propertyPath: m_SortingOrder
       value: 100
       objectReference: {fileID: 0}
+    - target: {fileID: 647398584774403148, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
+      propertyPath: m_fontAsset
+      value: 
+      objectReference: {fileID: 11400000, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
+    - target: {fileID: 647398584774403148, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
+      propertyPath: m_sharedMaterial
+      value: 
+      objectReference: {fileID: 6301557175569863728, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
     - target: {fileID: 5115026756069746307, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
       propertyPath: m_Name
       value: DialogueCanvas (1)
@@ -745,6 +769,14 @@ PrefabInstance:
       propertyPath: m_IsActive
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 5581896004677586602, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
+      propertyPath: m_fontAsset
+      value: 
+      objectReference: {fileID: 11400000, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
+    - target: {fileID: 5581896004677586602, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
+      propertyPath: m_sharedMaterial
+      value: 
+      objectReference: {fileID: 6301557175569863728, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
     - target: {fileID: 8369987043188565258, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
       propertyPath: m_Pivot.x
       value: 0
@@ -1142,6 +1174,7 @@ MonoBehaviour:
   alternateDialogueText: {fileID: 1660004669}
   alternateCharacterImage: {fileID: 1660004670}
   voiceSource: {fileID: 1822192645}
+  voiceVolume: 1
   lines:
   - speakerName: "\uC774\uB2E4 \uD39C"
     dialogue: "\uC654\uAD70\uC694."

@@ -3288,7 +3288,7 @@ MonoBehaviour:
   rageAttackReduction: 2
   enemyCharacterImage: {fileID: 1292402932}
   enemyNormalSprite: {fileID: 21300000, guid: 1b32a79b38d297e468d9002ce2dd3110, type: 3}
-  enemyRageSprite: {fileID: 21300000, guid: 82292d7db6422084bb6ac288f17a7f2b, type: 3}
+  enemyRageSprite: {fileID: 21300000, guid: c0b0cc8a20b59984fa47f06fc8d2d6f7, type: 3}
   enemySprite100: {fileID: 21300000, guid: 1b32a79b38d297e468d9002ce2dd3110, type: 3}
   enemySprite50: {fileID: 21300000, guid: c0b0cc8a20b59984fa47f06fc8d2d6f7, type: 3}
   enemySprite20: {fileID: 21300000, guid: 9e94e888d606757439c41bda532d7014, type: 3}
@@ -10607,7 +10607,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 716576273932184508, guid: 854e4af839f95244a9760eef814c1d58, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6269018495861436371}
   m_SourcePrefab: {fileID: 100100000, guid: 854e4af839f95244a9760eef814c1d58, type: 3}
 --- !u!224 &6269018495861436368 stripped
 RectTransform:
@@ -10625,6 +10628,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.TextMeshPro::TMPro.TextMeshProUGUI
+--- !u!1 &6269018495861436370 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 716576273932184508, guid: 854e4af839f95244a9760eef814c1d58, type: 3}
+  m_PrefabInstance: {fileID: 6269018495861436367}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &6269018495861436371
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6269018495861436370}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e176fba360d543a47bea97b0fcea91b9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BattleInventoryOpener
+  inventoryPanel: {fileID: 1453426762}
 --- !u!1001 &6651021614404434135
 PrefabInstance:
   m_ObjectHideFlags: 0
