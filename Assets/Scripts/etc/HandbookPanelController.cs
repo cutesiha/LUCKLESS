@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 public class HandbookPanelController : MonoBehaviour
@@ -32,6 +31,15 @@ public class HandbookPanelController : MonoBehaviour
 
     public void OpenInventoryPanel()
     {
+        Image clickImage = GetHandbookClickImage();
+        BattleInventoryOpener opener = clickImage != null ? clickImage.GetComponent<BattleInventoryOpener>() : null;
+
+        if (opener != null)
+        {
+            opener.OpenInventory();
+            return;
+        }
+
         GameObject targetPanel = GetInventoryPanel();
 
         if (targetPanel == null)
@@ -98,6 +106,8 @@ public class HandbookPanelController : MonoBehaviour
 
     private void SetupHandbookInteractions()
     {
+        EnsureHandbookCanvasOnTop();
+
         Image targetImage = GetHandbookClickImage();
 
         if (targetImage == null)
@@ -105,8 +115,6 @@ public class HandbookPanelController : MonoBehaviour
             return;
         }
 
-        SetupPinkHover(targetImage, GetDarkPinkHoverColor);
-        AddClickEvent(targetImage, OpenInventoryPanel);
         EnsureBattleInventoryOpener(targetImage);
     }
 
@@ -119,6 +127,23 @@ public class HandbookPanelController : MonoBehaviour
         }
 
         opener.SetInventoryPanel(GetInventoryPanel());
+    }
+
+    private void EnsureHandbookCanvasOnTop()
+    {
+        Canvas canvas = GetComponent<Canvas>();
+        if (canvas == null)
+        {
+            canvas = gameObject.AddComponent<Canvas>();
+        }
+
+        canvas.overrideSorting = true;
+        canvas.sortingOrder = 4500;
+
+        if (GetComponent<GraphicRaycaster>() == null)
+        {
+            gameObject.AddComponent<GraphicRaycaster>();
+        }
     }
 
     private Image GetHandbookClickImage()
@@ -154,54 +179,5 @@ public class HandbookPanelController : MonoBehaviour
 
         handbookClickImage = largestImage;
         return handbookClickImage;
-    }
-
-    private void SetupPinkHover(Image image, System.Func<Color, Color> getHoverColor)
-    {
-        if (image == null)
-        {
-            return;
-        }
-
-        image.raycastTarget = true;
-        EventTrigger trigger = image.GetComponent<EventTrigger>();
-
-        if (trigger == null)
-        {
-            trigger = image.gameObject.AddComponent<EventTrigger>();
-        }
-
-        Color originalColor = image.color;
-        trigger.triggers.RemoveAll(entry =>
-            entry.eventID == EventTriggerType.PointerEnter || entry.eventID == EventTriggerType.PointerExit);
-        AddPointerEvent(trigger, EventTriggerType.PointerEnter, () => image.color = getHoverColor(originalColor));
-        AddPointerEvent(trigger, EventTriggerType.PointerExit, () => image.color = originalColor);
-    }
-
-    private void AddClickEvent(Image image, UnityEngine.Events.UnityAction callback)
-    {
-        image.raycastTarget = true;
-        EventTrigger trigger = image.GetComponent<EventTrigger>();
-
-        if (trigger == null)
-        {
-            trigger = image.gameObject.AddComponent<EventTrigger>();
-        }
-
-        trigger.triggers.RemoveAll(entry => entry.eventID == EventTriggerType.PointerClick);
-        AddPointerEvent(trigger, EventTriggerType.PointerClick, callback);
-    }
-
-    private void AddPointerEvent(EventTrigger trigger, EventTriggerType eventType, UnityEngine.Events.UnityAction callback)
-    {
-        EventTrigger.Entry entry = new EventTrigger.Entry { eventID = eventType };
-        entry.callback.AddListener(_ => callback());
-        trigger.triggers.Add(entry);
-    }
-
-    private Color GetDarkPinkHoverColor(Color originalColor)
-    {
-        Color tintedColor = Color.Lerp(originalColor, new Color(1f, 0.12f, 0.78f, originalColor.a), 0.38f);
-        return Color.Lerp(tintedColor, Color.black, 0.12f);
     }
 }

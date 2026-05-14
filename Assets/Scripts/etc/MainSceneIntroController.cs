@@ -14,6 +14,8 @@ public class MainSceneIntroController : MonoBehaviour
     [SerializeField] private float titleHoldSeconds = 2f;
     [SerializeField] private float titleFadeAfterEyeDelay = 1f;
     [SerializeField] private float eyeOpenDuration = 1.15f;
+    [SerializeField] private GameObject blackBackground;
+    [SerializeField] private GameObject canvas1Background;
 
     [Header("Panels")]
     [SerializeField] private GameObject missionPanel;
@@ -32,10 +34,13 @@ public class MainSceneIntroController : MonoBehaviour
 
     private void Awake()
     {
+        AutoFillIntroObjects();
         PrepareMusicFadeIn();
         CacheEyeCoverPositions();
         SetMissionVisible(false);
         SetHandbookVisible(false);
+        SetCanvas1BackgroundVisible(false);
+        SetBlackBackgroundVisible(true);
         SetEyeCoversVisible(false);
         SetTitleVisible(false, 0f);
     }
@@ -46,6 +51,8 @@ public class MainSceneIntroController : MonoBehaviour
         SetTitleVisible(true, 0f);
         yield return FadeGroup(titleGroup, 0f, 1f, titleFadeDuration, true);
         yield return new WaitForSecondsRealtime(titleHoldSeconds);
+        SetCanvas1BackgroundVisible(true);
+        SetBlackBackgroundVisible(false);
         yield return OpenEyeCovers();
         yield return new WaitForSecondsRealtime(titleFadeAfterEyeDelay);
         SetTitleVisible(false, 0f);
@@ -88,6 +95,51 @@ public class MainSceneIntroController : MonoBehaviour
             if (controller != null)
             {
                 controller.SetInventoryPanel(inventoryPanel);
+            }
+        }
+    }
+
+    private void AutoFillIntroObjects()
+    {
+        if (blackBackground == null)
+        {
+            Transform found = transform.root.Find("TitleTransitionCanvas/BlackBackground");
+            if (found != null)
+            {
+                blackBackground = found.gameObject;
+            }
+        }
+
+        if (canvas1Background == null)
+        {
+            Transform found = transform.root.Find("Canvas1/HouseMasterBackground");
+            if (found != null)
+            {
+                canvas1Background = found.gameObject;
+            }
+        }
+    }
+
+    private void SetBlackBackgroundVisible(bool visible)
+    {
+        if (blackBackground != null)
+        {
+            blackBackground.SetActive(visible);
+            if (visible)
+            {
+                blackBackground.transform.SetAsFirstSibling();
+            }
+        }
+    }
+
+    private void SetCanvas1BackgroundVisible(bool visible)
+    {
+        if (canvas1Background != null)
+        {
+            canvas1Background.SetActive(visible);
+            if (visible)
+            {
+                canvas1Background.transform.SetAsFirstSibling();
             }
         }
     }

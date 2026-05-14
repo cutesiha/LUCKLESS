@@ -11,7 +11,7 @@ public class MissionPanelHoverController : MonoBehaviour
     [SerializeField] private Image dPanelTriggerImage;
     [SerializeField] [Range(0f, 1f)] private float grayBlend = 0.24f;
     [SerializeField] private float flashDuration = 0.16f;
-    [SerializeField] private string lockedMessage = "잠금 해제되지 않았습니다!";
+    [SerializeField] private string lockedMessage = "다음 버전을 기대해주세요!";
     [SerializeField] private string firstMissionSceneName = "Idapen";
     [SerializeField] private float sceneFadeDuration = 0.8f;
     [SerializeField] private float sceneLoadHoldSeconds = 1f;

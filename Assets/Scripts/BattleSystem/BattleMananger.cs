@@ -96,7 +96,7 @@ public class BattleManager : MonoBehaviour
     private bool battleEnded = false;
     private bool battleStarted = false;
     [SerializeField] private string gameOverSceneName = "MainScene";
-    [SerializeField] private string victorySceneName = "WinScene";
+    [SerializeField] private string victorySceneName = "MainScene";
     [SerializeField] private float resultFadeDuration = 0.8f;
     [SerializeField] private float resultHoldDuration = 2f;
     [SerializeField] private string missionScoreId = BattleScoreStore.DefaultMissionId;
@@ -2420,6 +2420,11 @@ private int CalculateRewardLux(int bet)
 
     private void WinBattle()
     {
+        if (battleEnded)
+        {
+            return;
+        }
+
         battleEnded = true;
 
         lux += selectedBet + rewardLux;
@@ -2437,6 +2442,11 @@ private int CalculateRewardLux(int bet)
 
     private void LoseBattle()
     {
+        if (battleEnded)
+        {
+            return;
+        }
+
         battleEnded = true;
 
         int extraLoss = selectedBet;
@@ -2446,7 +2456,17 @@ private int CalculateRewardLux(int bet)
         WriteLog($"제로가 쓰러졌습니다. 베팅 실패. 추가 손실 -{extraLoss} LUX. 현재 LUX: {lux}");
 
         UpdateUI();
-        StartResultTransition("GAME OVER!", gameOverSceneName);
+        StartResultTransition("전투에서 패배했습니다.", gameOverSceneName);
+    }
+
+    private string GetBattleReturnSceneName()
+    {
+        if (!string.IsNullOrWhiteSpace(gameOverSceneName))
+        {
+            return gameOverSceneName;
+        }
+
+        return !string.IsNullOrWhiteSpace(victorySceneName) ? victorySceneName : "MainScene";
     }
 
     private void StartResultTransition(string message, string sceneName, int score = -1)
@@ -2457,25 +2477,28 @@ private int CalculateRewardLux(int bet)
         }
 
         resultTransitionStarted = true;
+        message = score >= 0 ? "전투에서 승리했습니다." : "전투에서 패배했습니다.";
+        sceneName = GetBattleReturnSceneName();
         StartCoroutine(ResultTransitionRoutine(message, sceneName, score));
     }
 
     private IEnumerator ResultTransitionRoutine(string message, string sceneName, int score)
     {
-        Canvas canvas = GetComponentInParent<Canvas>(true);
-        if (canvas == null)
-        {
-#if UNITY_2023_1_OR_NEWER
-            canvas = FindFirstObjectByType<Canvas>();
-#else
-            canvas = FindObjectOfType<Canvas>();
-#endif
-        }
+        score = -1;
 
-        Transform parent = canvas != null ? canvas.transform : transform;
+        GameObject canvasObject = new GameObject("BattleResultCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+        Canvas resultCanvas = canvasObject.GetComponent<Canvas>();
+        resultCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        resultCanvas.overrideSorting = true;
+        resultCanvas.sortingOrder = 10000;
+
+        CanvasScaler canvasScaler = canvasObject.GetComponent<CanvasScaler>();
+        canvasScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        canvasScaler.referenceResolution = new Vector2(1920f, 1080f);
+        canvasScaler.matchWidthOrHeight = 0.5f;
+
         GameObject overlayObject = new GameObject("BattleResultOverlay", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-        overlayObject.transform.SetParent(parent, false);
-        overlayObject.transform.SetAsLastSibling();
+        overlayObject.transform.SetParent(canvasObject.transform, false);
 
         RectTransform overlayRect = overlayObject.GetComponent<RectTransform>();
         overlayRect.anchorMin = Vector2.zero;

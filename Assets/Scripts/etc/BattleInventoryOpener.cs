@@ -3,7 +3,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 [RequireComponent(typeof(Image))]
-public class BattleInventoryOpener : MonoBehaviour
+public class BattleInventoryOpener : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
 {
     [SerializeField] private GameObject inventoryPanel;
 
@@ -42,9 +42,23 @@ public class BattleInventoryOpener : MonoBehaviour
         button.transition = Selectable.Transition.None;
         button.targetGraphic = targetImage;
         button.onClick.RemoveListener(OpenInventory);
-        button.onClick.AddListener(OpenInventory);
 
         SetupHover();
+    }
+
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        OpenInventory();
+    }
+
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        ApplyHoverColor();
+    }
+
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        RestoreNormalColor();
     }
 
     public void OpenInventory()
@@ -84,18 +98,12 @@ public class BattleInventoryOpener : MonoBehaviour
 
         AddPointerEvent(trigger, EventTriggerType.PointerEnter, () =>
         {
-            if (targetImage != null)
-            {
-                targetImage.color = Color.Lerp(normalColor, new Color(1f, 0.12f, 0.78f, normalColor.a), 0.38f);
-            }
+            ApplyHoverColor();
         });
 
         AddPointerEvent(trigger, EventTriggerType.PointerExit, () =>
         {
-            if (targetImage != null)
-            {
-                targetImage.color = normalColor;
-            }
+            RestoreNormalColor();
         });
     }
 
@@ -104,6 +112,28 @@ public class BattleInventoryOpener : MonoBehaviour
         EventTrigger.Entry entry = new EventTrigger.Entry { eventID = eventType };
         entry.callback.AddListener(_ => callback());
         trigger.triggers.Add(entry);
+    }
+
+    private void ApplyHoverColor()
+    {
+        if (targetImage != null)
+        {
+            targetImage.color = GetHoverColor(normalColor);
+        }
+    }
+
+    private void RestoreNormalColor()
+    {
+        if (targetImage != null)
+        {
+            targetImage.color = normalColor;
+        }
+    }
+
+    private Color GetHoverColor(Color baseColor)
+    {
+        Color pinkTint = Color.Lerp(baseColor, new Color(1f, 0.12f, 0.78f, baseColor.a), 0.38f);
+        return Color.Lerp(pinkTint, Color.black, 0.12f);
     }
 
     private GameObject FindInventoryPanel()

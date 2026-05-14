@@ -425,7 +425,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: c1785929ecdab45408a97ae124eb8562, type: 3}
+  m_Sprite: {fileID: 21300000, guid: f7dd8b2953ef7934ea81b139f799572d, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -3345,7 +3345,7 @@ MonoBehaviour:
   rewardLux: 0
   turn: 1
   gameOverSceneName: MainScene
-  victorySceneName: WinScene
+  victorySceneName: MainScene
   resultFadeDuration: 0.8
   resultHoldDuration: 2
   missionScoreId: Mission1
@@ -7459,6 +7459,8 @@ MonoBehaviour:
   - stackName: "\uCCB4\uB150"
     description: "\uD589\uB3D9 \uC81C\uD55C\uC774\uB098 \uBD88\uB9AC\uD55C \uC0C1\uD0DC\uB97C
       \uB098\uD0C0\uB0B4\uB294 \uB204\uC801\uAC12\uC785\uB2C8\uB2E4."
+  saveSlotCount: 4
+  savePanelSize: {x: 760, y: 520}
 --- !u!114 &1453426764
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9735,7 +9737,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: New Text
+  m_text: "\uC804\uD22C\uAC00 \uC2DC\uC791\uB418\uC5C8\uC2B5\uB2C8\uB2E4."
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
   m_sharedMaterial: {fileID: 6301557175569863728, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
