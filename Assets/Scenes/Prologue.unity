@@ -1279,7 +1279,7 @@ MonoBehaviour:
   titleFadeAfterCanvas2Delay: 1
   eyeOpenDuration: 1.15
   voiceSource: {fileID: 337525892}
-  voiceVolume: 2.78
+  voiceVolume: 1.48
   titleMusicSource: {fileID: 337525894}
   titleMusicClip: {fileID: 8300000, guid: 2c20503d7c1a2f347b960cfb8137bcf8, type: 3}
   titleMusicVolume: 0.5

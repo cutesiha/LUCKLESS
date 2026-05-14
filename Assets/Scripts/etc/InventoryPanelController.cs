@@ -6,6 +6,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using UnityEngine.Audio;
+using UnityEngine.SceneManagement;
 
 public enum WorldCodexBlockType
 {
@@ -49,15 +50,27 @@ public class WorldCodexEntry
     public WorldCodexBlock[] blocks;
 }
 
+[Serializable]
+public class InventoryStackDescription
+{
+    public string stackName = "스택 이름";
+    [TextArea(2, 5)] public string description = "스택 설명";
+}
+
 public class InventoryPanelController : MonoBehaviour
 {
     private const string InventoryCloseButtonName = "InventoryCloseButton";
     private const string WorldInfoPanelName = "WorldInfoPanel";
     private const string WorldImageName = "World";
     private const string WordImageName = "Word";
+    private const string CardImageName = "Card";
+    private const string SaveImageName = "Save";
     private const string GlossaryPanelName = "GlossaryPanel";
     private const string OptionImageName = "Option";
     private const string OptionPanelName = "OptionPanel";
+    private const string CardBrowserPanelName = "CardBrowserPanel";
+    private const string SavePanelName = "SavePanel";
+    private const string StackDescriptionPanelName = "StackDescriptionPanel";
 
     public static event Action InventoryPanelClosed;
 
@@ -74,6 +87,16 @@ public class InventoryPanelController : MonoBehaviour
     [Range(0.1f, 1f)]
     [SerializeField] private float worldInfoPanelAlpha = 0.94f;
     [SerializeField] private WorldCodexEntry[] codexEntries = CreateDefaultCodexEntries();
+
+    [Header("Card Browser")]
+    [SerializeField] private GameObject cardPrefab;
+    [SerializeField] private CardData[] cardLibrary;
+    [SerializeField] private Vector2 cardBrowserPanelSize = new Vector2(1360f, 760f);
+    [SerializeField] private InventoryStackDescription[] stackDescriptions = CreateDefaultStackDescriptions();
+
+    [Header("Save Panel")]
+    [SerializeField] private int saveSlotCount = 4;
+    [SerializeField] private Vector2 savePanelSize = new Vector2(760f, 520f);
 
     private static readonly Color StatBadgeBg = Rgba(29, 158, 117, 0.15f);
     private static readonly Color StatBadgeText = Hex("#5dcaa5");
@@ -120,6 +143,21 @@ public class InventoryPanelController : MonoBehaviour
 
     private Image wordImage;
     private GameObject glossaryPanel;
+    private Image cardImage;
+    private GameObject cardBrowserPanel;
+    private RectTransform cardListRoot;
+    private ScrollRect cardListScroll;
+    private TextMeshProUGUI cardBrowserTitleText;
+    private TextMeshProUGUI cardDescriptionText;
+    private GameObject stackDescriptionPanel;
+    private int selectedCardTypeIndex;
+    private readonly List<CardType> visibleCardTypes = new List<CardType>();
+
+    private Image saveImage;
+    private GameObject savePanel;
+    private TextMeshProUGUI saveStatusText;
+    private readonly List<TextMeshProUGUI> saveSlotTexts = new List<TextMeshProUGUI>();
+
     private Image optionImage;
     private GameObject optionPanel;
 
@@ -177,6 +215,7 @@ public class InventoryPanelController : MonoBehaviour
     private void OnValidate()
     {
         EnsureDefaultCodexEntries();
+        EnsureDefaultStackDescriptions();
     }
 
     private void OnEnable()
@@ -193,13 +232,43 @@ public class InventoryPanelController : MonoBehaviour
     {
         transform.localScale = Vector3.one;
         EnsureDefaultCodexEntries();
+        EnsureDefaultStackDescriptions();
+        AutoFillCardBrowserAssetsInEditor();
         EnsureEventSystem();
         EnsureInventoryCloseButton();
         ApplyFontToExistingTexts();
         SetupInventoryImageEffects();
         SetupWorldImageInteraction();
         SetupWordImageInteraction();
+        SetupCardImageInteraction();
+        SetupSaveImageInteraction();
         SetupOptionImageInteraction();
+    }
+
+    public void ShowInventoryPanel()
+    {
+        transform.localScale = Vector3.one;
+        gameObject.SetActive(true);
+        transform.SetAsLastSibling();
+        EnsureInventoryCanvasOnTop();
+        SetupInventoryPanel();
+    }
+
+    private void EnsureInventoryCanvasOnTop()
+    {
+        Canvas canvas = GetComponent<Canvas>();
+        if (canvas == null)
+        {
+            canvas = gameObject.AddComponent<Canvas>();
+        }
+
+        canvas.overrideSorting = true;
+        canvas.sortingOrder = 5000;
+
+        if (GetComponent<GraphicRaycaster>() == null)
+        {
+            gameObject.AddComponent<GraphicRaycaster>();
+        }
     }
 
     private void EnsureInventoryCloseButton()
@@ -265,6 +334,24 @@ public class InventoryPanelController : MonoBehaviour
 
     private void CloseTopPanel()
     {
+        if (stackDescriptionPanel != null && stackDescriptionPanel.activeInHierarchy)
+        {
+            stackDescriptionPanel.SetActive(false);
+            return;
+        }
+
+        if (cardBrowserPanel != null && cardBrowserPanel.activeInHierarchy)
+        {
+            cardBrowserPanel.SetActive(false);
+            return;
+        }
+
+        if (savePanel != null && savePanel.activeInHierarchy)
+        {
+            savePanel.SetActive(false);
+            return;
+        }
+
         if (optionPanel != null && optionPanel.activeInHierarchy)
         {
             optionPanel.SetActive(false);
@@ -297,6 +384,8 @@ public class InventoryPanelController : MonoBehaviour
     {
         return (glossaryPanel != null && glossaryPanel.activeInHierarchy)
             || (worldInfoPanel != null && worldInfoPanel.activeInHierarchy)
+            || (cardBrowserPanel != null && cardBrowserPanel.activeInHierarchy)
+            || (savePanel != null && savePanel.activeInHierarchy)
             || (optionPanel != null && optionPanel.activeInHierarchy);
     }
 
@@ -399,6 +488,692 @@ public class InventoryPanelController : MonoBehaviour
         optionButton.onClick.AddListener(OpenOptionPanel);
 
         AddClickEvent(optionImage, OpenOptionPanel);
+    }
+
+    private void SetupCardImageInteraction()
+    {
+        cardImage = FindChildImageByName(transform, CardImageName);
+        if (cardImage == null) return;
+
+        cardImage.raycastTarget = true;
+
+        Button cardButton = cardImage.GetComponent<Button>();
+        if (cardButton == null)
+        {
+            cardButton = cardImage.gameObject.AddComponent<Button>();
+        }
+
+        cardButton.transition = Selectable.Transition.None;
+        cardButton.targetGraphic = cardImage;
+        cardButton.onClick.RemoveAllListeners();
+        cardButton.onClick.AddListener(OpenCardBrowserPanel);
+
+        AddClickEvent(cardImage, OpenCardBrowserPanel);
+    }
+
+    private void SetupSaveImageInteraction()
+    {
+        saveImage = FindChildImageByName(transform, SaveImageName);
+        if (saveImage == null) return;
+
+        saveImage.raycastTarget = true;
+
+        Button saveButton = saveImage.GetComponent<Button>();
+        if (saveButton == null)
+        {
+            saveButton = saveImage.gameObject.AddComponent<Button>();
+        }
+
+        saveButton.transition = Selectable.Transition.None;
+        saveButton.targetGraphic = saveImage;
+        saveButton.onClick.RemoveAllListeners();
+        saveButton.onClick.AddListener(OpenSavePanel);
+
+        AddClickEvent(saveImage, OpenSavePanel);
+    }
+
+    private void OpenSavePanel()
+    {
+        if (IsSubPanelOpen())
+        {
+            return;
+        }
+
+        EnsureSavePanel();
+        if (savePanel == null) return;
+
+        savePanel.SetActive(true);
+        savePanel.transform.SetAsLastSibling();
+        RefreshSaveSlots();
+        BringCloseButtonToFront();
+        ResetInventoryImageHoverColors();
+    }
+
+    private void EnsureSavePanel()
+    {
+        if (savePanel != null) return;
+
+        RectTransform panelTransform = transform as RectTransform;
+        if (panelTransform == null) return;
+
+        Transform old = transform.Find(SavePanelName);
+        if (old != null) Destroy(old.gameObject);
+
+        savePanel = new GameObject(SavePanelName, typeof(RectTransform), typeof(Image), typeof(Outline));
+        savePanel.transform.SetParent(panelTransform, false);
+
+        RectTransform rt = savePanel.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.anchoredPosition = Vector2.zero;
+        rt.sizeDelta = savePanelSize;
+
+        Image bg = savePanel.GetComponent<Image>();
+        bg.color = Rgba(58, 58, 62, 0.96f);
+        bg.raycastTarget = true;
+
+        Outline outline = savePanel.GetComponent<Outline>();
+        outline.effectColor = Rgba(255, 255, 255, 0.18f);
+        outline.effectDistance = new Vector2(1f, -1f);
+
+        TextMeshProUGUI title = CreateText("SaveTitle", savePanel.transform, "SAVE", 34f, TextColor, TextAlignmentOptions.Center);
+        RectTransform titleRt = title.rectTransform;
+        titleRt.anchorMin = new Vector2(0f, 1f);
+        titleRt.anchorMax = new Vector2(1f, 1f);
+        titleRt.pivot = new Vector2(0.5f, 1f);
+        titleRt.offsetMin = new Vector2(32f, -82f);
+        titleRt.offsetMax = new Vector2(-32f, -24f);
+
+        GameObject slotsRoot = CreateRectObject("SaveSlots", savePanel.transform, typeof(VerticalLayoutGroup));
+        RectTransform slotsRt = slotsRoot.GetComponent<RectTransform>();
+        slotsRt.anchorMin = new Vector2(0f, 0f);
+        slotsRt.anchorMax = new Vector2(1f, 1f);
+        slotsRt.offsetMin = new Vector2(70f, 105f);
+        slotsRt.offsetMax = new Vector2(-70f, -105f);
+
+        VerticalLayoutGroup layout = slotsRoot.GetComponent<VerticalLayoutGroup>();
+        layout.spacing = 16f;
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = false;
+
+        saveSlotTexts.Clear();
+        int count = Mathf.Max(1, saveSlotCount);
+        for (int i = 0; i < count; i++)
+        {
+            CreateSaveSlotButton(slotsRoot.transform, i);
+        }
+
+        saveStatusText = CreateText("SaveStatus", savePanel.transform, "", 18f, TextMuted, TextAlignmentOptions.Center);
+        RectTransform statusRt = saveStatusText.rectTransform;
+        statusRt.anchorMin = new Vector2(0f, 0f);
+        statusRt.anchorMax = new Vector2(1f, 0f);
+        statusRt.pivot = new Vector2(0.5f, 0f);
+        statusRt.offsetMin = new Vector2(32f, 34f);
+        statusRt.offsetMax = new Vector2(-32f, 86f);
+
+        savePanel.SetActive(false);
+    }
+
+    private void CreateSaveSlotButton(Transform parent, int slotIndex)
+    {
+        GameObject slot = CreateRectObject("SaveSlot_" + (slotIndex + 1), parent, typeof(Image), typeof(Button), typeof(Outline), typeof(LayoutElement), typeof(EventTrigger));
+        Image slotBg = slot.GetComponent<Image>();
+        slotBg.color = Rgba(18, 18, 22, 0.82f);
+        slotBg.raycastTarget = true;
+
+        Outline outline = slot.GetComponent<Outline>();
+        outline.effectColor = Rgba(255, 255, 255, 0.14f);
+        outline.effectDistance = new Vector2(1f, -1f);
+
+        LayoutElement layoutElement = slot.GetComponent<LayoutElement>();
+        layoutElement.preferredHeight = 72f;
+        layoutElement.minHeight = 72f;
+
+        Button button = slot.GetComponent<Button>();
+        button.transition = Selectable.Transition.None;
+        button.targetGraphic = slotBg;
+        int capturedIndex = slotIndex;
+        button.onClick.AddListener(() => SaveToSlot(capturedIndex));
+
+        TextMeshProUGUI label = CreateText("Label", slot.transform, "", 22f, TextColor, TextAlignmentOptions.Left);
+        SetStretch(label.rectTransform, new Vector2(22f, 8f), new Vector2(-22f, -8f));
+        saveSlotTexts.Add(label);
+
+        EventTrigger trigger = slot.GetComponent<EventTrigger>();
+        AddPointerEvent(trigger, EventTriggerType.PointerEnter, () => slotBg.color = Rgba(42, 42, 48, 0.94f));
+        AddPointerEvent(trigger, EventTriggerType.PointerExit, () => slotBg.color = Rgba(18, 18, 22, 0.82f));
+    }
+
+    private void RefreshSaveSlots()
+    {
+        for (int i = 0; i < saveSlotTexts.Count; i++)
+        {
+            string savedDate = PlayerPrefs.GetString(GetSaveSlotDateKey(i), string.Empty);
+            string sceneName = PlayerPrefs.GetString(GetSaveSlotSceneKey(i), string.Empty);
+
+            if (string.IsNullOrEmpty(savedDate))
+            {
+                saveSlotTexts[i].text = $"슬롯 {i + 1}   빈 세이브 슬롯";
+                saveSlotTexts[i].color = TextMuted;
+            }
+            else
+            {
+                string sceneText = string.IsNullOrEmpty(sceneName) ? "" : $" / {sceneName}";
+                saveSlotTexts[i].text = $"슬롯 {i + 1}   {savedDate}{sceneText}";
+                saveSlotTexts[i].color = TextColor;
+            }
+        }
+    }
+
+    private void SaveToSlot(int slotIndex)
+    {
+        string now = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+        PlayerPrefs.SetString(GetSaveSlotDateKey(slotIndex), now);
+        PlayerPrefs.SetString(GetSaveSlotSceneKey(slotIndex), SceneManager.GetActiveScene().name);
+
+        if (GameManager.Instance != null)
+        {
+            PlayerPrefs.SetInt(GetSaveSlotLuxKey(slotIndex), GameManager.Instance.currentLux);
+            PlayerPrefs.SetInt(GetSaveSlotUnluckKey(slotIndex), GameManager.Instance.unluckStack);
+            PlayerPrefs.SetInt(GetSaveSlotSlumChoiceKey(slotIndex), GameManager.Instance.slum17Choice);
+            PlayerPrefs.SetString(GetSaveSlotCharacterKey(slotIndex), GameManager.Instance.selectedCharacter);
+            PlayerPrefs.SetString(GetSaveSlotNextSceneKey(slotIndex), GameManager.Instance.nextScene);
+        }
+
+        PlayerPrefs.Save();
+        RefreshSaveSlots();
+
+        if (saveStatusText != null)
+        {
+            saveStatusText.text = $"슬롯 {slotIndex + 1} 저장 완료  {now}";
+            saveStatusText.color = PinkLight;
+        }
+    }
+
+    private string GetSaveSlotDateKey(int slotIndex) => "LUCKLESS_SAVE_SLOT_" + slotIndex + "_DATE";
+    private string GetSaveSlotSceneKey(int slotIndex) => "LUCKLESS_SAVE_SLOT_" + slotIndex + "_SCENE";
+    private string GetSaveSlotLuxKey(int slotIndex) => "LUCKLESS_SAVE_SLOT_" + slotIndex + "_LUX";
+    private string GetSaveSlotUnluckKey(int slotIndex) => "LUCKLESS_SAVE_SLOT_" + slotIndex + "_UNLUCK";
+    private string GetSaveSlotSlumChoiceKey(int slotIndex) => "LUCKLESS_SAVE_SLOT_" + slotIndex + "_SLUM_CHOICE";
+    private string GetSaveSlotCharacterKey(int slotIndex) => "LUCKLESS_SAVE_SLOT_" + slotIndex + "_CHARACTER";
+    private string GetSaveSlotNextSceneKey(int slotIndex) => "LUCKLESS_SAVE_SLOT_" + slotIndex + "_NEXT_SCENE";
+
+    private void OpenCardBrowserPanel()
+    {
+        if (IsSubPanelOpen())
+        {
+            return;
+        }
+
+        EnsureCardBrowserPanel();
+        if (cardBrowserPanel == null) return;
+
+        cardBrowserPanel.SetActive(true);
+        cardBrowserPanel.transform.SetAsLastSibling();
+        RefreshCardBrowser();
+        BringCloseButtonToFront();
+        ResetInventoryImageHoverColors();
+    }
+
+    private void EnsureCardBrowserPanel()
+    {
+        if (cardBrowserPanel != null) return;
+
+        RectTransform panelTransform = transform as RectTransform;
+        if (panelTransform == null) return;
+
+        Transform old = transform.Find(CardBrowserPanelName);
+        if (old != null) Destroy(old.gameObject);
+
+        cardBrowserPanel = new GameObject(CardBrowserPanelName, typeof(RectTransform), typeof(Image), typeof(Outline));
+        cardBrowserPanel.transform.SetParent(panelTransform, false);
+
+        RectTransform rt = cardBrowserPanel.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.anchoredPosition = Vector2.zero;
+        rt.sizeDelta = cardBrowserPanelSize;
+
+        Image bg = cardBrowserPanel.GetComponent<Image>();
+        bg.color = Rgba(54, 54, 58, 0.96f);
+        bg.raycastTarget = true;
+
+        Outline outline = cardBrowserPanel.GetComponent<Outline>();
+        outline.effectColor = Rgba(255, 255, 255, 0.18f);
+        outline.effectDistance = new Vector2(1f, -1f);
+
+        GameObject titleObj = CreateRectObject("CardBrowserTitle", cardBrowserPanel.transform, typeof(TextMeshProUGUI));
+        RectTransform titleRt = titleObj.GetComponent<RectTransform>();
+        titleRt.anchorMin = new Vector2(0f, 1f);
+        titleRt.anchorMax = new Vector2(0f, 1f);
+        titleRt.pivot = new Vector2(0f, 1f);
+        titleRt.anchoredPosition = new Vector2(38f, -28f);
+        titleRt.sizeDelta = new Vector2(520f, 52f);
+
+        cardBrowserTitleText = titleObj.GetComponent<TextMeshProUGUI>();
+        cardBrowserTitleText.fontSize = 28f;
+        cardBrowserTitleText.color = TextColor;
+        cardBrowserTitleText.alignment = TextAlignmentOptions.Left;
+        cardBrowserTitleText.textWrappingMode = TextWrappingModes.NoWrap;
+        cardBrowserTitleText.raycastTarget = false;
+        ApplyTextFont(cardBrowserTitleText);
+
+        GameObject nextObj = CreateRectObject("NextCardTypeButton", cardBrowserPanel.transform, typeof(Image), typeof(Button), typeof(Outline));
+        RectTransform nextRt = nextObj.GetComponent<RectTransform>();
+        nextRt.anchorMin = new Vector2(1f, 1f);
+        nextRt.anchorMax = new Vector2(1f, 1f);
+        nextRt.pivot = new Vector2(1f, 1f);
+        nextRt.anchoredPosition = new Vector2(-38f, -95f);
+        nextRt.sizeDelta = new Vector2(70f, 70f);
+
+        Image nextBg = nextObj.GetComponent<Image>();
+        nextBg.color = Rgba(20, 20, 24, 0.72f);
+        nextBg.raycastTarget = true;
+        nextObj.GetComponent<Outline>().effectColor = BorderHover;
+
+        Button nextButton = nextObj.GetComponent<Button>();
+        nextButton.transition = Selectable.Transition.ColorTint;
+        nextButton.targetGraphic = nextBg;
+        nextButton.onClick.AddListener(ShowNextCardType);
+
+        TextMeshProUGUI nextText = CreateText("Arrow", nextObj.transform, "▶", 34f, TextColor, TextAlignmentOptions.Center);
+        SetStretch(nextText.rectTransform, Vector2.zero, Vector2.zero);
+
+        GameObject stackObj = CreateRectObject("StackInfoButton", cardBrowserPanel.transform, typeof(Image), typeof(Button), typeof(Outline), typeof(EventTrigger));
+        RectTransform stackRt = stackObj.GetComponent<RectTransform>();
+        stackRt.anchorMin = new Vector2(1f, 1f);
+        stackRt.anchorMax = new Vector2(1f, 1f);
+        stackRt.pivot = new Vector2(1f, 1f);
+        stackRt.anchoredPosition = new Vector2(-125f, -28f);
+        stackRt.sizeDelta = new Vector2(300f, 54f);
+
+        Image stackBg = stackObj.GetComponent<Image>();
+        stackBg.color = Rgba(18, 18, 22, 0.82f);
+        stackBg.raycastTarget = true;
+        stackObj.GetComponent<Outline>().effectColor = Rgba(255, 255, 255, 0.18f);
+
+        Button stackButton = stackObj.GetComponent<Button>();
+        stackButton.transition = Selectable.Transition.None;
+        stackButton.targetGraphic = stackBg;
+        stackButton.onClick.AddListener(ToggleStackDescriptionPanel);
+
+        TextMeshProUGUI stackText = CreateText("Text", stackObj.transform, "스택 시스템이란?", 20f, TextColor, TextAlignmentOptions.Center);
+        SetStretch(stackText.rectTransform, Vector2.zero, Vector2.zero);
+
+        EventTrigger stackTrigger = stackObj.GetComponent<EventTrigger>();
+        AddPointerEvent(stackTrigger, EventTriggerType.PointerEnter, () => stackBg.color = Rgba(40, 40, 48, 0.92f));
+        AddPointerEvent(stackTrigger, EventTriggerType.PointerExit, () => stackBg.color = Rgba(18, 18, 22, 0.82f));
+
+        CreateCardScrollArea(cardBrowserPanel.transform);
+        CreateCardDescriptionArea(cardBrowserPanel.transform);
+        CreateStackDescriptionPanel(cardBrowserPanel.transform);
+
+        cardBrowserPanel.SetActive(false);
+    }
+
+    private void CreateCardScrollArea(Transform parent)
+    {
+        GameObject scrollObj = CreateRectObject("CardScroll", parent, typeof(Image), typeof(ScrollRect), typeof(RectMask2D));
+        RectTransform scrollRt = scrollObj.GetComponent<RectTransform>();
+        scrollRt.anchorMin = new Vector2(0f, 0f);
+        scrollRt.anchorMax = new Vector2(1f, 1f);
+        scrollRt.offsetMin = new Vector2(38f, 150f);
+        scrollRt.offsetMax = new Vector2(-125f, -105f);
+
+        Image scrollBg = scrollObj.GetComponent<Image>();
+        scrollBg.color = Rgba(22, 22, 26, 0.32f);
+        scrollBg.raycastTarget = true;
+
+        GameObject contentObj = CreateRectObject("CardContent", scrollObj.transform, typeof(GridLayoutGroup), typeof(ContentSizeFitter));
+        cardListRoot = contentObj.GetComponent<RectTransform>();
+        cardListRoot.anchorMin = new Vector2(0f, 1f);
+        cardListRoot.anchorMax = new Vector2(1f, 1f);
+        cardListRoot.pivot = new Vector2(0f, 1f);
+        cardListRoot.anchoredPosition = new Vector2(18f, -18f);
+        cardListRoot.sizeDelta = new Vector2(-36f, 0f);
+
+        GridLayoutGroup grid = contentObj.GetComponent<GridLayoutGroup>();
+        grid.cellSize = new Vector2(190f, 255f);
+        grid.spacing = new Vector2(18f, 18f);
+        grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        grid.constraintCount = 5;
+        grid.childAlignment = TextAnchor.UpperLeft;
+
+        ContentSizeFitter fitter = contentObj.GetComponent<ContentSizeFitter>();
+        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        cardListScroll = scrollObj.GetComponent<ScrollRect>();
+        cardListScroll.content = cardListRoot;
+        cardListScroll.horizontal = false;
+        cardListScroll.vertical = true;
+        cardListScroll.movementType = ScrollRect.MovementType.Clamped;
+    }
+
+    private void CreateCardDescriptionArea(Transform parent)
+    {
+        GameObject descObj = CreateRectObject("CardDescriptionBox", parent, typeof(Image), typeof(Outline));
+        RectTransform descRt = descObj.GetComponent<RectTransform>();
+        descRt.anchorMin = new Vector2(0f, 0f);
+        descRt.anchorMax = new Vector2(1f, 0f);
+        descRt.pivot = new Vector2(0.5f, 0f);
+        descRt.offsetMin = new Vector2(38f, 32f);
+        descRt.offsetMax = new Vector2(-38f, 132f);
+
+        Image descBg = descObj.GetComponent<Image>();
+        descBg.color = Rgba(12, 12, 16, 0.78f);
+        descBg.raycastTarget = false;
+        descObj.GetComponent<Outline>().effectColor = Rgba(255, 255, 255, 0.12f);
+
+        cardDescriptionText = CreateText("CardDescriptionText", descObj.transform, "", 19f, BodyText, TextAlignmentOptions.Left);
+        SetStretch(cardDescriptionText.rectTransform, new Vector2(18f, 10f), new Vector2(-18f, -10f));
+        cardDescriptionText.overflowMode = TextOverflowModes.Ellipsis;
+    }
+
+    private void CreateStackDescriptionPanel(Transform parent)
+    {
+        GameObject stackPanel = CreateRectObject(StackDescriptionPanelName, parent, typeof(Image), typeof(Outline), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+        RectTransform stackRt = stackPanel.GetComponent<RectTransform>();
+        stackRt.anchorMin = new Vector2(1f, 1f);
+        stackRt.anchorMax = new Vector2(1f, 1f);
+        stackRt.pivot = new Vector2(1f, 1f);
+        stackRt.anchoredPosition = new Vector2(-125f, -88f);
+        stackRt.sizeDelta = new Vector2(460f, 320f);
+
+        Image stackBg = stackPanel.GetComponent<Image>();
+        stackBg.color = Rgba(10, 10, 13, 0.96f);
+        stackBg.raycastTarget = true;
+        stackPanel.GetComponent<Outline>().effectColor = Rgba(255, 255, 255, 0.18f);
+
+        VerticalLayoutGroup layout = stackPanel.GetComponent<VerticalLayoutGroup>();
+        layout.padding = new RectOffset(18, 18, 16, 16);
+        layout.spacing = 8f;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = false;
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+
+        ContentSizeFitter fitter = stackPanel.GetComponent<ContentSizeFitter>();
+        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        EnsureDefaultStackDescriptions();
+        for (int i = 0; i < stackDescriptions.Length; i++)
+        {
+            InventoryStackDescription stack = stackDescriptions[i];
+            TextMeshProUGUI line = CreateText(
+                "Stack_" + i,
+                stackPanel.transform,
+                $"<b>{stack.stackName}</b>  {stack.description}",
+                17f,
+                BodyText,
+                TextAlignmentOptions.Left);
+            line.richText = true;
+            line.lineSpacing = 3f;
+        }
+
+        stackDescriptionPanel = stackPanel;
+        stackDescriptionPanel.SetActive(false);
+    }
+
+    private void ToggleStackDescriptionPanel()
+    {
+        if (stackDescriptionPanel == null)
+        {
+            return;
+        }
+
+        stackDescriptionPanel.SetActive(!stackDescriptionPanel.activeSelf);
+        if (stackDescriptionPanel.activeSelf)
+        {
+            stackDescriptionPanel.transform.SetAsLastSibling();
+        }
+    }
+
+    private void ShowNextCardType()
+    {
+        RefreshVisibleCardTypes();
+        if (visibleCardTypes.Count == 0)
+        {
+            return;
+        }
+
+        selectedCardTypeIndex = (selectedCardTypeIndex + 1) % visibleCardTypes.Count;
+        RefreshCardBrowser();
+    }
+
+    private void RefreshCardBrowser()
+    {
+        if (cardListRoot == null)
+        {
+            return;
+        }
+
+        RefreshVisibleCardTypes();
+        selectedCardTypeIndex = Mathf.Clamp(selectedCardTypeIndex, 0, Mathf.Max(0, visibleCardTypes.Count - 1));
+
+        ClearChildren(cardListRoot);
+        ClearCardDescription();
+
+        if (visibleCardTypes.Count == 0)
+        {
+            if (cardBrowserTitleText != null) cardBrowserTitleText.text = "카드 타입: 없음";
+            CreateEmptyCardMessage("CardLibrary가 비어 있습니다.");
+            return;
+        }
+
+        CardType selectedType = visibleCardTypes[selectedCardTypeIndex];
+        if (cardBrowserTitleText != null)
+        {
+            cardBrowserTitleText.text = "카드 타입: " + GetCardTypeDisplayName(selectedType);
+        }
+
+        int count = 0;
+        if (cardLibrary != null)
+        {
+            for (int i = 0; i < cardLibrary.Length; i++)
+            {
+                CardData cardData = cardLibrary[i];
+                if (cardData == null || cardData.cardType != selectedType)
+                {
+                    continue;
+                }
+
+                GameObject cardObject = cardPrefab != null
+                    ? Instantiate(cardPrefab, cardListRoot)
+                    : CreateSimpleInventoryCard(cardData, cardListRoot);
+
+                ConfigureInventoryCardInstance(cardObject, cardData);
+                count++;
+            }
+        }
+
+        if (count == 0)
+        {
+            CreateEmptyCardMessage("이 타입에 표시할 카드가 없습니다.");
+        }
+
+        if (cardListScroll != null)
+        {
+            cardListScroll.verticalNormalizedPosition = 1f;
+        }
+    }
+
+    private void RefreshVisibleCardTypes()
+    {
+        visibleCardTypes.Clear();
+
+        if (cardLibrary != null)
+        {
+            for (int i = 0; i < cardLibrary.Length; i++)
+            {
+                CardData cardData = cardLibrary[i];
+                if (cardData != null && !visibleCardTypes.Contains(cardData.cardType))
+                {
+                    visibleCardTypes.Add(cardData.cardType);
+                }
+            }
+        }
+
+        if (visibleCardTypes.Count == 0)
+        {
+            Array values = Enum.GetValues(typeof(CardType));
+            for (int i = 0; i < values.Length; i++)
+            {
+                visibleCardTypes.Add((CardType)values.GetValue(i));
+            }
+        }
+    }
+
+    private GameObject CreateSimpleInventoryCard(CardData cardData, Transform parent)
+    {
+        GameObject cardObject = CreateRectObject("Card_" + cardData.name, parent, typeof(Image), typeof(Button), typeof(Outline), typeof(LayoutElement));
+        Image bg = cardObject.GetComponent<Image>();
+        bg.color = Rgba(18, 18, 24, 0.94f);
+        bg.raycastTarget = true;
+        cardObject.GetComponent<Outline>().effectColor = Rgba(255, 255, 255, 0.12f);
+
+        TextMeshProUGUI label = CreateText("Name", cardObject.transform, $"{cardData.cardName}\n<LUX {cardData.luxCost}>", 18f, TextColor, TextAlignmentOptions.Center);
+        label.richText = true;
+        SetStretch(label.rectTransform, new Vector2(12f, 12f), new Vector2(-12f, -12f));
+        return cardObject;
+    }
+
+    private void ConfigureInventoryCardInstance(GameObject cardObject, CardData cardData)
+    {
+        if (cardObject == null || cardData == null)
+        {
+            return;
+        }
+
+        cardObject.name = "Card_" + cardData.name;
+        cardObject.transform.localScale = Vector3.one;
+
+        RectTransform rt = cardObject.GetComponent<RectTransform>();
+        if (rt != null)
+        {
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(190f, 255f);
+        }
+
+        LayoutElement layoutElement = cardObject.GetComponent<LayoutElement>();
+        if (layoutElement == null)
+        {
+            layoutElement = cardObject.AddComponent<LayoutElement>();
+        }
+        layoutElement.preferredWidth = 190f;
+        layoutElement.preferredHeight = 255f;
+
+        CardButton cardButton = cardObject.GetComponent<CardButton>();
+        if (cardButton != null)
+        {
+            cardButton.cardData = cardData;
+            cardButton.battleManager = null;
+            if (cardButton.cardNameText == null)
+            {
+                cardButton.cardNameText = cardObject.GetComponentInChildren<TMP_Text>(true);
+            }
+            cardButton.RefreshCardUI();
+        }
+
+        Button button = cardObject.GetComponent<Button>();
+        if (button != null)
+        {
+            button.onClick.RemoveAllListeners();
+        }
+
+        AddInventoryCardHover(cardObject, cardData);
+    }
+
+    private void AddInventoryCardHover(GameObject cardObject, CardData cardData)
+    {
+        EventTrigger trigger = cardObject.GetComponent<EventTrigger>();
+        if (trigger == null)
+        {
+            trigger = cardObject.AddComponent<EventTrigger>();
+        }
+
+        trigger.triggers.RemoveAll(entry =>
+            entry.eventID == EventTriggerType.PointerEnter || entry.eventID == EventTriggerType.PointerExit);
+
+        Image bg = cardObject.GetComponent<Image>();
+        Color normalColor = bg != null ? bg.color : Color.white;
+        AddPointerEvent(trigger, EventTriggerType.PointerEnter, () =>
+        {
+            if (bg != null) bg.color = Color.Lerp(normalColor, Pink, 0.22f);
+            ShowCardDescription(cardData);
+        });
+        AddPointerEvent(trigger, EventTriggerType.PointerExit, () =>
+        {
+            if (bg != null) bg.color = normalColor;
+            ClearCardDescription();
+        });
+    }
+
+    private void ShowCardDescription(CardData cardData)
+    {
+        if (cardDescriptionText == null || cardData == null)
+        {
+            return;
+        }
+
+        cardDescriptionText.text =
+            $"<b>{cardData.cardName}</b>  [{GetCardTypeDisplayName(cardData.cardType)}]\n" +
+            $"LUX 비용: {cardData.luxCost} / 피해: {cardData.damage} / 회복: {cardData.healAmount} / 방어: {cardData.shieldAmount}\n" +
+            $"{cardData.description}";
+    }
+
+    private void ClearCardDescription()
+    {
+        if (cardDescriptionText != null)
+        {
+            cardDescriptionText.text = "카드에 마우스를 올리면 설명이 표시됩니다.";
+        }
+    }
+
+    private void CreateEmptyCardMessage(string message)
+    {
+        GameObject messageObject = CreateRectObject("EmptyCardMessage", cardListRoot, typeof(TextMeshProUGUI), typeof(LayoutElement));
+        LayoutElement layoutElement = messageObject.GetComponent<LayoutElement>();
+        layoutElement.preferredWidth = 680f;
+        layoutElement.preferredHeight = 80f;
+
+        TextMeshProUGUI text = messageObject.GetComponent<TextMeshProUGUI>();
+        text.text = message;
+        text.fontSize = 22f;
+        text.color = TextMuted;
+        text.alignment = TextAlignmentOptions.Left;
+        text.raycastTarget = false;
+        ApplyTextFont(text);
+    }
+
+    private string GetCardTypeDisplayName(CardType cardType)
+    {
+        switch (cardType)
+        {
+            case CardType.Deal:
+                return "거래";
+            case CardType.House:
+                return "하우스";
+            case CardType.Gamble:
+                return "도박";
+            case CardType.Poverty:
+                return "빈곤";
+            case CardType.Negotiation:
+                return "협상";
+            case CardType.Manipulation:
+                return "조작";
+            case CardType.Flux:
+                return "흐름";
+            case CardType.Barrier:
+                return "방어";
+            default:
+                return cardType.ToString();
+        }
     }
 
     private void OpenOptionPanel()
@@ -2220,6 +2995,42 @@ public class InventoryPanelController : MonoBehaviour
         }
     }
 
+    private void EnsureDefaultStackDescriptions()
+    {
+        if (stackDescriptions == null || stackDescriptions.Length == 0)
+        {
+            stackDescriptions = CreateDefaultStackDescriptions();
+        }
+    }
+
+    private void AutoFillCardBrowserAssetsInEditor()
+    {
+#if UNITY_EDITOR
+        if (cardPrefab == null)
+        {
+            cardPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/CardPrefab.prefab");
+        }
+
+        if (cardLibrary == null || cardLibrary.Length == 0)
+        {
+            string[] guids = UnityEditor.AssetDatabase.FindAssets("t:CardData", new[] { "Assets/ScriptableObjects" });
+            List<CardData> cards = new List<CardData>();
+
+            for (int i = 0; i < guids.Length; i++)
+            {
+                string path = UnityEditor.AssetDatabase.GUIDToAssetPath(guids[i]);
+                CardData cardData = UnityEditor.AssetDatabase.LoadAssetAtPath<CardData>(path);
+                if (cardData != null)
+                {
+                    cards.Add(cardData);
+                }
+            }
+
+            cardLibrary = cards.ToArray();
+        }
+#endif
+    }
+
     private Color GetAccentColor(WorldCodexAccent accent)
     {
         switch (accent)
@@ -2511,6 +3322,19 @@ public class InventoryPanelController : MonoBehaviour
             title = title,
             subtitle = subtitle,
             blocks = blocks
+        };
+    }
+
+    private static InventoryStackDescription[] CreateDefaultStackDescriptions()
+    {
+        return new[]
+        {
+            new InventoryStackDescription { stackName = "출혈", description = "턴 종료마다 누적 수치에 따라 피해를 받습니다." },
+            new InventoryStackDescription { stackName = "중독", description = "쌓일수록 매 턴 체력이 감소하거나 불리한 효과가 커집니다." },
+            new InventoryStackDescription { stackName = "채무", description = "빚 관련 카드 효과와 페널티 계산에 사용됩니다." },
+            new InventoryStackDescription { stackName = "흥분", description = "공격적 효과나 도박 흐름을 강화하지만 위험도 함께 커집니다." },
+            new InventoryStackDescription { stackName = "욕망", description = "LUX와 보상 관련 선택의 이득과 리스크를 키웁니다." },
+            new InventoryStackDescription { stackName = "체념", description = "행동 제한이나 불리한 상태를 나타내는 누적값입니다." }
         };
     }
 

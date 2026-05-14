@@ -1068,7 +1068,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 1
-  m_Volume: 0.677
+  m_Volume: 0.644
   m_Pitch: 1
   Loop: 0
   Mute: 0
@@ -1174,7 +1174,7 @@ MonoBehaviour:
   alternateDialogueText: {fileID: 1660004669}
   alternateCharacterImage: {fileID: 1660004670}
   voiceSource: {fileID: 1822192645}
-  voiceVolume: 1
+  voiceVolume: 0.53
   lines:
   - speakerName: "\uC774\uB2E4 \uD39C"
     dialogue: "\uC654\uAD70\uC694."

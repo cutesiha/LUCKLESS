@@ -14,9 +14,13 @@ public class HandbookPanelController : MonoBehaviour
 
     [SerializeField] private Image handbookClickImage;
     [SerializeField] private GameObject inventoryPanel;
-    private bool handbookInteractionsReady;
 
     private void OnEnable()
+    {
+        SetupHandbookInteractions();
+    }
+
+    private void Start()
     {
         SetupHandbookInteractions();
     }
@@ -35,14 +39,16 @@ public class HandbookPanelController : MonoBehaviour
             return;
         }
 
-        targetPanel.SetActive(true);
-        targetPanel.transform.SetAsLastSibling();
         InventoryPanelController inventoryController = targetPanel.GetComponent<InventoryPanelController>();
 
         if (inventoryController != null)
         {
-            inventoryController.SetupInventoryPanel();
+            inventoryController.ShowInventoryPanel();
+            return;
         }
+
+        targetPanel.SetActive(true);
+        targetPanel.transform.SetAsLastSibling();
     }
 
     private GameObject GetInventoryPanel()
@@ -92,11 +98,6 @@ public class HandbookPanelController : MonoBehaviour
 
     private void SetupHandbookInteractions()
     {
-        if (handbookInteractionsReady)
-        {
-            return;
-        }
-
         Image targetImage = GetHandbookClickImage();
 
         if (targetImage == null)
@@ -106,7 +107,18 @@ public class HandbookPanelController : MonoBehaviour
 
         SetupPinkHover(targetImage, GetDarkPinkHoverColor);
         AddClickEvent(targetImage, OpenInventoryPanel);
-        handbookInteractionsReady = true;
+        EnsureBattleInventoryOpener(targetImage);
+    }
+
+    private void EnsureBattleInventoryOpener(Image targetImage)
+    {
+        BattleInventoryOpener opener = targetImage.GetComponent<BattleInventoryOpener>();
+        if (opener == null)
+        {
+            opener = targetImage.gameObject.AddComponent<BattleInventoryOpener>();
+        }
+
+        opener.SetInventoryPanel(GetInventoryPanel());
     }
 
     private Image GetHandbookClickImage()

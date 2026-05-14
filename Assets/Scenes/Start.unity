@@ -813,8 +813,8 @@ MonoBehaviour:
   - {fileID: 1201078910}
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294967295
-  m_fontColor: {r: 1, g: 1, b: 1, a: 1}
+    rgba: 4290200319
+  m_fontColor: {r: 1, g: 0.25943398, b: 0.71784645, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -1201,6 +1201,8 @@ MonoBehaviour:
   audioFadeTime: 2
   sceneLoadDelayAfterFade: 2
   audioSourcesToFade: []
+  sfxSource: {fileID: 0}
+  clickClip: {fileID: 8300000, guid: 090c8958655eb574390259056d65a58c, type: 3}
 --- !u!1 &1081182486
 GameObject:
   m_ObjectHideFlags: 0
@@ -1250,7 +1252,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: 021ef4fedfc089847b64366b04b5aa8a, type: 3}
   m_PlayOnAwake: 1
-  m_Volume: 0.651
+  m_Volume: 0.81
   m_Pitch: 1
   Loop: 1
   Mute: 0
@@ -1952,6 +1954,8 @@ MonoBehaviour:
   audioFadeTime: 2
   sceneLoadDelayAfterFade: 2
   audioSourcesToFade: []
+  sfxSource: {fileID: 0}
+  clickClip: {fileID: 8300000, guid: 090c8958655eb574390259056d65a58c, type: 3}
 --- !u!1 &1679658907
 GameObject:
   m_ObjectHideFlags: 0
@@ -2316,6 +2320,8 @@ MonoBehaviour:
   audioFadeTime: 2
   sceneLoadDelayAfterFade: 2
   audioSourcesToFade: []
+  sfxSource: {fileID: 0}
+  clickClip: {fileID: 8300000, guid: 090c8958655eb574390259056d65a58c, type: 3}
 --- !u!1 &1974189349
 GameObject:
   m_ObjectHideFlags: 0
@@ -2413,6 +2419,8 @@ MonoBehaviour:
   audioFadeTime: 2
   sceneLoadDelayAfterFade: 2
   audioSourcesToFade: []
+  sfxSource: {fileID: 0}
+  clickClip: {fileID: 8300000, guid: 090c8958655eb574390259056d65a58c, type: 3}
 --- !u!1 &2023935777
 GameObject:
   m_ObjectHideFlags: 0

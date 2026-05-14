@@ -149,7 +149,7 @@ MonoBehaviour:
   cardData: {fileID: 0}
   battleManager: {fileID: 0}
   cardNameText: {fileID: 5575826154866255032}
-  cardImage: {fileID: 0}
+  cardImage: {fileID: 4650220882726797928}
   dealImage: {fileID: 21300000, guid: bbab123a94d777545ac168e7a6004e52, type: 3}
   houseImage: {fileID: 21300000, guid: 643b6e8a03077724b9ef108482bdd379, type: 3}
   gambleImage: {fileID: 21300000, guid: 22bf743483a5f844db1e98859b2e2ce7, type: 3}

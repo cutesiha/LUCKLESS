@@ -21,6 +21,16 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     [SerializeField] private Sprite fluxImage;
     [SerializeField] private Sprite barrierImage;
 
+    private void Awake()
+    {
+        EnsureImageReference();
+    }
+
+    private void OnValidate()
+    {
+        EnsureImageReference();
+    }
+
     private void Start()
     {
         if (cardData != null)
@@ -53,6 +63,8 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
 
     private void ApplyCardImage()
     {
+        EnsureImageReference();
+
         if (cardImage == null || cardData == null)
         {
             return;
@@ -62,6 +74,14 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
         if (sprite != null)
         {
             cardImage.sprite = sprite;
+        }
+    }
+
+    private void EnsureImageReference()
+    {
+        if (cardImage == null)
+        {
+            cardImage = GetComponent<Image>();
         }
     }
 
