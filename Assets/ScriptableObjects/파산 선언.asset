@@ -21,8 +21,9 @@ MonoBehaviour:
   luxCost: 9
   luxGain: 0
   emotionGain: 0
+  cardImage: {fileID: 0}
   selfDamage: 0
-  gambleSuccessChance: 0
+  gambleSuccessChance: 50
   canOnlyUseInPoverty: 0
   isGambleCard: 1
   stunEnemyNextTurn: 0
@@ -35,6 +36,6 @@ MonoBehaviour:
   damageReduction: 0
   healAmount: 0
   reflectNextEnemyDamage: 0
-  rerollOtherCards: 0
+  rerollOtherCards: 1
   isJackpot: 0
   specialEffect: 16

@@ -751,7 +751,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 55, y: 459}
+  m_AnchoredPosition: {x: 27, y: 459}
   m_SizeDelta: {x: 348.33, y: 100.72}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &87235035
@@ -2632,7 +2632,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: 683fb0411843c2441a99943978bd4e05, type: 3}
   m_PlayOnAwake: 1
-  m_Volume: 0.85
+  m_Volume: 0.5
   m_Pitch: 1
   Loop: 0
   Mute: 0
@@ -3246,7 +3246,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -16, y: 89}
+  m_AnchoredPosition: {x: 5.38, y: 89}
   m_SizeDelta: {x: 366.13, y: 45.07}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &710481992
@@ -3289,7 +3289,6 @@ MonoBehaviour:
   enemyCharacterImage: {fileID: 1292402932}
   enemyNormalSprite: {fileID: 21300000, guid: 1b32a79b38d297e468d9002ce2dd3110, type: 3}
   enemyRageSprite: {fileID: 21300000, guid: c0b0cc8a20b59984fa47f06fc8d2d6f7, type: 3}
-  enemyHitSprite: {fileID: 21300000, guid: 23096808d894af845a6792488eaf1da2, type: 3}
   enemySprite100: {fileID: 21300000, guid: 1b32a79b38d297e468d9002ce2dd3110, type: 3}
   enemySprite50: {fileID: 21300000, guid: c0b0cc8a20b59984fa47f06fc8d2d6f7, type: 3}
   enemySprite20: {fileID: 21300000, guid: 9e94e888d606757439c41bda532d7014, type: 3}
@@ -3301,9 +3300,6 @@ MonoBehaviour:
   playerHitEffectDuration: 0.35
   playerHitShakeStrength: 10
   playerHitFlashColor: {r: 1, g: 0, b: 0, a: 0.45}
-  playerHitClip: {fileID: 8300000, guid: c840a6ec9014eb743bafa5e7019ad929, type: 3}
-  enemyHitClip: {fileID: 8300000, guid: c840a6ec9014eb743bafa5e7019ad929, type: 3}
-  hitSoundVolume: 1.75
   diceRollPanel: {fileID: 2027719764}
   diceLeftImage: {fileID: 2043805182}
   diceRightImage: {fileID: 1196546159}
@@ -5328,8 +5324,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 697.83, y: -397}
-  m_SizeDelta: {x: -1453.87, y: -806}
+  m_AnchoredPosition: {x: 722.19, y: -397}
+  m_SizeDelta: {x: -1502.59, y: -806}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1203978487
 MonoBehaviour:
@@ -5615,7 +5611,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -276, y: -118}
+  m_AnchoredPosition: {x: -459, y: -124}
   m_SizeDelta: {x: 325.35, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &1277662684
@@ -7984,8 +7980,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 32
-  m_fontSizeBase: 32
+  m_fontSize: 30
+  m_fontSizeBase: 30
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -8053,7 +8049,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -16.379978, y: -8}
+  m_AnchoredPosition: {x: 5, y: -8}
   m_SizeDelta: {x: 366.13, y: 125.58}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1648290492
@@ -8338,7 +8334,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 54, y: 409}
+  m_AnchoredPosition: {x: 26, y: 409}
   m_SizeDelta: {x: 200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &1720432525
@@ -9627,7 +9623,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HandbookPanelController
   handbookClickImage: {fileID: 0}
-  inventoryPanel: {fileID: 1453426762}
+  inventoryPanel: {fileID: 0}
 --- !u!1 &1921157688
 GameObject:
   m_ObjectHideFlags: 0
@@ -9741,7 +9737,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 
+  m_text: New Text
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
   m_sharedMaterial: {fileID: 6301557175569863728, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
@@ -10549,10 +10545,6 @@ PrefabInstance:
       propertyPath: inventoryPanel
       value: 
       objectReference: {fileID: 1453426762}
-    - target: {fileID: 919870432614089421, guid: 854e4af839f95244a9760eef814c1d58, type: 3}
-      propertyPath: handbookClickImage
-      value: 
-      objectReference: {fileID: 6269018495861436372}
     - target: {fileID: 6577743499478124717, guid: 854e4af839f95244a9760eef814c1d58, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5
@@ -10637,8 +10629,7 @@ PrefabInstance:
       propertyPath: m_Name
       value: HandbookPanel
       objectReference: {fileID: 0}
-    m_RemovedComponents:
-    - {fileID: 6159139291445801819, guid: 854e4af839f95244a9760eef814c1d58, type: 3}
+    m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents:
@@ -10680,20 +10671,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BattleInventoryOpener
   inventoryPanel: {fileID: 1453426762}
-  hoverTintColor: {r: 0.72, g: 0.12, b: 0.42, a: 1}
-  hoverTintAmount: 0.28
-  hoverDarkenAmount: 0.12
---- !u!114 &6269018495861436372 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 8421296323053189625, guid: 854e4af839f95244a9760eef814c1d58, type: 3}
-  m_PrefabInstance: {fileID: 6269018495861436367}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6269018495861436370}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
 --- !u!1001 &6651021614404434135
 PrefabInstance:
   m_ObjectHideFlags: 0

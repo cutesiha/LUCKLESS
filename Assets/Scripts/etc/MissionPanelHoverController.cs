@@ -11,13 +11,15 @@ public class MissionPanelHoverController : MonoBehaviour
     [SerializeField] private Image dPanelTriggerImage;
     [SerializeField] [Range(0f, 1f)] private float grayBlend = 0.24f;
     [SerializeField] private float flashDuration = 0.16f;
-    [SerializeField] private string lockedMessage = "잠금 해제되지 않았습니다!";
+    [SerializeField] private string lockedMessage = "다음 버전을 기대해주세요!";
     [SerializeField] private string firstMissionSceneName = "Idapen";
     [SerializeField] private float sceneFadeDuration = 0.8f;
     [SerializeField] private float sceneLoadHoldSeconds = 1f;
     [SerializeField] private Vector2 missionScoreLabelOffset = new Vector2(18f, 0f);
     [SerializeField] private Vector2 missionScoreLabelSize = new Vector2(260f, 136f);
     [SerializeField] private float missionScoreFontSize = 22f;
+    [SerializeField] private Vector2 missionScoreBackgroundPadding = new Vector2(12f, 8f);
+    [SerializeField] [Range(0f, 1f)] private float missionScoreBackgroundAlpha = 0.42f;
 
 
     private TextMeshProUGUI lockedMessageText;
@@ -40,6 +42,7 @@ public class MissionPanelHoverController : MonoBehaviour
         {
             dPanel.SetActive(false);
             DisableDPanelRaycasts();
+            ApplyVictoryDPanelText();
         }
 
         Image[] images = GetComponentsInChildren<Image>(true);
@@ -269,6 +272,23 @@ private void OnEnable()
         }
     }
 
+    private void ApplyVictoryDPanelText()
+    {
+        if (PlayerPrefs.GetInt("BattleVictory", 0) != 1)
+        {
+            return;
+        }
+
+        PlayerPrefs.DeleteKey("BattleVictory");
+        PlayerPrefs.Save();
+
+        TextMeshProUGUI[] texts = dPanel.GetComponentsInChildren<TextMeshProUGUI>(true);
+        for (int i = 0; i < texts.Length; i++)
+        {
+            texts[i].text = "잘했어요.";
+        }
+    }
+
     private void EnsureLockedMessage()
     {
         if (lockedMessageText != null)
@@ -445,6 +465,7 @@ private void EnsureMissionScoreLabels()
             int currentScore = BattleScoreStore.GetCurrentScore(missionId);
             int bestScore = BattleScoreStore.GetBestScore(missionId);
             label.text = $"현재점수: {currentScore}\n최고점수: {bestScore}";
+            FitMissionScoreBackground(label);
         }
     }
 
@@ -465,12 +486,19 @@ private void EnsureMissionScoreLabels()
             label = labelObject.GetComponent<TextMeshProUGUI>();
         }
 
+        Image background = GetOrCreateMissionScoreBackground(buttonTransform);
+
         RectTransform labelTransform = label.rectTransform;
         labelTransform.anchorMin = new Vector2(1f, 0.5f);
         labelTransform.anchorMax = new Vector2(1f, 0.5f);
         labelTransform.pivot = new Vector2(0f, 0.5f);
         labelTransform.anchoredPosition = missionScoreLabelOffset;
         labelTransform.sizeDelta = missionScoreLabelSize;
+
+        background.color = new Color(0f, 0f, 0f, missionScoreBackgroundAlpha);
+        background.raycastTarget = false;
+        background.transform.SetSiblingIndex(label.transform.GetSiblingIndex());
+        label.transform.SetAsLastSibling();
 
         if (TMP_Settings.defaultFontAsset != null)
         {
@@ -483,6 +511,65 @@ private void EnsureMissionScoreLabels()
         label.raycastTarget = false;
         label.textWrappingMode = TextWrappingModes.NoWrap;
         return label;
+    }
+
+    private void FitMissionScoreBackground(TextMeshProUGUI label)
+    {
+        if (label == null)
+        {
+            return;
+        }
+
+        RectTransform buttonTransform = label.rectTransform.parent as RectTransform;
+        Image background = GetOrCreateMissionScoreBackground(buttonTransform);
+        if (background == null)
+        {
+            return;
+        }
+
+        label.ForceMeshUpdate();
+        Vector2 preferredSize = label.GetPreferredValues(label.text);
+        Vector2 backgroundSize = new Vector2(
+            Mathf.Max(1f, preferredSize.x + missionScoreBackgroundPadding.x),
+            Mathf.Max(1f, preferredSize.y + missionScoreBackgroundPadding.y));
+
+        RectTransform labelTransform = label.rectTransform;
+        RectTransform backgroundTransform = background.rectTransform;
+        backgroundTransform.anchorMin = labelTransform.anchorMin;
+        backgroundTransform.anchorMax = labelTransform.anchorMax;
+        backgroundTransform.pivot = labelTransform.pivot;
+        backgroundTransform.anchoredPosition = labelTransform.anchoredPosition - missionScoreBackgroundPadding * 0.5f;
+        backgroundTransform.sizeDelta = backgroundSize;
+        background.color = new Color(0f, 0f, 0f, missionScoreBackgroundAlpha);
+        background.raycastTarget = false;
+        background.transform.SetSiblingIndex(label.transform.GetSiblingIndex());
+        label.transform.SetAsLastSibling();
+    }
+
+    private Image GetOrCreateMissionScoreBackground(RectTransform buttonTransform)
+    {
+        if (buttonTransform == null)
+        {
+            return null;
+        }
+
+        const string backgroundName = "MissionScoreBackground";
+        Transform existing = buttonTransform.Find(backgroundName);
+        Image background;
+
+        if (existing != null)
+        {
+            background = existing.GetComponent<Image>();
+            if (background != null)
+            {
+                return background;
+            }
+        }
+
+        GameObject backgroundObject = new GameObject(backgroundName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        backgroundObject.transform.SetParent(buttonTransform, false);
+        background = backgroundObject.GetComponent<Image>();
+        return background;
     }
 
     private string GetMissionId(string objectName)

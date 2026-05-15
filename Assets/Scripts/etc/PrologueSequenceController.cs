@@ -126,6 +126,7 @@ public class PrologueSequenceController : MonoBehaviour
     private RectTransform dialogueControlPanel;
     private TextMeshProUGUI autoButtonText;
     private bool mainSceneTransitionStarted;
+    private bool currentLineHasVoice;
     private const float ChoiceButtonHeight = 58f;
     private const float ChoiceFontSize = 41f;
     private const float ChoicePanelWidth = 680f;
@@ -553,6 +554,8 @@ public class PrologueSequenceController : MonoBehaviour
 
     private void ShowDialogue(string speakerName, Sprite characterSprite, AudioClip voiceClip)
     {
+        currentLineHasVoice = voiceClip != null;
+
         if (nameText != null)
         {
             nameText.text = speakerName;
@@ -795,24 +798,40 @@ public class PrologueSequenceController : MonoBehaviour
 
     private IEnumerator WaitForAdvanceOrAuto()
     {
-        if (autoModeEnabled)
+        while (!advanceRequested)
         {
-            yield return WaitForVoiceToFinish();
-            yield break;
-        }
+            if (autoModeEnabled)
+            {
+                yield return WaitForVoiceToFinishOrAutoCancel();
 
-        yield return new WaitUntil(() => advanceRequested);
+                if (advanceRequested || autoModeEnabled)
+                {
+                    yield break;
+                }
+            }
+
+            yield return null;
+        }
     }
 
-    private IEnumerator WaitForVoiceToFinish()
+    private IEnumerator WaitForVoiceToFinishOrAutoCancel()
     {
-        if (voiceSource != null && voiceSource.isPlaying)
+        if (currentLineHasVoice)
         {
-            yield return new WaitWhile(() => voiceSource != null && voiceSource.isPlaying);
+            yield return new WaitWhile(() =>
+                autoModeEnabled
+                && !advanceRequested
+                && voiceSource != null
+                && voiceSource.isPlaying);
         }
         else
         {
-            yield return new WaitForSecondsRealtime(0.35f);
+            float elapsed = 0f;
+            while (autoModeEnabled && !advanceRequested && elapsed < 0.35f)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                yield return null;
+            }
         }
     }
 

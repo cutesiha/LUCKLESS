@@ -26,6 +26,7 @@ public class BattleManager : MonoBehaviour
     public Image enemyCharacterImage;
     public Sprite enemyNormalSprite;
     public Sprite enemyRageSprite;
+    public Sprite enemyHitSprite;
     public Sprite enemySprite100;
     public Sprite enemySprite50;
     public Sprite enemySprite20;
@@ -41,6 +42,12 @@ public class BattleManager : MonoBehaviour
     public float playerHitEffectDuration = 0.35f;
     public float playerHitShakeStrength = 10f;
     public Color playerHitFlashColor = new Color(1f, 0f, 0f, 0.45f);
+
+    [Header("Hit Voice")]
+    public AudioClip playerHitClip;
+    public AudioClip enemyHitClip;
+    [Range(0f, 3f)] public float hitSoundVolume = 1f;
+    private AudioSource _hitAudioSource;
 
     [Header("Dice Roll Effect")]
     public GameObject diceRollPanel;
@@ -96,9 +103,9 @@ public class BattleManager : MonoBehaviour
     private bool battleEnded = false;
     private bool battleStarted = false;
     [SerializeField] private string gameOverSceneName = "MainScene";
-    [SerializeField] private string victorySceneName = "WinScene";
+    [SerializeField] private string victorySceneName = "MainScene";
     [SerializeField] private float resultFadeDuration = 0.8f;
-    [SerializeField] private float resultHoldDuration = 2f;
+    [SerializeField] private float resultHoldDuration = 1.1f;
     [SerializeField] private string missionScoreId = BattleScoreStore.DefaultMissionId;
 
 
@@ -211,6 +218,11 @@ public class BattleManager : MonoBehaviour
     private int currentCardPlayerDamageTaken = 0;
     private bool resultTransitionStarted = false;
     private readonly List<FailedGambleRecord> failedGambleRecordsThisTurn = new List<FailedGambleRecord>();
+    private int _prevPlayerHP;
+    private int _prevLux;
+    private int _prevEnemyHP;
+    private int _prevEnemyEmotion;
+    private int _prevShield;
 
     private struct FailedGambleRecord
     {
@@ -269,16 +281,25 @@ public class BattleManager : MonoBehaviour
         if (endPanel != null) endPanel.SetActive(false);
         if (negotiationButton != null) negotiationButton.gameObject.SetActive(false);
 
+        _hitAudioSource = gameObject.AddComponent<AudioSource>();
+        _hitAudioSource.playOnAwake = false;
+        _hitAudioSource.spatialBlend = 0f;
         InitializePlayerHitEffect();
         InitializeDiceRollEffect();
         InitializeCoinTossEffect();
         EnsureHandPanel();
+        _prevPlayerHP = playerHP;
+        _prevLux = lux;
+        _prevEnemyHP = enemyHP;
+        _prevEnemyEmotion = enemyEmotion;
+        _prevShield = shield;
         UpdateUI();
         UpdateEnemyDialogue();
         UpdateEnemySprite();
         SetupDeck();
         DrawCards(drawCount);
         StartCoroutine(RefreshHandUIRoutine());
+        StartCoroutine(ShowBattleIntroHint());
     }
 
     private Sprite GetEnemyCurrentSprite()
@@ -334,6 +355,7 @@ public class BattleManager : MonoBehaviour
 
     private void PlayEnemyHitEffect()
     {
+        PlayHitClip(enemyHitClip);
         if (enemyCharacterImage == null) return;
 
         if (enemyHitEffectRoutine != null)
@@ -355,8 +377,8 @@ public class BattleManager : MonoBehaviour
         RectTransform rectTransform = enemyCharacterImage.rectTransform;
         enemyHitOriginalPosition = rectTransform.anchoredPosition;
 
-        Sprite angrySprite = enemyRageSprite != null ? enemyRageSprite : GetEnemyCurrentSprite();
-        enemyCharacterImage.sprite = angrySprite;
+        Sprite hitSprite = enemyHitSprite != null ? enemyHitSprite : (enemyRageSprite != null ? enemyRageSprite : GetEnemyCurrentSprite());
+        enemyCharacterImage.sprite = hitSprite;
 
         float elapsed = 0f;
         while (elapsed < enemyHitEffectDuration)
@@ -441,8 +463,16 @@ public class BattleManager : MonoBehaviour
         return actualDamage;
     }
 
+    private void PlayHitClip(AudioClip clip)
+    {
+        if (clip == null || _hitAudioSource == null) return;
+        _hitAudioSource.volume = hitSoundVolume;
+        _hitAudioSource.PlayOneShot(clip);
+    }
+
     private void PlayPlayerHitEffect()
     {
+        PlayHitClip(playerHitClip);
         if (playerHitFlashImage == null && playerHitShakeTarget == null) return;
 
         if (playerHitEffectRoutine != null)
@@ -1306,7 +1336,7 @@ private int CalculateRewardLux(int bet)
         int effectiveCost = GetEffectiveLuxCost(card);
         string costText = effectiveCost == card.luxCost
             ? $"LUX {effectiveCost}"
-            : $"LUX <s>{card.luxCost}</s> {effectiveCost}";
+            : $"LUX <s>{card.luxCost}</s> <color=#12346f>{effectiveCost}</color>";
 
         return $"{card.cardName}\n<{costText}>";
     }
@@ -1503,6 +1533,7 @@ private int CalculateRewardLux(int bet)
             reflectNextDamage = true;
         }
 
+        int enemyHPBeforeCard = enemyHP;
         ApplySpecialCardEffect(card);
 
         // 체력 회복
@@ -1587,7 +1618,7 @@ private int CalculateRewardLux(int bet)
             playerStunned = true;
         }
 
-        WriteCardUseSummary(card, finalDamage);
+        WriteCardUseSummary(card, enemyHPBeforeCard - enemyHP);
 
 
         if (enemyHP <= 0)
@@ -1941,18 +1972,6 @@ private int CalculateRewardLux(int bet)
             return 0;
         }
 
-        if (state == LuxState.Poverty && GetEffectiveCardType(card) == CardType.Deal)
-        {
-            if (Random.value < 0.2f)
-            {
-                int incoming = ModifyIncomingDamage(damage);
-                if (ApplyPlayerDamage(incoming) > 0) AddBleedStack(1, "불운 역효과로");
-
-                WriteLog("<color=red>불운 발동!</color> 공격이 역효과로 돌아왔습니다.");
-                return 0;
-            }
-        }
-
         if (state == LuxState.Lucky)
         {
             damage += 4;
@@ -2168,6 +2187,8 @@ private int CalculateRewardLux(int bet)
                 WriteLog($"<color=#ffd166>주사위:</color> {d1} + {d2} = {total} {(success ? "성공" : "실패")}");
                 return success ? 25 : 0;
             }
+            case SpecialCardEffect.BankruptcyDeclaration:
+                return 0;
             default:
                 return -1;
         }
@@ -2418,24 +2439,26 @@ private int CalculateRewardLux(int bet)
         UpdateUI();
     }
 
-    private void WinBattle()
+private void WinBattle()
     {
         battleEnded = true;
 
         lux += selectedBet + rewardLux;
         lux = Mathf.Clamp(lux, 0, 100);
 
-        WriteLog($"표적 제압 완료. 베팅 성공! 보상 +{rewardLux} LUX. 현재 LUX: {lux}");
+        WriteLog($"Battle victory. Reward +{rewardLux} LUX. Current LUX: {lux}");
 
         UpdateUI();
         UpdateEnemyDialogue();
 
         int score = BattleScoreStore.CalculateScore(turn);
         BattleScoreStore.SaveScore(missionScoreId, score);
-        StartResultTransition("전투에서 승리하였습니다!", victorySceneName, score);
+        PlayerPrefs.SetInt("BattleVictory", 1);
+        PlayerPrefs.Save();
+        StartResultTransition("\uB2F9\uC2E0\uC740 \uC2B9\uB9AC\uD588\uC5B4\uC694.", "MainScene", score);
     }
 
-    private void LoseBattle()
+private void LoseBattle()
     {
         battleEnded = true;
 
@@ -2443,10 +2466,10 @@ private int CalculateRewardLux(int bet)
         lux -= extraLoss;
         lux = Mathf.Clamp(lux, 0, 100);
 
-        WriteLog($"제로가 쓰러졌습니다. 베팅 실패. 추가 손실 -{extraLoss} LUX. 현재 LUX: {lux}");
+        WriteLog($"Battle defeat. Loss -{extraLoss} LUX. Current LUX: {lux}");
 
         UpdateUI();
-        StartResultTransition("GAME OVER!", gameOverSceneName);
+        StartResultTransition("\uB2F9\uC2E0\uC740 \uD328\uBC30\uD588\uC5B4\uC694... \uC548\uD0C0\uAE5D\uB124\uC694.", "MainScene");
     }
 
     private void StartResultTransition(string message, string sceneName, int score = -1)
@@ -2460,21 +2483,23 @@ private int CalculateRewardLux(int bet)
         StartCoroutine(ResultTransitionRoutine(message, sceneName, score));
     }
 
-    private IEnumerator ResultTransitionRoutine(string message, string sceneName, int score)
+private IEnumerator ResultTransitionRoutine(string message, string sceneName, int score)
     {
-        Canvas canvas = GetComponentInParent<Canvas>(true);
-        if (canvas == null)
-        {
-#if UNITY_2023_1_OR_NEWER
-            canvas = FindFirstObjectByType<Canvas>();
-#else
-            canvas = FindObjectOfType<Canvas>();
-#endif
-        }
+        GameObject overlayCanvasObject = new GameObject("BattleResultCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+        Canvas overlayCanvas = overlayCanvasObject.GetComponent<Canvas>();
+        overlayCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        overlayCanvas.overrideSorting = true;
+        overlayCanvas.sortingOrder = 10000;
 
-        Transform parent = canvas != null ? canvas.transform : transform;
+        CanvasScaler scaler = overlayCanvasObject.GetComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920f, 1080f);
+        scaler.matchWidthOrHeight = 0.5f;
+
+        DontDestroyOnLoad(overlayCanvasObject);
+
         GameObject overlayObject = new GameObject("BattleResultOverlay", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-        overlayObject.transform.SetParent(parent, false);
+        overlayObject.transform.SetParent(overlayCanvasObject.transform, false);
         overlayObject.transform.SetAsLastSibling();
 
         RectTransform overlayRect = overlayObject.GetComponent<RectTransform>();
@@ -2484,7 +2509,7 @@ private int CalculateRewardLux(int bet)
         overlayRect.offsetMax = Vector2.zero;
 
         Image overlayImage = overlayObject.GetComponent<Image>();
-        overlayImage.color = new Color(0f, 0f, 0f, 0f);
+        overlayImage.color = Color.black;
         overlayImage.raycastTarget = true;
 
         GameObject textObject = new GameObject("ResultText", typeof(RectTransform), typeof(TextMeshProUGUI));
@@ -2494,11 +2519,11 @@ private int CalculateRewardLux(int bet)
         textRect.anchorMin = new Vector2(0.5f, 0.5f);
         textRect.anchorMax = new Vector2(0.5f, 0.5f);
         textRect.pivot = new Vector2(0.5f, 0.5f);
-        textRect.anchoredPosition = score >= 0 ? new Vector2(0f, 42f) : Vector2.zero;
-        textRect.sizeDelta = new Vector2(1100f, 160f);
+        textRect.anchoredPosition = Vector2.zero;
+        textRect.sizeDelta = new Vector2(1800f, 240f);
 
         TextMeshProUGUI resultText = textObject.GetComponent<TextMeshProUGUI>();
-        resultText.text = message;
+        resultText.text = score >= 0 ? $"{message}\n\uC810\uC218: {score}" : message;
         if (TMP_Settings.defaultFontAsset != null)
         {
             resultText.font = TMP_Settings.defaultFontAsset;
@@ -2506,63 +2531,154 @@ private int CalculateRewardLux(int bet)
 
         resultText.fontSize = 74f;
         resultText.alignment = TextAlignmentOptions.Center;
-        resultText.color = new Color(1f, 1f, 1f, 0f);
-        resultText.raycastTarget = false;
-
-        TextMeshProUGUI scoreText = null;
-        if (score >= 0)
-        {
-            GameObject scoreObject = new GameObject("ResultScoreText", typeof(RectTransform), typeof(TextMeshProUGUI));
-            scoreObject.transform.SetParent(overlayObject.transform, false);
-
-            RectTransform scoreRect = scoreObject.GetComponent<RectTransform>();
-            scoreRect.anchorMin = new Vector2(0.5f, 0.5f);
-            scoreRect.anchorMax = new Vector2(0.5f, 0.5f);
-            scoreRect.pivot = new Vector2(0.5f, 0.5f);
-            scoreRect.anchoredPosition = new Vector2(0f, -52f);
-            scoreRect.sizeDelta = new Vector2(780f, 80f);
-
-            scoreText = scoreObject.GetComponent<TextMeshProUGUI>();
-            scoreText.text = $"점수: {score}";
-            if (TMP_Settings.defaultFontAsset != null)
-            {
-                scoreText.font = TMP_Settings.defaultFontAsset;
-            }
-            scoreText.fontSize = 44f;
-            scoreText.alignment = TextAlignmentOptions.Center;
-            scoreText.color = new Color(1f, 1f, 1f, 0f);
-            scoreText.raycastTarget = false;
-        }
-
-
-        float elapsed = 0f;
-        while (elapsed < resultFadeDuration)
-        {
-            elapsed += Time.unscaledDeltaTime;
-            float t = resultFadeDuration <= 0f ? 1f : Mathf.Clamp01(elapsed / resultFadeDuration);
-            overlayImage.color = new Color(0f, 0f, 0f, t);
-            resultText.color = new Color(1f, 1f, 1f, t);
-            if (scoreText != null)
-            {
-                scoreText.color = new Color(1f, 1f, 1f, t);
-            }
-
-            yield return null;
-        }
-
-        overlayImage.color = Color.black;
         resultText.color = Color.white;
-        if (scoreText != null)
-        {
-            scoreText.color = Color.white;
-        }
+        resultText.raycastTarget = false;
+        resultText.enableWordWrapping = false;
 
-        yield return new WaitForSecondsRealtime(resultHoldDuration);
+        yield return new WaitForSecondsRealtime(Mathf.Max(0.2f, resultHoldDuration));
 
         if (!string.IsNullOrWhiteSpace(sceneName))
         {
             SceneManager.LoadScene(sceneName);
         }
+
+        Destroy(overlayCanvasObject);
+    }
+
+    private IEnumerator ShowBattleIntroHint()
+    {
+        GameObject canvasObject = new GameObject("BattleIntroHintCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
+        Canvas canvas = canvasObject.GetComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.overrideSorting = true;
+        canvas.sortingOrder = 9000;
+
+        CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920f, 1080f);
+        scaler.matchWidthOrHeight = 0.5f;
+
+        GameObject bgObject = new GameObject("HintBackground", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        bgObject.transform.SetParent(canvasObject.transform, false);
+        RectTransform bgRect = bgObject.GetComponent<RectTransform>();
+        bgRect.anchorMin = new Vector2(0.18f, 0.42f);
+        bgRect.anchorMax = new Vector2(0.82f, 0.58f);
+        bgRect.offsetMin = Vector2.zero;
+        bgRect.offsetMax = Vector2.zero;
+        Image bgImage = bgObject.GetComponent<Image>();
+        bgImage.color = new Color(0f, 0f, 0f, 0.55f);
+        bgImage.raycastTarget = false;
+
+        GameObject textObject = new GameObject("HintText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        textObject.transform.SetParent(bgObject.transform, false);
+        RectTransform textRect = textObject.GetComponent<RectTransform>();
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = Vector2.zero;
+        textRect.offsetMax = Vector2.zero;
+        TextMeshProUGUI hintText = textObject.GetComponent<TextMeshProUGUI>();
+        hintText.text = "인벤토리에서 카드를 살펴보세요!";
+        if (TMP_Settings.defaultFontAsset != null)
+        {
+            hintText.font = TMP_Settings.defaultFontAsset;
+        }
+
+        hintText.fontSize = 52f;
+        hintText.alignment = TextAlignmentOptions.Center;
+        hintText.color = Color.white;
+        hintText.raycastTarget = false;
+
+        CanvasGroup group = canvasObject.AddComponent<CanvasGroup>();
+        group.interactable = false;
+        group.blocksRaycasts = false;
+
+        float blinkOnDuration = 0.12f;
+        float blinkOffDuration = 0.10f;
+        float holdDuration = 0.22f;
+        int blinkCount = 4;
+
+        for (int i = 0; i < blinkCount; i++)
+        {
+            yield return FadeCanvasGroup(group, 0f, 1f, blinkOnDuration);
+            yield return new WaitForSecondsRealtime(holdDuration);
+            yield return FadeCanvasGroup(group, 1f, 0f, blinkOffDuration);
+            yield return new WaitForSecondsRealtime(0.08f);
+        }
+
+        Destroy(canvasObject);
+    }
+
+    private IEnumerator FadeCanvasGroup(CanvasGroup group, float from, float to, float duration)
+    {
+        float startTime = Time.realtimeSinceStartup;
+        while (true)
+        {
+            if (group == null) yield break;
+            float t = duration <= 0f ? 1f : Mathf.Clamp01((Time.realtimeSinceStartup - startTime) / duration);
+            group.alpha = Mathf.Lerp(from, to, t);
+            if (t >= 1f) break;
+            yield return null;
+        }
+    }
+
+    private void SpawnFloatingDelta(TMP_Text anchor, int delta)
+    {
+        if (anchor == null || delta == 0) return;
+        StartCoroutine(FloatingDeltaRoutine(anchor, delta));
+    }
+
+    private IEnumerator FloatingDeltaRoutine(TMP_Text anchor, int delta)
+    {
+        if (anchor == null) yield break;
+        Canvas canvas = anchor.canvas;
+        if (canvas == null) yield break;
+
+        GameObject obj = new GameObject("FloatingDelta", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        RectTransform canvasRt = canvas.GetComponent<RectTransform>();
+        obj.transform.SetParent(canvasRt, false);
+        obj.transform.SetAsLastSibling();
+
+        TextMeshProUGUI text = obj.GetComponent<TextMeshProUGUI>();
+        text.text = delta > 0 ? $"+{delta}" : $"{delta}";
+        if (TMP_Settings.defaultFontAsset != null)
+            text.font = TMP_Settings.defaultFontAsset;
+        text.fontSize = Mathf.Max(anchor.fontSize * 0.9f, 26f);
+        Color baseColor = delta > 0 ? new Color(0.35f, 0.65f, 1f) : new Color(1f, 0.3f, 0.3f);
+        text.color = baseColor;
+        text.alignment = TextAlignmentOptions.Left;
+        text.raycastTarget = false;
+
+        RectTransform rt = obj.GetComponent<RectTransform>();
+        rt.sizeDelta = new Vector2(120f, 60f);
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.pivot = new Vector2(0f, 0.5f);
+
+        Camera cam = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
+        Vector2 screenPos = RectTransformUtility.WorldToScreenPoint(cam, anchor.rectTransform.position);
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRt, screenPos, cam, out Vector2 localPos);
+        localPos.x += anchor.rectTransform.rect.width * 0.5f + 8f;
+        rt.anchoredPosition = localPos;
+
+        float holdDelay = 0.5f;
+        float fadeDuration = 0.9f;
+        Vector2 startPos = rt.anchoredPosition;
+        Vector2 endPos = startPos + new Vector2(0f, 70f);
+
+        yield return new WaitForSecondsRealtime(holdDelay);
+
+        float startTime = Time.realtimeSinceStartup;
+        while (true)
+        {
+            if (obj == null) yield break;
+            float t = Mathf.Clamp01((Time.realtimeSinceStartup - startTime) / fadeDuration);
+            rt.anchoredPosition = Vector2.Lerp(startPos, endPos, t);
+            text.color = new Color(baseColor.r, baseColor.g, baseColor.b, Mathf.Lerp(1f, 0f, t));
+            if (t >= 1f) break;
+            yield return null;
+        }
+
+        Destroy(obj);
     }
 
     private void UpdateBettingUI()
@@ -2813,15 +2929,28 @@ private void CheckEnemyRage()
 
     private void UpdateUI()
     {
+        int dPlayerHP = playerHP - _prevPlayerHP;
+        int dLux = lux - _prevLux;
+        int dEnemyHP = enemyHP - _prevEnemyHP;
+        int dEmotion = enemyEmotion - _prevEnemyEmotion;
+        int dShield = shield - _prevShield;
+        _prevPlayerHP = playerHP;
+        _prevLux = lux;
+        _prevEnemyHP = enemyHP;
+        _prevEnemyEmotion = enemyEmotion;
+        _prevShield = shield;
+
         if (playerHPText != null)
         {
             playerHPText.text = $"HP {playerHP}/{playerMaxHP}";
+            if (dPlayerHP != 0) SpawnFloatingDelta(playerHPText, dPlayerHP);
         }
 
         if (shieldText != null)
         {
             shieldText.gameObject.SetActive(shield > 0);
             shieldText.text = $"SHIELD {shield}";
+            if (dShield != 0) SpawnFloatingDelta(shieldText, dShield);
         }
 
         // 이름
@@ -2841,6 +2970,7 @@ private void CheckEnemyRage()
         if (luxText != null)
         {
             luxText.text = $"LUX {lux}/100";
+            if (dLux != 0) SpawnFloatingDelta(luxText, dLux);
         }
 
         if (luxBar != null)
@@ -2857,6 +2987,7 @@ private void CheckEnemyRage()
         if (enemyHPText != null)
         {
             enemyHPText.text = $"HP {enemyHP}/{enemyMaxHP}";
+            if (dEnemyHP != 0) SpawnFloatingDelta(enemyHPText, dEnemyHP);
         }
 
         if (enemyHPBar != null)
@@ -2867,6 +2998,7 @@ private void CheckEnemyRage()
         if (emotionText != null)
         {
             emotionText.text = enemyRaged ? $"분노 {enemyEmotion}/{maxEmotion} - 분노 상태" : $"분노 {enemyEmotion}/{maxEmotion}";
+            if (dEmotion != 0) SpawnFloatingDelta(emotionText, dEmotion);
         }
 
         if (emotionBar != null)

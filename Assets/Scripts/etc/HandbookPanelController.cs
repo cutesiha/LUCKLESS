@@ -4,6 +4,10 @@ using UnityEngine.UI;
 
 public class HandbookPanelController : MonoBehaviour
 {
+    private static readonly Color HandbookHoverTint = new Color(0.72f, 0.12f, 0.42f, 1f);
+    private const float HandbookHoverTintAmount = 0.28f;
+    private const float HandbookHoverDarkenAmount = 0.12f;
+
     private static readonly string[] InventoryPanelNames =
     {
         "InventoryPanel1",
@@ -98,6 +102,8 @@ public class HandbookPanelController : MonoBehaviour
 
     private void SetupHandbookInteractions()
     {
+        EnsureHandbookCanvasOnTop();
+
         Image targetImage = GetHandbookClickImage();
 
         if (targetImage == null)
@@ -110,14 +116,40 @@ public class HandbookPanelController : MonoBehaviour
         EnsureBattleInventoryOpener(targetImage);
     }
 
+    private void EnsureHandbookCanvasOnTop()
+    {
+        Canvas canvas = GetComponent<Canvas>();
+        if (canvas == null)
+        {
+            canvas = gameObject.AddComponent<Canvas>();
+        }
+
+        canvas.overrideSorting = true;
+        canvas.sortingOrder = 2000;
+
+        if (GetComponent<GraphicRaycaster>() == null)
+        {
+            gameObject.AddComponent<GraphicRaycaster>();
+        }
+
+        transform.SetAsLastSibling();
+    }
+
     private void EnsureBattleInventoryOpener(Image targetImage)
     {
-        BattleInventoryOpener opener = targetImage.GetComponent<BattleInventoryOpener>();
+        BattleInventoryOpener[] openers = targetImage.GetComponents<BattleInventoryOpener>();
+        BattleInventoryOpener opener = openers.Length > 0 ? openers[0] : null;
         if (opener == null)
         {
             opener = targetImage.gameObject.AddComponent<BattleInventoryOpener>();
         }
 
+        for (int i = 1; i < openers.Length; i++)
+        {
+            Destroy(openers[i]);
+        }
+
+        opener.SetHoverStyle(HandbookHoverTint, HandbookHoverTintAmount, HandbookHoverDarkenAmount);
         opener.SetInventoryPanel(GetInventoryPanel());
     }
 
@@ -201,7 +233,11 @@ public class HandbookPanelController : MonoBehaviour
 
     private Color GetDarkPinkHoverColor(Color originalColor)
     {
-        Color tintedColor = Color.Lerp(originalColor, new Color(1f, 0.12f, 0.78f, originalColor.a), 0.38f);
-        return Color.Lerp(tintedColor, Color.black, 0.12f);
+        Color tint = HandbookHoverTint;
+        tint.a = originalColor.a;
+        Color tintedColor = Color.Lerp(originalColor, tint, HandbookHoverTintAmount);
+        Color hoverColor = Color.Lerp(tintedColor, Color.black, HandbookHoverDarkenAmount);
+        hoverColor.a = originalColor.a;
+        return hoverColor;
     }
 }

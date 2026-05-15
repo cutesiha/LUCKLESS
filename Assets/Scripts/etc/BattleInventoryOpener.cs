@@ -6,6 +6,9 @@ using UnityEngine.UI;
 public class BattleInventoryOpener : MonoBehaviour
 {
     [SerializeField] private GameObject inventoryPanel;
+    [SerializeField] private Color hoverTintColor = new Color(0.72f, 0.12f, 0.42f, 1f);
+    [SerializeField] [Range(0f, 1f)] private float hoverTintAmount = 0.28f;
+    [SerializeField] [Range(0f, 1f)] private float hoverDarkenAmount = 0.12f;
 
     private Button button;
     private Image targetImage;
@@ -24,6 +27,14 @@ public class BattleInventoryOpener : MonoBehaviour
     public void SetInventoryPanel(GameObject panel)
     {
         inventoryPanel = panel;
+        EnsureButton();
+    }
+
+    public void SetHoverStyle(Color tintColor, float tintAmount, float darkenAmount)
+    {
+        hoverTintColor = tintColor;
+        hoverTintAmount = Mathf.Clamp01(tintAmount);
+        hoverDarkenAmount = Mathf.Clamp01(darkenAmount);
         EnsureButton();
     }
 
@@ -86,7 +97,7 @@ public class BattleInventoryOpener : MonoBehaviour
         {
             if (targetImage != null)
             {
-                targetImage.color = Color.Lerp(normalColor, new Color(1f, 0.12f, 0.78f, normalColor.a), 0.38f);
+                targetImage.color = GetHoverColor(normalColor);
             }
         });
 
@@ -104,6 +115,16 @@ public class BattleInventoryOpener : MonoBehaviour
         EventTrigger.Entry entry = new EventTrigger.Entry { eventID = eventType };
         entry.callback.AddListener(_ => callback());
         trigger.triggers.Add(entry);
+    }
+
+    private Color GetHoverColor(Color baseColor)
+    {
+        Color tint = hoverTintColor;
+        tint.a = baseColor.a;
+        Color tintedColor = Color.Lerp(baseColor, tint, hoverTintAmount);
+        Color hoverColor = Color.Lerp(tintedColor, Color.black, hoverDarkenAmount);
+        hoverColor.a = baseColor.a;
+        return hoverColor;
     }
 
     private GameObject FindInventoryPanel()

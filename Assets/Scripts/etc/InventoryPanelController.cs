@@ -74,6 +74,12 @@ public class InventoryPanelController : MonoBehaviour
 
     public static event Action InventoryPanelClosed;
 
+    private enum SaveSlotPanelMode
+    {
+        Save,
+        Load
+    }
+
     [Header("Audio Sources")]
     [SerializeField] private AudioSource[] bgmAudioSources;
     [SerializeField] private AudioSource[] sfxAudioSources;
@@ -155,11 +161,14 @@ public class InventoryPanelController : MonoBehaviour
 
     private Image saveImage;
     private GameObject savePanel;
+    private TextMeshProUGUI savePanelTitleText;
     private TextMeshProUGUI saveStatusText;
     private readonly List<TextMeshProUGUI> saveSlotTexts = new List<TextMeshProUGUI>();
+    private SaveSlotPanelMode saveSlotPanelMode = SaveSlotPanelMode.Save;
 
     private Image optionImage;
     private GameObject optionPanel;
+    private bool standalonePanelMode;
 
     private Slider masterSlider;
     private Slider bgmSlider;
@@ -247,11 +256,53 @@ public class InventoryPanelController : MonoBehaviour
 
     public void ShowInventoryPanel()
     {
+        standalonePanelMode = false;
+        saveSlotPanelMode = SaveSlotPanelMode.Save;
         transform.localScale = Vector3.one;
         gameObject.SetActive(true);
         transform.SetAsLastSibling();
         EnsureInventoryCanvasOnTop();
         SetupInventoryPanel();
+    }
+
+    public void ShowOptionPanelOnly()
+    {
+        ShowStandalonePanel();
+        EnsureOptionPanel();
+        if (optionPanel == null) return;
+
+        HideAllSubPanels();
+        optionPanel.SetActive(true);
+        optionPanel.transform.SetAsLastSibling();
+        SetInventoryCloseButtonVisible(false);
+    }
+
+    public void ShowSaveSlotLoadPanelOnly()
+    {
+        saveSlotPanelMode = SaveSlotPanelMode.Load;
+        ShowStandalonePanel();
+        EnsureSavePanel();
+        if (savePanel == null) return;
+
+        HideAllSubPanels();
+        savePanel.SetActive(true);
+        savePanel.transform.SetAsLastSibling();
+        RefreshSaveSlots();
+        SetInventoryCloseButtonVisible(true);
+        BringCloseButtonToFront();
+    }
+
+    private void ShowStandalonePanel()
+    {
+        standalonePanelMode = true;
+        transform.localScale = Vector3.one;
+        gameObject.SetActive(true);
+        transform.SetAsLastSibling();
+        EnsureInventoryCanvasOnTop();
+        EnsureEventSystem();
+        EnsureInventoryCloseButton();
+        ApplyFontToExistingTexts();
+        HideInventoryMenuChildren();
     }
 
     private void EnsureInventoryCanvasOnTop()
@@ -349,12 +400,20 @@ public class InventoryPanelController : MonoBehaviour
         if (savePanel != null && savePanel.activeInHierarchy)
         {
             savePanel.SetActive(false);
+            if (standalonePanelMode)
+            {
+                CloseInventoryPanel();
+            }
             return;
         }
 
         if (optionPanel != null && optionPanel.activeInHierarchy)
         {
             optionPanel.SetActive(false);
+            if (standalonePanelMode)
+            {
+                CloseInventoryPanel();
+            }
             return;
         }
 
@@ -376,6 +435,8 @@ public class InventoryPanelController : MonoBehaviour
     private void CloseInventoryPanel()
     {
         StopFloatRoutines();
+        standalonePanelMode = false;
+        saveSlotPanelMode = SaveSlotPanelMode.Save;
         gameObject.SetActive(false);
         InventoryPanelClosed?.Invoke();
     }
@@ -387,6 +448,44 @@ public class InventoryPanelController : MonoBehaviour
             || (cardBrowserPanel != null && cardBrowserPanel.activeInHierarchy)
             || (savePanel != null && savePanel.activeInHierarchy)
             || (optionPanel != null && optionPanel.activeInHierarchy);
+    }
+
+    private void HideAllSubPanels()
+    {
+        if (stackDescriptionPanel != null) stackDescriptionPanel.SetActive(false);
+        if (cardBrowserPanel != null) cardBrowserPanel.SetActive(false);
+        if (savePanel != null) savePanel.SetActive(false);
+        if (optionPanel != null) optionPanel.SetActive(false);
+        if (glossaryPanel != null) glossaryPanel.SetActive(false);
+        if (worldInfoPanel != null) worldInfoPanel.SetActive(false);
+    }
+
+    private void HideInventoryMenuChildren()
+    {
+        for (int i = 0; i < transform.childCount; i++)
+        {
+            Transform child = transform.GetChild(i);
+            if (child == null)
+            {
+                continue;
+            }
+
+            string childName = child.name;
+            bool keepVisible = childName == InventoryCloseButtonName
+                || childName == OptionPanelName
+                || childName == SavePanelName;
+
+            child.gameObject.SetActive(keepVisible && childName == InventoryCloseButtonName);
+        }
+    }
+
+    private void SetInventoryCloseButtonVisible(bool visible)
+    {
+        Transform closeButton = transform.Find(InventoryCloseButtonName);
+        if (closeButton != null)
+        {
+            closeButton.gameObject.SetActive(visible);
+        }
     }
 
     private void SetupInventoryImageEffects()
@@ -577,8 +676,8 @@ public class InventoryPanelController : MonoBehaviour
         outline.effectColor = Rgba(255, 255, 255, 0.18f);
         outline.effectDistance = new Vector2(1f, -1f);
 
-        TextMeshProUGUI title = CreateText("SaveTitle", savePanel.transform, "SAVE", 34f, TextColor, TextAlignmentOptions.Center);
-        RectTransform titleRt = title.rectTransform;
+        savePanelTitleText = CreateText("SaveTitle", savePanel.transform, "SAVE", 34f, TextColor, TextAlignmentOptions.Center);
+        RectTransform titleRt = savePanelTitleText.rectTransform;
         titleRt.anchorMin = new Vector2(0f, 1f);
         titleRt.anchorMax = new Vector2(1f, 1f);
         titleRt.pivot = new Vector2(0.5f, 1f);
@@ -636,7 +735,7 @@ public class InventoryPanelController : MonoBehaviour
         button.transition = Selectable.Transition.None;
         button.targetGraphic = slotBg;
         int capturedIndex = slotIndex;
-        button.onClick.AddListener(() => SaveToSlot(capturedIndex));
+        button.onClick.AddListener(() => HandleSaveSlotSelected(capturedIndex));
 
         TextMeshProUGUI label = CreateText("Label", slot.transform, "", 22f, TextColor, TextAlignmentOptions.Left);
         SetStretch(label.rectTransform, new Vector2(22f, 8f), new Vector2(-22f, -8f));
@@ -649,6 +748,16 @@ public class InventoryPanelController : MonoBehaviour
 
     private void RefreshSaveSlots()
     {
+        if (savePanelTitleText != null)
+        {
+            savePanelTitleText.text = saveSlotPanelMode == SaveSlotPanelMode.Load ? "LOAD" : "SAVE";
+        }
+
+        if (saveStatusText != null)
+        {
+            saveStatusText.text = string.Empty;
+        }
+
         for (int i = 0; i < saveSlotTexts.Count; i++)
         {
             string savedDate = PlayerPrefs.GetString(GetSaveSlotDateKey(i), string.Empty);
@@ -666,6 +775,17 @@ public class InventoryPanelController : MonoBehaviour
                 saveSlotTexts[i].color = TextColor;
             }
         }
+    }
+
+    private void HandleSaveSlotSelected(int slotIndex)
+    {
+        if (saveSlotPanelMode == SaveSlotPanelMode.Load)
+        {
+            LoadFromSlot(slotIndex);
+            return;
+        }
+
+        SaveToSlot(slotIndex);
     }
 
     private void SaveToSlot(int slotIndex)
@@ -691,6 +811,37 @@ public class InventoryPanelController : MonoBehaviour
             saveStatusText.text = $"슬롯 {slotIndex + 1} 저장 완료  {now}";
             saveStatusText.color = PinkLight;
         }
+    }
+
+    private void LoadFromSlot(int slotIndex)
+    {
+        string savedDate = PlayerPrefs.GetString(GetSaveSlotDateKey(slotIndex), string.Empty);
+        string sceneName = PlayerPrefs.GetString(GetSaveSlotSceneKey(slotIndex), string.Empty);
+
+        if (string.IsNullOrEmpty(savedDate) || string.IsNullOrEmpty(sceneName))
+        {
+            return;
+        }
+
+        if (!Application.CanStreamedLevelBeLoaded(sceneName))
+        {
+            return;
+        }
+
+        GameManager manager = GameManager.Instance;
+        if (manager == null)
+        {
+            GameObject managerObject = new GameObject("GameManager");
+            manager = managerObject.AddComponent<GameManager>();
+        }
+
+        manager.currentLux = PlayerPrefs.GetInt(GetSaveSlotLuxKey(slotIndex), 0);
+        manager.unluckStack = PlayerPrefs.GetInt(GetSaveSlotUnluckKey(slotIndex), 0);
+        manager.slum17Choice = PlayerPrefs.GetInt(GetSaveSlotSlumChoiceKey(slotIndex), -1);
+        manager.selectedCharacter = PlayerPrefs.GetString(GetSaveSlotCharacterKey(slotIndex), "zero");
+        manager.nextScene = PlayerPrefs.GetString(GetSaveSlotNextSceneKey(slotIndex), "BattleScene");
+
+        SceneManager.LoadScene(sceneName);
     }
 
     private string GetSaveSlotDateKey(int slotIndex) => "LUCKLESS_SAVE_SLOT_" + slotIndex + "_DATE";
@@ -1335,10 +1486,23 @@ public class InventoryPanelController : MonoBehaviour
         closeBtn.transition = Selectable.Transition.None;
         closeBtn.targetGraphic = closeImg;
         closeBtn.onClick.RemoveAllListeners();
-        closeBtn.onClick.AddListener(() => optionPanel.SetActive(false));
+        closeBtn.onClick.AddListener(CloseOptionPanel);
 
         TextMeshProUGUI x = CreateText("X", closeObj.transform, "X", 15f, TextMuted, TextAlignmentOptions.Center);
         SetStretch(x.rectTransform, Vector2.zero, Vector2.zero);
+    }
+
+    private void CloseOptionPanel()
+    {
+        if (optionPanel != null)
+        {
+            optionPanel.SetActive(false);
+        }
+
+        if (standalonePanelMode)
+        {
+            CloseInventoryPanel();
+        }
     }
 
     private void CreateOptionBody(Transform parent)

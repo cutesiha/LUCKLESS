@@ -67,5 +67,7 @@
         "*.sln": "*.csproj",
         "*.slnx": "*.csproj"
     },
-    "dotnet.defaultSolution": "My project (1).slnx"
+    "dotnet.defaultSolution": "My project (1).slnx",
+    "workbench.preferredDarkColorTheme": "Dark 2026",
+    "workbench.colorTheme": "Visual Studio 2019 Light"
 }

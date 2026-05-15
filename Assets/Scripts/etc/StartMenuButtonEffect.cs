@@ -12,7 +12,9 @@ public class StartMenuButtonEffect : MonoBehaviour, IPointerEnterHandler, IPoint
         None,
         LoadPrologue,
         QuitGame,
-        AutoByObjectName
+        AutoByObjectName,
+        OpenLoadSlots,
+        OpenOptions
     }
 
     [Header("Hover")]
@@ -27,6 +29,9 @@ public class StartMenuButtonEffect : MonoBehaviour, IPointerEnterHandler, IPoint
     [SerializeField] private float audioFadeTime = 2f;
     [SerializeField] private float sceneLoadDelayAfterFade = 2f;
     [SerializeField] private AudioSource[] audioSourcesToFade;
+
+    [Header("Panels")]
+    [SerializeField] private InventoryPanelController startMenuInventoryPanel;
 
     [Header("SFX")]
     [SerializeField] private AudioSource sfxSource;
@@ -91,6 +96,13 @@ public class StartMenuButtonEffect : MonoBehaviour, IPointerEnterHandler, IPoint
         }
 
         PlayClickSfx();
+
+        if (resolvedAction == ClickAction.OpenLoadSlots || resolvedAction == ClickAction.OpenOptions)
+        {
+            OpenStartMenuPanel(resolvedAction);
+            return;
+        }
+
         StartCoroutine(PlayClickAndRun(resolvedAction));
     }
 
@@ -117,12 +129,60 @@ public class StartMenuButtonEffect : MonoBehaviour, IPointerEnterHandler, IPoint
             return ClickAction.LoadPrologue;
         }
 
+        if (name.EndsWith("_02"))
+        {
+            return ClickAction.OpenLoadSlots;
+        }
+
+        if (name.EndsWith("_03"))
+        {
+            return ClickAction.OpenOptions;
+        }
+
         if (name.EndsWith("_04"))
         {
             return ClickAction.QuitGame;
         }
 
         return ClickAction.None;
+    }
+
+    private void OpenStartMenuPanel(ClickAction resolvedAction)
+    {
+        InventoryPanelController panel = GetStartMenuInventoryPanel();
+        if (panel == null)
+        {
+            Debug.LogWarning("Start menu inventory panel was not found.");
+            return;
+        }
+
+        if (resolvedAction == ClickAction.OpenLoadSlots)
+        {
+            panel.ShowSaveSlotLoadPanelOnly();
+            return;
+        }
+
+        panel.ShowOptionPanelOnly();
+    }
+
+    private InventoryPanelController GetStartMenuInventoryPanel()
+    {
+        if (startMenuInventoryPanel != null)
+        {
+            return startMenuInventoryPanel;
+        }
+
+        InventoryPanelController[] panels = Resources.FindObjectsOfTypeAll<InventoryPanelController>();
+        for (int i = 0; i < panels.Length; i++)
+        {
+            if (panels[i] != null && panels[i].gameObject.scene == gameObject.scene)
+            {
+                startMenuInventoryPanel = panels[i];
+                return startMenuInventoryPanel;
+            }
+        }
+
+        return null;
     }
 
     private void MoveTo(Vector2 targetPosition)
