@@ -180,6 +180,11 @@ public class BattleManager : MonoBehaviour
     public TMP_Text tooltipDescriptionText;
     public TMP_Text tooltipNameText;
 
+    private GameObject stackTooltipPanel;
+    private TextMeshProUGUI stackTooltipText;
+    private RectTransform stackTooltipRect;
+    private RectTransform stackTooltipCanvasRect;
+
     public bool reflectNextDamage = false;
     private bool zeroDamageThisTurn = false;
     private bool grantDoubleDamageNextTurn = false;
@@ -287,6 +292,7 @@ public class BattleManager : MonoBehaviour
         InitializePlayerHitEffect();
         InitializeDiceRollEffect();
         InitializeCoinTossEffect();
+        InitializeStackTooltip();
         EnsureHandPanel();
         _prevPlayerHP = playerHP;
         _prevLux = lux;
@@ -300,6 +306,11 @@ public class BattleManager : MonoBehaviour
         DrawCards(drawCount);
         StartCoroutine(RefreshHandUIRoutine());
         StartCoroutine(ShowBattleIntroHint());
+    }
+
+    private void Update()
+    {
+        UpdateStackTooltipHover();
     }
 
     private Sprite GetEnemyCurrentSprite()
@@ -1359,11 +1370,6 @@ private int CalculateRewardLux(int bet)
             }
         }
 
-        if (effectiveType == CardType.Deal && greedStacks > 0)
-        {
-            damage = Mathf.Max(0, damage - greedStacks);
-        }
-
         if (heartbeatEnabled && heartbeatStacks > 0 && playerHP <= Mathf.RoundToInt(playerMaxHP * 0.5f))
         {
             damage = Mathf.RoundToInt(damage * (1f + heartbeatStacks * 0.05f));
@@ -1564,7 +1570,7 @@ private int CalculateRewardLux(int bet)
         finalDamage = ApplyTurnDamageModifiers(finalDamage);
 
         // 분노 상태일 때 플레이어의 공격력 감소
-        if (enemyRaged && finalDamage > 0)
+        if (enemyRaged && finalDamage > 0 && effectiveType != CardType.Deal)
         {
             finalDamage -= rageAttackReduction;
             finalDamage = Mathf.Max(finalDamage, 0);
@@ -1674,7 +1680,7 @@ private int CalculateRewardLux(int bet)
         finalDamage = ApplyOutgoingCardBonuses(finalDamage, effectiveType);
         finalDamage = ApplyTurnDamageModifiers(finalDamage);
 
-        if (enemyRaged && finalDamage > 0)
+        if (enemyRaged && finalDamage > 0 && effectiveType != CardType.Deal)
         {
             finalDamage -= rageAttackReduction;
             finalDamage = Mathf.Max(finalDamage, 0);
@@ -1848,7 +1854,7 @@ private int CalculateRewardLux(int bet)
         finalDamage = ApplyOutgoingCardBonuses(finalDamage, effectiveType);
         finalDamage = ApplyTurnDamageModifiers(finalDamage);
 
-        if (enemyRaged && finalDamage > 0)
+        if (enemyRaged && finalDamage > 0 && effectiveType != CardType.Deal)
         {
             finalDamage -= rageAttackReduction;
             finalDamage = Mathf.Max(finalDamage, 0);
@@ -2608,6 +2614,116 @@ private IEnumerator ResultTransitionRoutine(string message, string sceneName, in
         Destroy(canvasObject);
     }
 
+    private void InitializeStackTooltip()
+    {
+        if (stackTagText == null) return;
+
+        Canvas canvas = stackTagText.canvas;
+        if (canvas == null) return;
+
+        stackTooltipCanvasRect = canvas.GetComponent<RectTransform>();
+        if (stackTooltipCanvasRect == null) return;
+
+        stackTooltipPanel = new GameObject("StackTooltip", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        stackTooltipPanel.transform.SetParent(canvas.transform, false);
+        stackTooltipPanel.transform.SetAsLastSibling();
+
+        stackTooltipRect = stackTooltipPanel.GetComponent<RectTransform>();
+        stackTooltipRect.anchorMin = new Vector2(0.5f, 0.5f);
+        stackTooltipRect.anchorMax = new Vector2(0.5f, 0.5f);
+        stackTooltipRect.pivot = new Vector2(0f, 1f);
+        stackTooltipRect.sizeDelta = new Vector2(260f, 74f);
+
+        Image background = stackTooltipPanel.GetComponent<Image>();
+        background.color = new Color(0f, 0f, 0f, 0.86f);
+        background.raycastTarget = false;
+
+        GameObject textObject = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        textObject.transform.SetParent(stackTooltipPanel.transform, false);
+
+        RectTransform textRect = textObject.GetComponent<RectTransform>();
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = new Vector2(10f, 8f);
+        textRect.offsetMax = new Vector2(-10f, -8f);
+
+        stackTooltipText = textObject.GetComponent<TextMeshProUGUI>();
+        stackTooltipText.font = stackTagText.font != null ? stackTagText.font : TMP_Settings.defaultFontAsset;
+        stackTooltipText.fontSize = 18f;
+        stackTooltipText.color = Color.white;
+        stackTooltipText.alignment = TextAlignmentOptions.Left;
+        stackTooltipText.raycastTarget = false;
+        stackTooltipText.textWrappingMode = TextWrappingModes.Normal;
+        stackTooltipText.overflowMode = TextOverflowModes.Overflow;
+
+        stackTooltipPanel.SetActive(false);
+    }
+
+    private void UpdateStackTooltipHover()
+    {
+        if (stackTagText == null || stackTooltipPanel == null || stackTooltipText == null || stackTooltipCanvasRect == null)
+        {
+            return;
+        }
+
+        Canvas canvas = stackTagText.canvas;
+        Camera cam = canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay ? canvas.worldCamera : null;
+        Vector2 mousePosition = Input.mousePosition;
+
+        if (!RectTransformUtility.RectangleContainsScreenPoint(stackTagText.rectTransform, mousePosition, cam))
+        {
+            stackTooltipPanel.SetActive(false);
+            return;
+        }
+
+        stackTagText.ForceMeshUpdate();
+        int wordIndex = TMP_TextUtilities.FindIntersectingWord(stackTagText, mousePosition, cam);
+        if (wordIndex < 0)
+        {
+            stackTooltipPanel.SetActive(false);
+            return;
+        }
+
+        string word = stackTagText.textInfo.wordInfo[wordIndex].GetWord();
+        string description = GetStackTooltipDescription(word);
+        if (string.IsNullOrEmpty(description))
+        {
+            stackTooltipPanel.SetActive(false);
+            return;
+        }
+
+        stackTooltipText.text = description;
+        Vector2 preferred = stackTooltipText.GetPreferredValues(description, 330f, 0f);
+        stackTooltipRect.sizeDelta = new Vector2(Mathf.Clamp(preferred.x + 24f, 190f, 350f), preferred.y + 20f);
+
+        Vector2 screenPosition = mousePosition + new Vector2(18f, -18f);
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(stackTooltipCanvasRect, screenPosition, cam, out Vector2 localPosition);
+        stackTooltipRect.anchoredPosition = localPosition;
+        stackTooltipPanel.transform.SetAsLastSibling();
+        stackTooltipPanel.SetActive(true);
+    }
+
+    private string GetStackTooltipDescription(string stackName)
+    {
+        switch (stackName)
+        {
+            case "출혈":
+                return "획득: 자해/도박 실패 등으로 피해를 받으면 +1\n해제: 회복 카드 사용 시 초기화";
+            case "중독":
+                return "획득: 도박 카드 사용 시 +1, 성공 시 추가 +1\n손실: 현재 자연 감소 없음";
+            case "채무":
+                return "획득: 빈곤 카드 또는 LUX 획득 카드 사용 시 +1\n손실: 현재 자연 감소 없음";
+            case "흥분":
+                return "획득: 도박 성공 시 +1\n손실: 도박 실패 시 0으로 초기화";
+            case "탐욕":
+                return "획득: LUX 획득 카드 사용 시 +1\n손실: 파산 선언 사용 시 초기화";
+            case "체념":
+                return "획득: 도박 실패 시 +1\n손실: 도박 성공 시 -2";
+            default:
+                return "";
+        }
+    }
+
     private IEnumerator FadeCanvasGroup(CanvasGroup group, float from, float to, float duration)
     {
         float startTime = Time.realtimeSinceStartup;
@@ -2660,10 +2776,9 @@ private IEnumerator ResultTransitionRoutine(string message, string sceneName, in
         localPos.x += anchor.rectTransform.rect.width * 0.5f + 8f;
         rt.anchoredPosition = localPos;
 
-        float holdDelay = 0.5f;
+        float holdDelay = 1.0f;
         float fadeDuration = 0.9f;
         Vector2 startPos = rt.anchoredPosition;
-        Vector2 endPos = startPos + new Vector2(0f, 70f);
 
         yield return new WaitForSecondsRealtime(holdDelay);
 
@@ -2672,7 +2787,7 @@ private IEnumerator ResultTransitionRoutine(string message, string sceneName, in
         {
             if (obj == null) yield break;
             float t = Mathf.Clamp01((Time.realtimeSinceStartup - startTime) / fadeDuration);
-            rt.anchoredPosition = Vector2.Lerp(startPos, endPos, t);
+            rt.anchoredPosition = startPos;
             text.color = new Color(baseColor.r, baseColor.g, baseColor.b, Mathf.Lerp(1f, 0f, t));
             if (t >= 1f) break;
             yield return null;
