@@ -29,13 +29,12 @@ MonoBehaviour:
   stunEnemyNextTurn: 0
   stunPlayerNextTurn: 0
   cardType: 2
-  povertyStackMultiplier: 0
   houseTrustChange: 0
   ignoreEnemyDamage: 0
   shieldAmount: 0
   damageReduction: 0
   healAmount: 0
   reflectNextEnemyDamage: 0
-  rerollOtherCards: 1
+  rerollOtherCards: 0
   isJackpot: 0
   specialEffect: 16

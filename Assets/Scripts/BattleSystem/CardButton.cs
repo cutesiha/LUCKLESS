@@ -21,10 +21,22 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     [SerializeField] private Sprite manipulationImage;
     [SerializeField] private Sprite fluxImage;
     [SerializeField] private Sprite barrierImage;
-    [SerializeField] private Color nameOutlineColor = new Color(0.16f, 0.16f, 0.16f, 0.62f);
-    [SerializeField] private float nameOutlineDistance = 1.8f;
+    [SerializeField] private Color nameOutlineColor = new Color(0.16f, 0.16f, 0.16f, 0.50f);
+    [SerializeField] private float nameOutlineDistance = 1.7f;
 
-    private readonly TextMeshProUGUI[] nameOutlineTexts = new TextMeshProUGUI[24];
+    private static readonly Vector2[] NameOutlineOffsets =
+    {
+        new Vector2(-1f, 0f),
+        new Vector2(1f, 0f),
+        new Vector2(0f, -1f),
+        new Vector2(0f, 1f),
+        new Vector2(-1f, -1f),
+        new Vector2(-1f, 1f),
+        new Vector2(1f, -1f),
+        new Vector2(1f, 1f)
+    };
+
+    private readonly TextMeshProUGUI[] nameOutlineTexts = new TextMeshProUGUI[NameOutlineOffsets.Length];
 #if UNITY_EDITOR
     private bool nameOutlineRefreshQueued;
 #endif
@@ -84,6 +96,7 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
             return;
         }
 
+        RemoveUnusedNameOutlineTexts(source.transform.parent);
         EnsureNameOutlineTexts(source);
 
         for (int i = 0; i < nameOutlineTexts.Length; i++)
@@ -138,13 +151,7 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
         Transform parent = source.transform.parent;
         for (int i = 0; i < nameOutlineTexts.Length; i++)
         {
-            int x = (i % 5) - 2;
-            int y = (i / 5) - 2;
-            if (x == 0 && y == 0)
-            {
-                x = 2;
-                y = 2;
-            }
+            Vector2 offset = NameOutlineOffsets[i];
 
             if (nameOutlineTexts[i] == null)
             {
@@ -169,11 +176,39 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
             outlineRect.anchorMax = sourceRect.anchorMax;
             outlineRect.pivot = sourceRect.pivot;
             outlineRect.sizeDelta = sourceRect.sizeDelta;
-            outlineRect.anchoredPosition = sourceRect.anchoredPosition + new Vector2(x * nameOutlineDistance, y * nameOutlineDistance);
+            outlineRect.anchoredPosition = sourceRect.anchoredPosition + offset * nameOutlineDistance;
             outlineRect.localRotation = sourceRect.localRotation;
             outlineRect.localScale = sourceRect.localScale;
             nameOutlineTexts[i].raycastTarget = false;
             nameOutlineTexts[i].transform.SetSiblingIndex(source.transform.GetSiblingIndex());
+        }
+    }
+
+    private void RemoveUnusedNameOutlineTexts(Transform parent)
+    {
+        if (parent == null)
+        {
+            return;
+        }
+
+        for (int i = nameOutlineTexts.Length; i < 24; i++)
+        {
+            Transform extra = parent.Find("CardNameTextOutline_" + i);
+            if (extra == null)
+            {
+                continue;
+            }
+
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                DestroyImmediate(extra.gameObject);
+            }
+            else
+#endif
+            {
+                Destroy(extra.gameObject);
+            }
         }
     }
 
@@ -258,6 +293,7 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
         return;
     }
 
+    battleManager.PlayCardSelectSound();
     battleManager.UseCard(cardData);
 }
 

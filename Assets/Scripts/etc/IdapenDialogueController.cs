@@ -937,21 +937,7 @@ public class IdapenDialogueController : MonoBehaviour
 
     private Image CreateFadeImage()
     {
-        Transform parent = currentDialogueCanvasRoot != null ? currentDialogueCanvasRoot.transform : transform;
-        GameObject fadeObject = new GameObject("BattleSceneFade", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-        fadeObject.transform.SetParent(parent, false);
-        fadeObject.transform.SetAsLastSibling();
-
-        RectTransform rectTransform = fadeObject.GetComponent<RectTransform>();
-        rectTransform.anchorMin = Vector2.zero;
-        rectTransform.anchorMax = Vector2.one;
-        rectTransform.offsetMin = Vector2.zero;
-        rectTransform.offsetMax = Vector2.zero;
-
-        Image fadeImage = fadeObject.GetComponent<Image>();
-        fadeImage.color = new Color(0f, 0f, 0f, 0f);
-        fadeImage.raycastTarget = true;
-        return fadeImage;
+        return SceneFadeOverlay.CreateImage("BattleSceneFade");
     }
 
     private IEnumerator FadeImage(Image image, float from, float to, float duration)

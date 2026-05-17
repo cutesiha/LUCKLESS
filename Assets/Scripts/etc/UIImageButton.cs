@@ -22,6 +22,11 @@ public class UIImageButton : MonoBehaviour, IPointerClickHandler
     [SerializeField] private AudioSource sfxSource;
     [SerializeField] private AudioClip clickClip;
 
+    private void Awake()
+    {
+        EnsureSfxSource();
+    }
+
     public void OnPointerClick(PointerEventData eventData)
     {
         PlayClickSfx();
@@ -64,12 +69,31 @@ public class UIImageButton : MonoBehaviour, IPointerClickHandler
 
     private void PlayClickSfx()
     {
+        EnsureSfxSource();
+
         if (sfxSource == null || clickClip == null)
         {
             return;
         }
 
-        float volume = Mathf.Clamp01(PlayerPrefs.GetFloat("SFX", 1f));
+        float volume = GameAudioSettings.SfxVolume;
         sfxSource.PlayOneShot(clickClip, volume);
+    }
+
+    private void EnsureSfxSource()
+    {
+        if (sfxSource != null)
+        {
+            return;
+        }
+
+        sfxSource = GetComponent<AudioSource>();
+        if (sfxSource == null)
+        {
+            sfxSource = gameObject.AddComponent<AudioSource>();
+        }
+
+        sfxSource.playOnAwake = false;
+        sfxSource.spatialBlend = 0f;
     }
 }

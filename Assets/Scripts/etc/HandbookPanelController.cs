@@ -19,6 +19,12 @@ public class HandbookPanelController : MonoBehaviour
     [SerializeField] private Image handbookClickImage;
     [SerializeField] private GameObject inventoryPanel;
 
+    [Header("SFX")]
+    [SerializeField] private AudioSource clickSfxSource;
+    [SerializeField] private AudioClip clickClip;
+
+    private int lastClickSfxFrame = -1;
+
     private void OnEnable()
     {
         SetupHandbookInteractions();
@@ -114,6 +120,7 @@ public class HandbookPanelController : MonoBehaviour
         SetupPinkHover(targetImage, GetDarkPinkHoverColor);
         AddClickEvent(targetImage, OpenInventoryPanel);
         EnsureBattleInventoryOpener(targetImage);
+        EnsureClickSfx(targetImage);
     }
 
     private void EnsureHandbookCanvasOnTop()
@@ -229,6 +236,32 @@ public class HandbookPanelController : MonoBehaviour
         EventTrigger.Entry entry = new EventTrigger.Entry { eventID = eventType };
         entry.callback.AddListener(_ => callback());
         trigger.triggers.Add(entry);
+    }
+
+    private void EnsureClickSfx(Image targetImage)
+    {
+        Button button = targetImage.GetComponent<Button>();
+
+        if (button == null)
+        {
+            button = targetImage.gameObject.AddComponent<Button>();
+        }
+
+        button.transition = Selectable.Transition.None;
+        button.targetGraphic = targetImage;
+        button.onClick.RemoveListener(PlayClickSfx);
+        button.onClick.AddListener(PlayClickSfx);
+    }
+
+    private void PlayClickSfx()
+    {
+        if (lastClickSfxFrame == Time.frameCount)
+        {
+            return;
+        }
+
+        lastClickSfxFrame = Time.frameCount;
+        UIClickSoundPlayer.Play(gameObject, ref clickSfxSource, clickClip);
     }
 
     private Color GetDarkPinkHoverColor(Color originalColor)

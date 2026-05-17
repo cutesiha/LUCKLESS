@@ -50,13 +50,6 @@ public class WorldCodexEntry
     public WorldCodexBlock[] blocks;
 }
 
-[Serializable]
-public class InventoryStackDescription
-{
-    public string stackName = "스택 이름";
-    [TextArea(2, 5)] public string description = "스택 설명";
-}
-
 public class InventoryPanelController : MonoBehaviour
 {
     private const string InventoryCloseButtonName = "InventoryCloseButton";
@@ -70,7 +63,6 @@ public class InventoryPanelController : MonoBehaviour
     private const string OptionPanelName = "OptionPanel";
     private const string CardBrowserPanelName = "CardBrowserPanel";
     private const string SavePanelName = "SavePanel";
-    private const string StackDescriptionPanelName = "StackDescriptionPanel";
 
     public static event Action InventoryPanelClosed;
 
@@ -87,6 +79,10 @@ public class InventoryPanelController : MonoBehaviour
     [Header("Audio Mixer")]
     [SerializeField] private AudioMixer audioMixer;
 
+    [Header("SFX")]
+    [SerializeField] private AudioSource clickSfxSource;
+    [SerializeField] private AudioClip clickClip;
+
     [Header("World Info Panel")]
     [SerializeField] private TMP_FontAsset textFont;
     [SerializeField] private Vector2 worldInfoPanelSize = new Vector2(1440f, 830f);
@@ -98,7 +94,6 @@ public class InventoryPanelController : MonoBehaviour
     [SerializeField] private GameObject cardPrefab;
     [SerializeField] private CardData[] cardLibrary;
     [SerializeField] private Vector2 cardBrowserPanelSize = new Vector2(1360f, 760f);
-    [SerializeField] private InventoryStackDescription[] stackDescriptions = CreateDefaultStackDescriptions();
 
     [Header("Save Panel")]
     [SerializeField] private int saveSlotCount = 4;
@@ -155,7 +150,6 @@ public class InventoryPanelController : MonoBehaviour
     private ScrollRect cardListScroll;
     private TextMeshProUGUI cardBrowserTitleText;
     private TextMeshProUGUI cardDescriptionText;
-    private GameObject stackDescriptionPanel;
     private int selectedCardTypeIndex;
     private readonly List<CardType> visibleCardTypes = new List<CardType>();
 
@@ -169,6 +163,7 @@ public class InventoryPanelController : MonoBehaviour
     private Image optionImage;
     private GameObject optionPanel;
     private bool standalonePanelMode;
+    private int lastClickSfxFrame = -1;
 
     private Slider masterSlider;
     private Slider bgmSlider;
@@ -224,7 +219,6 @@ public class InventoryPanelController : MonoBehaviour
     private void OnValidate()
     {
         EnsureDefaultCodexEntries();
-        EnsureDefaultStackDescriptions();
     }
 
     private void OnEnable()
@@ -241,7 +235,6 @@ public class InventoryPanelController : MonoBehaviour
     {
         transform.localScale = Vector3.one;
         EnsureDefaultCodexEntries();
-        EnsureDefaultStackDescriptions();
         AutoFillCardBrowserAssetsInEditor();
         EnsureEventSystem();
         EnsureInventoryCloseButton();
@@ -277,6 +270,17 @@ public class InventoryPanelController : MonoBehaviour
         SetInventoryCloseButtonVisible(false);
     }
 
+    public void ToggleOptionPanelOnly()
+    {
+        if (gameObject.activeInHierarchy && optionPanel != null && optionPanel.activeInHierarchy)
+        {
+            CloseInventoryPanel();
+            return;
+        }
+
+        ShowOptionPanelOnly();
+    }
+
     public void ShowSaveSlotLoadPanelOnly()
     {
         saveSlotPanelMode = SaveSlotPanelMode.Load;
@@ -290,6 +294,17 @@ public class InventoryPanelController : MonoBehaviour
         RefreshSaveSlots();
         SetInventoryCloseButtonVisible(true);
         BringCloseButtonToFront();
+    }
+
+    public void ToggleSaveSlotLoadPanelOnly()
+    {
+        if (gameObject.activeInHierarchy && savePanel != null && savePanel.activeInHierarchy && saveSlotPanelMode == SaveSlotPanelMode.Load)
+        {
+            CloseInventoryPanel();
+            return;
+        }
+
+        ShowSaveSlotLoadPanelOnly();
     }
 
     private void ShowStandalonePanel()
@@ -385,12 +400,6 @@ public class InventoryPanelController : MonoBehaviour
 
     private void CloseTopPanel()
     {
-        if (stackDescriptionPanel != null && stackDescriptionPanel.activeInHierarchy)
-        {
-            stackDescriptionPanel.SetActive(false);
-            return;
-        }
-
         if (cardBrowserPanel != null && cardBrowserPanel.activeInHierarchy)
         {
             cardBrowserPanel.SetActive(false);
@@ -452,7 +461,6 @@ public class InventoryPanelController : MonoBehaviour
 
     private void HideAllSubPanels()
     {
-        if (stackDescriptionPanel != null) stackDescriptionPanel.SetActive(false);
         if (cardBrowserPanel != null) cardBrowserPanel.SetActive(false);
         if (savePanel != null) savePanel.SetActive(false);
         if (optionPanel != null) optionPanel.SetActive(false);
@@ -548,8 +556,8 @@ public class InventoryPanelController : MonoBehaviour
         worldButton.transition = Selectable.Transition.None;
         worldButton.targetGraphic = worldImage;
         worldButton.onClick.RemoveAllListeners();
-        worldButton.onClick.AddListener(OpenWorldInfoPanel);
-        AddClickEvent(worldImage, OpenWorldInfoPanel);
+        worldButton.onClick.AddListener(ClickWorldImage);
+        AddClickEvent(worldImage, ClickWorldImage);
     }
 
     private void SetupWordImageInteraction()
@@ -584,9 +592,9 @@ public class InventoryPanelController : MonoBehaviour
         optionButton.transition = Selectable.Transition.None;
         optionButton.targetGraphic = optionImage;
         optionButton.onClick.RemoveAllListeners();
-        optionButton.onClick.AddListener(OpenOptionPanel);
+        optionButton.onClick.AddListener(ClickOptionImage);
 
-        AddClickEvent(optionImage, OpenOptionPanel);
+        AddClickEvent(optionImage, ClickOptionImage);
     }
 
     private void SetupCardImageInteraction()
@@ -605,9 +613,9 @@ public class InventoryPanelController : MonoBehaviour
         cardButton.transition = Selectable.Transition.None;
         cardButton.targetGraphic = cardImage;
         cardButton.onClick.RemoveAllListeners();
-        cardButton.onClick.AddListener(OpenCardBrowserPanel);
+        cardButton.onClick.AddListener(ClickCardImage);
 
-        AddClickEvent(cardImage, OpenCardBrowserPanel);
+        AddClickEvent(cardImage, ClickCardImage);
     }
 
     private void SetupSaveImageInteraction()
@@ -626,9 +634,68 @@ public class InventoryPanelController : MonoBehaviour
         saveButton.transition = Selectable.Transition.None;
         saveButton.targetGraphic = saveImage;
         saveButton.onClick.RemoveAllListeners();
-        saveButton.onClick.AddListener(OpenSavePanel);
+        saveButton.onClick.AddListener(ClickSaveImage);
 
-        AddClickEvent(saveImage, OpenSavePanel);
+        AddClickEvent(saveImage, ClickSaveImage);
+    }
+
+    private void ClickWorldImage()
+    {
+        PlayInventoryClickSfx();
+        OpenWorldInfoPanel();
+    }
+
+    private void ClickOptionImage()
+    {
+        PlayInventoryClickSfx();
+        OpenOptionPanel();
+    }
+
+    private void ClickCardImage()
+    {
+        PlayInventoryClickSfx();
+        OpenCardBrowserPanel();
+    }
+
+    private void ClickSaveImage()
+    {
+        PlayInventoryClickSfx();
+        OpenSavePanel();
+    }
+
+    private void PlayInventoryClickSfx()
+    {
+        if (lastClickSfxFrame == Time.frameCount)
+        {
+            return;
+        }
+
+        lastClickSfxFrame = Time.frameCount;
+
+        if (clickSfxSource == null)
+        {
+            clickSfxSource = GetConfiguredSfxSource();
+        }
+
+        UIClickSoundPlayer.Play(gameObject, ref clickSfxSource, clickClip);
+    }
+
+    private AudioSource GetConfiguredSfxSource()
+    {
+        if (sfxAudioSources == null)
+        {
+            return null;
+        }
+
+        for (int i = 0; i < sfxAudioSources.Length; i++)
+        {
+            if (sfxAudioSources[i] != null)
+            {
+                return sfxAudioSources[i];
+            }
+        }
+
+        return null;
     }
 
     private void OpenSavePanel()
@@ -797,7 +864,6 @@ public class InventoryPanelController : MonoBehaviour
         if (GameManager.Instance != null)
         {
             PlayerPrefs.SetInt(GetSaveSlotLuxKey(slotIndex), GameManager.Instance.currentLux);
-            PlayerPrefs.SetInt(GetSaveSlotUnluckKey(slotIndex), GameManager.Instance.unluckStack);
             PlayerPrefs.SetInt(GetSaveSlotSlumChoiceKey(slotIndex), GameManager.Instance.slum17Choice);
             PlayerPrefs.SetString(GetSaveSlotCharacterKey(slotIndex), GameManager.Instance.selectedCharacter);
             PlayerPrefs.SetString(GetSaveSlotNextSceneKey(slotIndex), GameManager.Instance.nextScene);
@@ -836,7 +902,6 @@ public class InventoryPanelController : MonoBehaviour
         }
 
         manager.currentLux = PlayerPrefs.GetInt(GetSaveSlotLuxKey(slotIndex), 0);
-        manager.unluckStack = PlayerPrefs.GetInt(GetSaveSlotUnluckKey(slotIndex), 0);
         manager.slum17Choice = PlayerPrefs.GetInt(GetSaveSlotSlumChoiceKey(slotIndex), -1);
         manager.selectedCharacter = PlayerPrefs.GetString(GetSaveSlotCharacterKey(slotIndex), "zero");
         manager.nextScene = PlayerPrefs.GetString(GetSaveSlotNextSceneKey(slotIndex), "BattleScene");
@@ -847,7 +912,6 @@ public class InventoryPanelController : MonoBehaviour
     private string GetSaveSlotDateKey(int slotIndex) => "LUCKLESS_SAVE_SLOT_" + slotIndex + "_DATE";
     private string GetSaveSlotSceneKey(int slotIndex) => "LUCKLESS_SAVE_SLOT_" + slotIndex + "_SCENE";
     private string GetSaveSlotLuxKey(int slotIndex) => "LUCKLESS_SAVE_SLOT_" + slotIndex + "_LUX";
-    private string GetSaveSlotUnluckKey(int slotIndex) => "LUCKLESS_SAVE_SLOT_" + slotIndex + "_UNLUCK";
     private string GetSaveSlotSlumChoiceKey(int slotIndex) => "LUCKLESS_SAVE_SLOT_" + slotIndex + "_SLUM_CHOICE";
     private string GetSaveSlotCharacterKey(int slotIndex) => "LUCKLESS_SAVE_SLOT_" + slotIndex + "_CHARACTER";
     private string GetSaveSlotNextSceneKey(int slotIndex) => "LUCKLESS_SAVE_SLOT_" + slotIndex + "_NEXT_SCENE";
@@ -934,34 +998,8 @@ public class InventoryPanelController : MonoBehaviour
         TextMeshProUGUI nextText = CreateText("Arrow", nextObj.transform, "▶", 34f, TextColor, TextAlignmentOptions.Center);
         SetStretch(nextText.rectTransform, Vector2.zero, Vector2.zero);
 
-        GameObject stackObj = CreateRectObject("StackInfoButton", cardBrowserPanel.transform, typeof(Image), typeof(Button), typeof(Outline), typeof(EventTrigger));
-        RectTransform stackRt = stackObj.GetComponent<RectTransform>();
-        stackRt.anchorMin = new Vector2(1f, 1f);
-        stackRt.anchorMax = new Vector2(1f, 1f);
-        stackRt.pivot = new Vector2(1f, 1f);
-        stackRt.anchoredPosition = new Vector2(-125f, -28f);
-        stackRt.sizeDelta = new Vector2(300f, 54f);
-
-        Image stackBg = stackObj.GetComponent<Image>();
-        stackBg.color = Rgba(18, 18, 22, 0.82f);
-        stackBg.raycastTarget = true;
-        stackObj.GetComponent<Outline>().effectColor = Rgba(255, 255, 255, 0.18f);
-
-        Button stackButton = stackObj.GetComponent<Button>();
-        stackButton.transition = Selectable.Transition.None;
-        stackButton.targetGraphic = stackBg;
-        stackButton.onClick.AddListener(ToggleStackDescriptionPanel);
-
-        TextMeshProUGUI stackText = CreateText("Text", stackObj.transform, "스택 시스템이란?", 20f, TextColor, TextAlignmentOptions.Center);
-        SetStretch(stackText.rectTransform, Vector2.zero, Vector2.zero);
-
-        EventTrigger stackTrigger = stackObj.GetComponent<EventTrigger>();
-        AddPointerEvent(stackTrigger, EventTriggerType.PointerEnter, () => stackBg.color = Rgba(40, 40, 48, 0.92f));
-        AddPointerEvent(stackTrigger, EventTriggerType.PointerExit, () => stackBg.color = Rgba(18, 18, 22, 0.82f));
-
         CreateCardScrollArea(cardBrowserPanel.transform);
         CreateCardDescriptionArea(cardBrowserPanel.transform);
-        CreateStackDescriptionPanel(cardBrowserPanel.transform);
 
         cardBrowserPanel.SetActive(false);
     }
@@ -1022,65 +1060,6 @@ public class InventoryPanelController : MonoBehaviour
         cardDescriptionText = CreateText("CardDescriptionText", descObj.transform, "", 19f, BodyText, TextAlignmentOptions.Left);
         SetStretch(cardDescriptionText.rectTransform, new Vector2(18f, 10f), new Vector2(-18f, -10f));
         cardDescriptionText.overflowMode = TextOverflowModes.Ellipsis;
-    }
-
-    private void CreateStackDescriptionPanel(Transform parent)
-    {
-        GameObject stackPanel = CreateRectObject(StackDescriptionPanelName, parent, typeof(Image), typeof(Outline), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
-        RectTransform stackRt = stackPanel.GetComponent<RectTransform>();
-        stackRt.anchorMin = new Vector2(1f, 1f);
-        stackRt.anchorMax = new Vector2(1f, 1f);
-        stackRt.pivot = new Vector2(1f, 1f);
-        stackRt.anchoredPosition = new Vector2(-125f, -88f);
-        stackRt.sizeDelta = new Vector2(460f, 320f);
-
-        Image stackBg = stackPanel.GetComponent<Image>();
-        stackBg.color = Rgba(10, 10, 13, 0.96f);
-        stackBg.raycastTarget = true;
-        stackPanel.GetComponent<Outline>().effectColor = Rgba(255, 255, 255, 0.18f);
-
-        VerticalLayoutGroup layout = stackPanel.GetComponent<VerticalLayoutGroup>();
-        layout.padding = new RectOffset(18, 18, 16, 16);
-        layout.spacing = 8f;
-        layout.childForceExpandWidth = true;
-        layout.childForceExpandHeight = false;
-        layout.childControlWidth = true;
-        layout.childControlHeight = true;
-
-        ContentSizeFitter fitter = stackPanel.GetComponent<ContentSizeFitter>();
-        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-        EnsureDefaultStackDescriptions();
-        for (int i = 0; i < stackDescriptions.Length; i++)
-        {
-            InventoryStackDescription stack = stackDescriptions[i];
-            TextMeshProUGUI line = CreateText(
-                "Stack_" + i,
-                stackPanel.transform,
-                $"<b>{stack.stackName}</b>  {stack.description}",
-                17f,
-                BodyText,
-                TextAlignmentOptions.Left);
-            line.richText = true;
-            line.lineSpacing = 3f;
-        }
-
-        stackDescriptionPanel = stackPanel;
-        stackDescriptionPanel.SetActive(false);
-    }
-
-    private void ToggleStackDescriptionPanel()
-    {
-        if (stackDescriptionPanel == null)
-        {
-            return;
-        }
-
-        stackDescriptionPanel.SetActive(!stackDescriptionPanel.activeSelf);
-        if (stackDescriptionPanel.activeSelf)
-        {
-            stackDescriptionPanel.transform.SetAsLastSibling();
-        }
     }
 
     private void ShowNextCardType()
@@ -1510,7 +1489,7 @@ public class InventoryPanelController : MonoBehaviour
         CreateOptionSectionLabel(parent);
 
         CreateOptionSliderAbsolute(parent, "Master", "마스터 볼륨", "MASTER", 80, true, -130f, out masterSlider, out masterValueText);
-        CreateOptionSliderAbsolute(parent, "BGM", "배경음악", "BGM", 70, false, -230f, out bgmSlider, out bgmValueText);
+        CreateOptionSliderAbsolute(parent, "BGM", "배경음악", "BGM", 100, false, -230f, out bgmSlider, out bgmValueText);
         CreateOptionSliderAbsolute(parent, "Voice", "캐릭터 음성", "VOICE", 100, false, -330f, out voiceSlider, out voiceValueText);
         CreateOptionSliderAbsolute(parent, "SFX", "효과음", "SFX", 75, false, -430f, out sfxSlider, out sfxValueText);
 
@@ -1753,7 +1732,7 @@ public class InventoryPanelController : MonoBehaviour
     private void LoadOptionValues()
     {
         if (masterSlider != null) masterSlider.value = PlayerPrefs.GetInt(GameAudioSettings.MasterKey, 80);
-        if (bgmSlider != null) bgmSlider.value = PlayerPrefs.GetInt(GameAudioSettings.BgmKey, 70);
+        if (bgmSlider != null) bgmSlider.value = PlayerPrefs.GetInt(GameAudioSettings.BgmKey, 100);
         if (voiceSlider != null) voiceSlider.value = PlayerPrefs.GetInt(GameAudioSettings.VoiceKey, 100);
         if (sfxSlider != null) sfxSlider.value = PlayerPrefs.GetInt(GameAudioSettings.SfxKey, 75);
 
@@ -1764,7 +1743,7 @@ public class InventoryPanelController : MonoBehaviour
     private void SaveOptionValues()
     {
         int master = masterSlider != null ? Mathf.RoundToInt(masterSlider.value) : 80;
-        int bgm = bgmSlider != null ? Mathf.RoundToInt(bgmSlider.value) : 70;
+        int bgm = bgmSlider != null ? Mathf.RoundToInt(bgmSlider.value) : 100;
         int voice = voiceSlider != null ? Mathf.RoundToInt(voiceSlider.value) : 100;
         int sfx = sfxSlider != null ? Mathf.RoundToInt(sfxSlider.value) : 75;
 
@@ -1777,7 +1756,7 @@ public class InventoryPanelController : MonoBehaviour
     private void ApplyOptionAudioValues()
     {
         int master = masterSlider != null ? Mathf.RoundToInt(masterSlider.value) : 80;
-        int bgm = bgmSlider != null ? Mathf.RoundToInt(bgmSlider.value) : 70;
+        int bgm = bgmSlider != null ? Mathf.RoundToInt(bgmSlider.value) : 100;
         int voice = voiceSlider != null ? Mathf.RoundToInt(voiceSlider.value) : 100;
         int sfx = sfxSlider != null ? Mathf.RoundToInt(sfxSlider.value) : 75;
 
@@ -1791,7 +1770,7 @@ public class InventoryPanelController : MonoBehaviour
     private void ResetOptionValues()
     {
         if (masterSlider != null) masterSlider.value = 80;
-        if (bgmSlider != null) bgmSlider.value = 70;
+        if (bgmSlider != null) bgmSlider.value = 100;
         if (voiceSlider != null) voiceSlider.value = 100;
         if (sfxSlider != null) sfxSlider.value = 75;
 
@@ -2459,7 +2438,7 @@ public class InventoryPanelController : MonoBehaviour
 
         if (RectTransformUtility.RectangleContainsScreenPoint(worldImage.rectTransform, Input.mousePosition, eventCamera))
         {
-            OpenWorldInfoPanel();
+            ClickWorldImage();
         }
     }
 
@@ -3159,14 +3138,6 @@ public class InventoryPanelController : MonoBehaviour
         }
     }
 
-    private void EnsureDefaultStackDescriptions()
-    {
-        if (stackDescriptions == null || stackDescriptions.Length == 0)
-        {
-            stackDescriptions = CreateDefaultStackDescriptions();
-        }
-    }
-
     private void AutoFillCardBrowserAssetsInEditor()
     {
 #if UNITY_EDITOR
@@ -3486,19 +3457,6 @@ public class InventoryPanelController : MonoBehaviour
             title = title,
             subtitle = subtitle,
             blocks = blocks
-        };
-    }
-
-    private static InventoryStackDescription[] CreateDefaultStackDescriptions()
-    {
-        return new[]
-        {
-            new InventoryStackDescription { stackName = "출혈", description = "턴 종료마다 누적 수치에 따라 피해를 받습니다." },
-            new InventoryStackDescription { stackName = "중독", description = "쌓일수록 매 턴 체력이 감소하거나 불리한 효과가 커집니다." },
-            new InventoryStackDescription { stackName = "채무", description = "빚 관련 카드 효과와 페널티 계산에 사용됩니다." },
-            new InventoryStackDescription { stackName = "흥분", description = "공격적 효과나 도박 흐름을 강화하지만 위험도 함께 커집니다." },
-            new InventoryStackDescription { stackName = "욕망", description = "LUX와 보상 관련 선택의 이득과 리스크를 키웁니다." },
-            new InventoryStackDescription { stackName = "체념", description = "행동 제한이나 불리한 상태를 나타내는 누적값입니다." }
         };
     }
 

@@ -1171,10 +1171,9 @@ public class PrologueSequenceController : MonoBehaviour
         rewardOverlay.offsetMax = Vector2.zero;
 
         Canvas overlayCanvas = overlayObject.GetComponent<Canvas>();
-        overlayCanvas.renderMode = RenderMode.ScreenSpaceCamera;
-        overlayCanvas.worldCamera = Camera.main;
+        overlayCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
         overlayCanvas.overrideSorting = true;
-        overlayCanvas.sortingOrder = 200;
+        overlayCanvas.sortingOrder = SceneFadeOverlay.SortingOrder;
 
         CanvasScaler canvasScaler = overlayObject.GetComponent<CanvasScaler>();
         canvasScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;

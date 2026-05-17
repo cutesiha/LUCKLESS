@@ -25,7 +25,6 @@ MonoBehaviour:
   stunEnemyNextTurn: 0
   stunPlayerNextTurn: 0
   cardType: 6
-  povertyStackMultiplier: 0
   houseTrustChange: 0
   ignoreEnemyDamage: 0
   shieldAmount: 0

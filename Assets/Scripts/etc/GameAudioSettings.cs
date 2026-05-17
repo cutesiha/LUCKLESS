@@ -11,8 +11,10 @@ public static class GameAudioSettings
     public const string VoiceKey = "Option_Voice";
     public const string SfxKey = "Option_SFX";
 
+    private const string DefaultsVersionKey = "Option_DefaultsVersion";
+    private const int CurrentDefaultsVersion = 2;
     private const float DefaultMaster = 0.8f;
-    private const float DefaultBgm = 0.7f;
+    private const float DefaultBgm = 1f;
     private const float DefaultVoice = 1f;
     private const float DefaultSfx = 0.75f;
 
@@ -21,6 +23,7 @@ public static class GameAudioSettings
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void InitializeAfterSceneLoad()
     {
+        MigrateDefaultValues();
         SceneManager.sceneLoaded -= OnSceneLoaded;
         SceneManager.sceneLoaded += OnSceneLoaded;
         ApplyCurrentSettings();
@@ -28,6 +31,7 @@ public static class GameAudioSettings
 
     private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
+        MigrateDefaultValues();
         ApplyCurrentSettings();
     }
 
@@ -192,6 +196,23 @@ public static class GameAudioSettings
     {
         int defaultInt = Mathf.RoundToInt(defaultValue * 100f);
         return Mathf.Clamp(PlayerPrefs.GetInt(key, defaultInt), 0, 100) / 100f;
+    }
+
+    private static void MigrateDefaultValues()
+    {
+        int version = PlayerPrefs.GetInt(DefaultsVersionKey, 0);
+        if (version >= CurrentDefaultsVersion)
+        {
+            return;
+        }
+
+        if (!PlayerPrefs.HasKey(BgmKey) || PlayerPrefs.GetInt(BgmKey, 70) == 70)
+        {
+            PlayerPrefs.SetInt(BgmKey, 100);
+        }
+
+        PlayerPrefs.SetInt(DefaultsVersionKey, CurrentDefaultsVersion);
+        PlayerPrefs.Save();
     }
 
     private static float LinearToDecibel(float value)

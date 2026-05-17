@@ -134,7 +134,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &2403674
 RectTransform:
   m_ObjectHideFlags: 0
@@ -167,7 +167,7 @@ GameObject:
   - component: {fileID: 17759584}
   - component: {fileID: 17759583}
   m_Layer: 5
-  m_Name: stackTagText
+  m_Name: RemovedBattleStatusText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -189,7 +189,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 568, y: -91}
+  m_AnchoredPosition: {x: 558, y: -111}
   m_SizeDelta: {x: 649.11, y: 175.31}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &17759583
@@ -425,7 +425,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: c1785929ecdab45408a97ae124eb8562, type: 3}
+  m_Sprite: {fileID: 21300000, guid: f7dd8b2953ef7934ea81b139f799572d, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -751,7 +751,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 50, y: 459}
+  m_AnchoredPosition: {x: 45, y: 459}
   m_SizeDelta: {x: 348.33, y: 100.72}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &87235035
@@ -2632,7 +2632,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: 683fb0411843c2441a99943978bd4e05, type: 3}
   m_PlayOnAwake: 1
-  m_Volume: 0.85
+  m_Volume: 0.876
   m_Pitch: 1
   Loop: 0
   Mute: 0
@@ -3246,7 +3246,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -16, y: 89}
+  m_AnchoredPosition: {x: -21, y: 94}
   m_SizeDelta: {x: 366.13, y: 45.07}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &710481992
@@ -3303,7 +3303,9 @@ MonoBehaviour:
   playerHitFlashColor: {r: 1, g: 0, b: 0, a: 0.45}
   playerHitClip: {fileID: 8300000, guid: c840a6ec9014eb743bafa5e7019ad929, type: 3}
   enemyHitClip: {fileID: 8300000, guid: c840a6ec9014eb743bafa5e7019ad929, type: 3}
-  hitSoundVolume: 1.75
+  hitSoundVolume: 1.86
+  cardSelectClip: {fileID: 8300000, guid: edfe396b0face7547863b20ed79f8d89, type: 3}
+  cardSelectSoundVolume: 0
   diceRollPanel: {fileID: 2027719764}
   diceLeftImage: {fileID: 2043805182}
   diceRightImage: {fileID: 1196546159}
@@ -3380,7 +3382,6 @@ MonoBehaviour:
   enemyDialogueText: {fileID: 451473692}
   turnText: {fileID: 1720432526}
   battleLogText: {fileID: 1944376448}
-  stackTagText: {fileID: 17759583}
   cardPrefab: {fileID: 585096007863852204, guid: 4c61f88274816de4ba02d5908c29d028, type: 3}
   handPanel: {fileID: 1175265382}
   startingCards:
@@ -3427,7 +3428,6 @@ MonoBehaviour:
   gambleSuccessChance: 50
   canOnlyUseInPoverty: 0
   isGambleCard: 0
-  povertyStack: 0
   enemyStunned: 0
   playerStunned: 0
   tooltipPanel: {fileID: 1203978485}
@@ -6790,6 +6790,8 @@ MonoBehaviour:
   bgmAudioSources: []
   sfxAudioSources: []
   audioMixer: {fileID: 0}
+  clickSfxSource: {fileID: 0}
+  clickClip: {fileID: 8300000, guid: 090c8958655eb574390259056d65a58c, type: 3}
   textFont: {fileID: 11400000, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
   worldInfoPanelSize: {x: 1440, y: 830}
   worldInfoPanelAlpha: 0.94
@@ -7444,25 +7446,6 @@ MonoBehaviour:
   cardPrefab: {fileID: 0}
   cardLibrary: []
   cardBrowserPanelSize: {x: 1360, y: 760}
-  stackDescriptions:
-  - stackName: "\uCD9C\uD608"
-    description: "\uD134 \uC885\uB8CC\uB9C8\uB2E4 \uB204\uC801 \uC218\uCE58\uC5D0
-      \uB530\uB77C \uD53C\uD574\uB97C \uBC1B\uC2B5\uB2C8\uB2E4."
-  - stackName: "\uC911\uB3C5"
-    description: "\uC313\uC77C\uC218\uB85D \uB9E4 \uD134 \uCCB4\uB825\uC774 \uAC10\uC18C\uD558\uAC70\uB098
-      \uBD88\uB9AC\uD55C \uD6A8\uACFC\uAC00 \uCEE4\uC9D1\uB2C8\uB2E4."
-  - stackName: "\uCC44\uBB34"
-    description: "\uBE5A \uAD00\uB828 \uCE74\uB4DC \uD6A8\uACFC\uC640 \uD398\uB110\uD2F0
-      \uACC4\uC0B0\uC5D0 \uC0AC\uC6A9\uB429\uB2C8\uB2E4."
-  - stackName: "\uD765\uBD84"
-    description: "\uACF5\uACA9\uC801 \uD6A8\uACFC\uB098 \uB3C4\uBC15 \uD750\uB984\uC744
-      \uAC15\uD654\uD558\uC9C0\uB9CC \uC704\uD5D8\uB3C4 \uD568\uAED8 \uCEE4\uC9D1\uB2C8\uB2E4."
-  - stackName: "\uC695\uB9DD"
-    description: "LUX\uC640 \uBCF4\uC0C1 \uAD00\uB828 \uC120\uD0DD\uC758 \uC774\uB4DD\uACFC
-      \uB9AC\uC2A4\uD06C\uB97C \uD0A4\uC6C1\uB2C8\uB2E4."
-  - stackName: "\uCCB4\uB150"
-    description: "\uD589\uB3D9 \uC81C\uD55C\uC774\uB098 \uBD88\uB9AC\uD55C \uC0C1\uD0DC\uB97C
-      \uB098\uD0C0\uB0B4\uB294 \uB204\uC801\uAC12\uC785\uB2C8\uB2E4."
   saveSlotCount: 4
   savePanelSize: {x: 760, y: 520}
 --- !u!114 &1453426764
@@ -8053,8 +8036,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 36.02, y: -63.02}
-  m_SizeDelta: {x: 470.92, y: 235.61}
+  m_AnchoredPosition: {x: 14.313, y: -58.019993}
+  m_SizeDelta: {x: 437.51, y: 235.61}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1648290492
 GameObject:
@@ -9628,6 +9611,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::HandbookPanelController
   handbookClickImage: {fileID: 0}
   inventoryPanel: {fileID: 1453426762}
+  clickSfxSource: {fileID: 0}
+  clickClip: {fileID: 8300000, guid: 090c8958655eb574390259056d65a58c, type: 3}
 --- !u!1 &1921157688
 GameObject:
   m_ObjectHideFlags: 0

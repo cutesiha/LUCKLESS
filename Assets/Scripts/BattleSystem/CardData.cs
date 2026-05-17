@@ -25,7 +25,6 @@ public class CardData : ScriptableObject
     public bool stunPlayerNextTurn;
 
     public CardType cardType;
-    public int povertyStackMultiplier;
 
     [Header("Advanced Stats")]
     public int houseTrustChange;

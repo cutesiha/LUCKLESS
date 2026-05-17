@@ -49,6 +49,7 @@ public class StartMenuButtonEffect : MonoBehaviour, IPointerEnterHandler, IPoint
         rectTransform = GetComponent<RectTransform>();
         image = GetComponent<Image>();
         image.raycastTarget = true;
+        EnsureSfxSource();
     }
 
     private void OnEnable()
@@ -108,13 +109,32 @@ public class StartMenuButtonEffect : MonoBehaviour, IPointerEnterHandler, IPoint
 
     private void PlayClickSfx()
     {
+        EnsureSfxSource();
+
         if (sfxSource == null || clickClip == null)
         {
             return;
         }
 
-        float volume = Mathf.Clamp01(PlayerPrefs.GetFloat("SFX", 1f));
+        float volume = GameAudioSettings.SfxVolume;
         sfxSource.PlayOneShot(clickClip, volume);
+    }
+
+    private void EnsureSfxSource()
+    {
+        if (sfxSource != null)
+        {
+            return;
+        }
+
+        sfxSource = GetComponent<AudioSource>();
+        if (sfxSource == null)
+        {
+            sfxSource = gameObject.AddComponent<AudioSource>();
+        }
+
+        sfxSource.playOnAwake = false;
+        sfxSource.spatialBlend = 0f;
     }
 
     private ClickAction ResolveAction()
@@ -158,11 +178,11 @@ public class StartMenuButtonEffect : MonoBehaviour, IPointerEnterHandler, IPoint
 
         if (resolvedAction == ClickAction.OpenLoadSlots)
         {
-            panel.ShowSaveSlotLoadPanelOnly();
+            panel.ToggleSaveSlotLoadPanelOnly();
             return;
         }
 
-        panel.ShowOptionPanelOnly();
+        panel.ToggleOptionPanelOnly();
     }
 
     private InventoryPanelController GetStartMenuInventoryPanel()
@@ -377,20 +397,6 @@ public class StartMenuButtonEffect : MonoBehaviour, IPointerEnterHandler, IPoint
 
     private Image CreateFadeImage()
     {
-        Canvas canvas = GetComponentInParent<Canvas>();
-        GameObject fadeObject = new GameObject("StartMenuFade", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-        fadeObject.transform.SetParent(canvas != null ? canvas.transform : transform.root, false);
-        fadeObject.transform.SetAsLastSibling();
-
-        RectTransform fadeRect = fadeObject.GetComponent<RectTransform>();
-        fadeRect.anchorMin = Vector2.zero;
-        fadeRect.anchorMax = Vector2.one;
-        fadeRect.offsetMin = Vector2.zero;
-        fadeRect.offsetMax = Vector2.zero;
-
-        Image fadeImage = fadeObject.GetComponent<Image>();
-        fadeImage.raycastTarget = true;
-        fadeImage.color = new Color(0f, 0f, 0f, 0f);
-        return fadeImage;
+        return SceneFadeOverlay.CreateImage("StartMenuFade");
     }
 }
