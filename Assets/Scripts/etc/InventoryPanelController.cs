@@ -3148,7 +3148,7 @@ public class InventoryPanelController : MonoBehaviour
 
         if (cardLibrary == null || cardLibrary.Length == 0)
         {
-            string[] guids = UnityEditor.AssetDatabase.FindAssets("t:CardData", new[] { "Assets/ScriptableObjects" });
+            string[] guids = UnityEditor.AssetDatabase.FindAssets("t:CardData", new[] { "Assets/Resources/Cards" });
             List<CardData> cards = new List<CardData>();
 
             for (int i = 0; i < guids.Length; i++)
@@ -3162,6 +3162,11 @@ public class InventoryPanelController : MonoBehaviour
             }
 
             cardLibrary = cards.ToArray();
+        }
+#else
+        if (cardLibrary == null || cardLibrary.Length == 0)
+        {
+            cardLibrary = Resources.LoadAll<CardData>("Cards");
         }
 #endif
     }
