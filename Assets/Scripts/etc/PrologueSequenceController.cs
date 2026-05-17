@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Audio;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -85,9 +86,11 @@ public class PrologueSequenceController : MonoBehaviour
     [Header("Audio")]
     [SerializeField] private AudioSource voiceSource;
     [SerializeField] [Range(0f, 5f)] private float voiceVolume = 1f;
+    [SerializeField] private AudioMixerGroup voiceMixerGroup;
     [SerializeField] private AudioSource titleMusicSource;
     [SerializeField] private AudioClip titleMusicClip;
     [SerializeField] private float titleMusicVolume = 1f;
+    [SerializeField] private AudioMixerGroup titleMusicMixerGroup;
     [SerializeField] private float titleMusicFadeInDuration = 1.5f;
 
     [Header("Handbook Reward")]
@@ -98,6 +101,7 @@ public class PrologueSequenceController : MonoBehaviour
     [SerializeField] private float handbookDimAlpha = 0.42f;
     [SerializeField] private float handbookRewardBlinkSeconds = 2.4f;
     [SerializeField] private float handbookRewardBlinkInterval = 0.22f;
+    [SerializeField] private Vector2 handbookPromptOffset = new Vector2(26f, -70f);
 
     [Header("Control Buttons")]
     [SerializeField] private string mainSceneName = "MainScene";
@@ -143,6 +147,7 @@ public class PrologueSequenceController : MonoBehaviour
 
     private void Awake()
     {
+        EnsureAudioRouting();
         EnsureDialogueCanvases();
         EnsureChoiceSlots();
         EnsureDialogueCanvas();
@@ -569,13 +574,14 @@ public class PrologueSequenceController : MonoBehaviour
 
         if (voiceSource != null)
         {
+            EnsureAudioRouting();
             voiceSource.Stop();
             voiceSource.clip = voiceClip;
-            voiceSource.volume = GameAudioSettings.GetVoiceSourceVolume(voiceVolume);
+            voiceSource.volume = GameAudioSettings.VoiceVolume;
 
             if (voiceClip != null)
             {
-                voiceSource.Play();
+                voiceSource.PlayOneShot(voiceClip, Mathf.Max(0f, voiceVolume));
             }
         }
     }
@@ -1297,7 +1303,7 @@ public class PrologueSequenceController : MonoBehaviour
             promptTransform.anchorMin = new Vector2(0.5f, 0.5f);
             promptTransform.anchorMax = new Vector2(0.5f, 0.5f);
             promptTransform.pivot = new Vector2(0f, 0.5f);
-            promptTransform.anchoredPosition = new Vector2(230f, 0f);
+            promptTransform.anchoredPosition = new Vector2(230f, handbookPromptOffset.y);
             promptTransform.sizeDelta = new Vector2(560f, 80f);
 
             handbookPromptText = promptObject.GetComponent<TextMeshProUGUI>();
@@ -1335,7 +1341,7 @@ public class PrologueSequenceController : MonoBehaviour
 
         if (targetImage == null)
         {
-            promptTransform.anchoredPosition = new Vector2(230f, 0f);
+            promptTransform.anchoredPosition = new Vector2(230f, handbookPromptOffset.y);
             return;
         }
 
@@ -1352,7 +1358,7 @@ public class PrologueSequenceController : MonoBehaviour
 
         if (RectTransformUtility.ScreenPointToLocalPointInRectangle(rewardOverlay, screenPoint, overlayCamera, out Vector2 localPoint))
         {
-            promptTransform.anchoredPosition = localPoint + new Vector2(26f, 0f);
+            promptTransform.anchoredPosition = localPoint + handbookPromptOffset;
         }
     }
 
@@ -1462,6 +1468,8 @@ public class PrologueSequenceController : MonoBehaviour
 
     private void StartTitleMusic()
     {
+        EnsureAudioRouting();
+
         if (titleMusicSource == null)
         {
             return;
@@ -1490,6 +1498,19 @@ public class PrologueSequenceController : MonoBehaviour
         }
 
         titleMusicFadeRoutine = StartCoroutine(FadeAudio(titleMusicSource, GameAudioSettings.GetBgmSourceVolume(titleMusicVolume), titleMusicFadeInDuration));
+    }
+
+    private void EnsureAudioRouting()
+    {
+        if (voiceSource != null && voiceMixerGroup != null)
+        {
+            voiceSource.outputAudioMixerGroup = voiceMixerGroup;
+        }
+
+        if (titleMusicSource != null && titleMusicMixerGroup != null)
+        {
+            titleMusicSource.outputAudioMixerGroup = titleMusicMixerGroup;
+        }
     }
 
     private IEnumerator FadeAudio(AudioSource source, float targetVolume, float duration)

@@ -645,13 +645,12 @@ public class IdapenDialogueController : MonoBehaviour
 
     private bool ShouldShakeForLine(string speakerName, string dialogue)
     {
+        bool speakerMatches = ShouldShakeForSpeaker(speakerName);
         string normalizedShakeText = NormalizeSpeakerName(shakeDialogueText);
-        if (!string.IsNullOrEmpty(normalizedShakeText))
-        {
-            return NormalizeSpeakerName(dialogue).Contains(normalizedShakeText);
-        }
+        bool dialogueMatches = !string.IsNullOrEmpty(normalizedShakeText)
+            && NormalizeSpeakerName(dialogue).Contains(normalizedShakeText);
 
-        return ShouldShakeForSpeaker(speakerName);
+        return speakerMatches || dialogueMatches;
     }
 
     private string NormalizeSpeakerName(string speakerName)
@@ -1121,7 +1120,28 @@ public class IdapenDialogueController : MonoBehaviour
             return;
         }
 
+        Canvas canvas = targetObject.GetComponent<Canvas>();
+        if (canvas != null)
+        {
+            int addedCountBeforeCanvas = targets.Count;
+            for (int i = 0; i < targetObject.transform.childCount; i++)
+            {
+                RectTransform childTransform = targetObject.transform.GetChild(i) as RectTransform;
+                AddShakeRectTransform(targets, childTransform);
+            }
+
+            if (targets.Count > addedCountBeforeCanvas)
+            {
+                return;
+            }
+        }
+
         RectTransform rectTransform = targetObject.GetComponent<RectTransform>();
+        AddShakeRectTransform(targets, rectTransform);
+    }
+
+    private void AddShakeRectTransform(System.Collections.Generic.List<RectTransform> targets, RectTransform rectTransform)
+    {
         if (rectTransform != null && !targets.Contains(rectTransform))
         {
             targets.Add(rectTransform);

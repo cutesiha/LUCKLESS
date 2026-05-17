@@ -134,7 +134,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &2403674
 RectTransform:
   m_ObjectHideFlags: 0
@@ -3366,6 +3366,7 @@ MonoBehaviour:
   luxText: {fileID: 330467302}
   luxStateText: {fileID: 1277662685}
   luxBar: {fileID: 793395136}
+  luxFloatingDeltaOffset: {x: -96, y: 0}
   povertyLuxBarColor: {r: 0.78, g: 0.05, b: 0.38, a: 1}
   normalLuxBarColor: {r: 1, g: 0.25, b: 0.62, a: 1}
   luckyLuxBarColor: {r: 1, g: 0.48, b: 0.48, a: 1}
@@ -3420,6 +3421,8 @@ MonoBehaviour:
   - {fileID: 11400000, guid: e46283a2232a4f24dbb94b2d5d628a84, type: 2}
   - {fileID: 11400000, guid: a8809b7b0ea7e624a8719952e2fbb215, type: 2}
   - {fileID: 11400000, guid: 232405af36bfa4c42b5a3ab5614a13ee, type: 2}
+  - {fileID: 11400000, guid: 587f116583e67f74cb49dce4f455b642, type: 2}
+  - {fileID: 11400000, guid: 19b707f8f2e2c254d8bfce35aa2ac27f, type: 2}
   drawCount: 4
   drawPile: []
   hand: []

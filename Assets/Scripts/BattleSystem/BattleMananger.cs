@@ -128,6 +128,7 @@ public class BattleManager : MonoBehaviour
     public TMP_Text luxText;
     public TMP_Text luxStateText;
     public Slider luxBar;
+    public Vector2 luxFloatingDeltaOffset = new Vector2(-96f, 0f);
     public Color povertyLuxBarColor = new Color(0.78f, 0.05f, 0.38f, 1f);
     public Color normalLuxBarColor = new Color(1f, 0.25f, 0.62f, 1f);
     public Color luckyLuxBarColor = new Color(1f, 0.48f, 0.48f, 1f);
@@ -2084,33 +2085,33 @@ private int CalculateRewardLux(int bet)
             }
             case SpecialCardEffect.Lucky7777:
             {
-                int roll = Random.Range(0, 4);
+                int roll = Random.Range(1, 101);
                 gambleResolvedThisUse = true;
-                gambleSucceededThisUse = roll < 3;
+                gambleSucceededThisUse = roll > 25;
 
-                if (roll == 0)
+                if (roll <= 25)
                 {
-                    WriteLog("<color=#8fd3ff>7777:</color> 7 피해");
+                    ApplyPlayerDamage(7);
+                    failedGambleCountThisTurn += 1;
+                    failedGambleRecordsThisTurn.Add(new FailedGambleRecord { chance = 75, successDamage = 14 });
+                    WriteLog($"<color=#8fd3ff>7777:</color> 실패! 제로가 7 피해. ({roll}/100)");
+                    return 0;
+                }
+
+                if (roll <= 50)
+                {
+                    WriteLog($"<color=#8fd3ff>7777:</color> 7 피해. ({roll}/100)");
                     return 7;
                 }
 
-                if (roll == 1)
+                if (roll <= 75)
                 {
-                    WriteLog("<color=#8fd3ff>7777:</color> 14 피해");
+                    WriteLog($"<color=#8fd3ff>7777:</color> 14 피해. ({roll}/100)");
                     return 14;
                 }
 
-                if (roll == 2)
-                {
-                    WriteLog("<color=#8fd3ff>7777:</color> 21 피해");
-                    return 21;
-                }
-
-                ApplyPlayerDamage(7);
-                failedGambleCountThisTurn += 1;
-                failedGambleRecordsThisTurn.Add(new FailedGambleRecord { chance = 75, successDamage = 14 });
-                WriteLog("<color=#8fd3ff>7777:</color> 역효과! 제로가 7 피해.");
-                return 0;
+                WriteLog($"<color=#8fd3ff>7777:</color> 21 피해. ({roll}/100)");
+                return 21;
             }
             default:
                 return -1;
@@ -2517,11 +2518,16 @@ private IEnumerator ResultTransitionRoutine(string message, string sceneName, in
 
     private void SpawnFloatingDelta(TMP_Text anchor, int delta)
     {
-        if (anchor == null || delta == 0) return;
-        StartCoroutine(FloatingDeltaRoutine(anchor, delta));
+        SpawnFloatingDelta(anchor, delta, Vector2.zero);
     }
 
-    private IEnumerator FloatingDeltaRoutine(TMP_Text anchor, int delta)
+    private void SpawnFloatingDelta(TMP_Text anchor, int delta, Vector2 extraOffset)
+    {
+        if (anchor == null || delta == 0) return;
+        StartCoroutine(FloatingDeltaRoutine(anchor, delta, extraOffset));
+    }
+
+    private IEnumerator FloatingDeltaRoutine(TMP_Text anchor, int delta, Vector2 extraOffset)
     {
         if (anchor == null) yield break;
         Canvas canvas = anchor.canvas;
@@ -2552,6 +2558,7 @@ private IEnumerator ResultTransitionRoutine(string message, string sceneName, in
         Vector2 screenPos = RectTransformUtility.WorldToScreenPoint(cam, anchor.rectTransform.position);
         RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRt, screenPos, cam, out Vector2 localPos);
         localPos.x += anchor.rectTransform.rect.width * 0.5f + 8f;
+        localPos += extraOffset;
         rt.anchoredPosition = localPos;
 
         float holdDelay = 1.0f;
@@ -2855,6 +2862,7 @@ private void CheckEnemyRage()
         // HP Bar
         if (playerHPBar != null)
         {
+            EnsureSliderFillVisible(playerHPBar);
             playerHPBar.maxValue = playerMaxHP;
             playerHPBar.value = playerHP;
         }
@@ -2863,12 +2871,15 @@ private void CheckEnemyRage()
         if (luxText != null)
         {
             luxText.text = $"LUX {lux}/100";
-            if (dLux != 0) SpawnFloatingDelta(luxText, dLux);
+            if (dLux != 0) SpawnFloatingDelta(luxText, dLux, luxFloatingDeltaOffset);
         }
 
         if (luxBar != null)
         {
-            luxBar.value = lux / 100f;
+            EnsureSliderFillVisible(luxBar);
+            luxBar.minValue = 0f;
+            luxBar.maxValue = 100f;
+            luxBar.SetValueWithoutNotify(lux);
             UpdateLuxBarColor();
         }
 
@@ -2885,6 +2896,7 @@ private void CheckEnemyRage()
 
         if (enemyHPBar != null)
         {
+            EnsureSliderFillVisible(enemyHPBar);
             enemyHPBar.value = (float)enemyHP / enemyMaxHP;
         }
 
@@ -2896,6 +2908,7 @@ private void CheckEnemyRage()
 
         if (emotionBar != null)
         {
+            EnsureSliderFillVisible(emotionBar);
             emotionBar.value = (float)enemyEmotion / maxEmotion;
         }
 
@@ -2955,6 +2968,25 @@ private void CheckEnemyRage()
             case LuxState.Overflow:
                 fillImage.color = overflowLuxBarColor;
                 break;
+        }
+    }
+
+    private void EnsureSliderFillVisible(Slider slider)
+    {
+        if (slider == null || slider.fillRect == null)
+        {
+            return;
+        }
+
+        Transform current = slider.fillRect;
+        while (current != null && current != slider.transform)
+        {
+            if (!current.gameObject.activeSelf)
+            {
+                current.gameObject.SetActive(true);
+            }
+
+            current = current.parent;
         }
     }
 
