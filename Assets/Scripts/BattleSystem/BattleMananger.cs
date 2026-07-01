@@ -26,6 +26,7 @@ public class BattleManager : MonoBehaviour
     public Image enemyCharacterImage;
     public Sprite enemyNormalSprite;
     public Sprite enemyRageSprite;
+    public Sprite enemyHitSprite;
     public Sprite enemySprite100;
     public Sprite enemySprite50;
     public Sprite enemySprite20;
@@ -41,6 +42,15 @@ public class BattleManager : MonoBehaviour
     public float playerHitEffectDuration = 0.35f;
     public float playerHitShakeStrength = 10f;
     public Color playerHitFlashColor = new Color(1f, 0f, 0f, 0.45f);
+
+    [Header("Hit Voice")]
+    public AudioClip playerHitClip;
+    public AudioClip enemyHitClip;
+    [Range(0f, 3f)] public float hitSoundVolume = 1f;
+    public AudioClip cardSelectClip;
+    [Range(0f, 3f)] public float cardSelectSoundVolume = 1f;
+    private AudioSource _hitAudioSource;
+    private AudioSource _sfxAudioSource;
 
     [Header("Dice Roll Effect")]
     public GameObject diceRollPanel;
@@ -98,7 +108,7 @@ public class BattleManager : MonoBehaviour
     [SerializeField] private string gameOverSceneName = "MainScene";
     [SerializeField] private string victorySceneName = "MainScene";
     [SerializeField] private float resultFadeDuration = 0.8f;
-    [SerializeField] private float resultHoldDuration = 2f;
+    [SerializeField] private float resultHoldDuration = 1.1f;
     [SerializeField] private string missionScoreId = BattleScoreStore.DefaultMissionId;
 
 
@@ -118,6 +128,7 @@ public class BattleManager : MonoBehaviour
     public TMP_Text luxText;
     public TMP_Text luxStateText;
     public Slider luxBar;
+    public Vector2 luxFloatingDeltaOffset = new Vector2(-96f, 0f);
     public Color povertyLuxBarColor = new Color(0.78f, 0.05f, 0.38f, 1f);
     public Color normalLuxBarColor = new Color(1f, 0.25f, 0.62f, 1f);
     public Color luckyLuxBarColor = new Color(1f, 0.48f, 0.48f, 1f);
@@ -142,7 +153,6 @@ public class BattleManager : MonoBehaviour
     [Header("UI - Battle")]
     public TMP_Text turnText;
     public TMP_Text battleLogText;
-    public TMP_Text stackTagText;
 
     [Header("Card Prefab")]
     public GameObject cardPrefab;
@@ -162,7 +172,6 @@ public class BattleManager : MonoBehaviour
     public bool isGambleCard;
 
     private Coroutine handRoutine;
-    public int povertyStack = 0;
 
     [Header("Turn Control")]
     public bool enemyStunned = false;
@@ -180,12 +189,6 @@ public class BattleManager : MonoBehaviour
     private int luxDrainTurnsRemaining = 0;
     private bool reduceEnemyDamageNextTurn = false;
     private readonly HashSet<CardData> forcedGambleCards = new HashSet<CardData>();
-    private int bleedStacks = 0;
-    private int addictionStacks = 0;   // 중독
-    private int debtStacks = 0;        // 채무
-    private int excitementStacks = 0;  // 흥분
-    private int greedStacks = 0;       // 탐욕
-    private int resignationStacks = 0; // 체념
     private bool gambleResolvedThisUse = false;
     private bool gambleSucceededThisUse = false;
     private bool usedCardThisTurn = false;
@@ -194,8 +197,6 @@ public class BattleManager : MonoBehaviour
     private int probabilityManipulationTurnsRemaining = 0;
     private bool probabilityManipulationActivatedThisTurn = false;
     private int overloadTurnsRemaining = 0;
-    private int heartbeatStacks = 0;
-    private bool heartbeatEnabled = false;
     private int failedGambleCountThisTurn = 0;
     private bool firstGambleGuaranteedThisTurn = false;
     private bool firstGambleUsedThisTurn = false;
@@ -211,6 +212,11 @@ public class BattleManager : MonoBehaviour
     private int currentCardPlayerDamageTaken = 0;
     private bool resultTransitionStarted = false;
     private readonly List<FailedGambleRecord> failedGambleRecordsThisTurn = new List<FailedGambleRecord>();
+    private int _prevPlayerHP;
+    private int _prevLux;
+    private int _prevEnemyHP;
+    private int _prevEnemyEmotion;
+    private int _prevShield;
 
     private struct FailedGambleRecord
     {
@@ -269,16 +275,28 @@ public class BattleManager : MonoBehaviour
         if (endPanel != null) endPanel.SetActive(false);
         if (negotiationButton != null) negotiationButton.gameObject.SetActive(false);
 
+        _hitAudioSource = gameObject.AddComponent<AudioSource>();
+        _hitAudioSource.playOnAwake = false;
+        _hitAudioSource.spatialBlend = 0f;
+        _sfxAudioSource = gameObject.AddComponent<AudioSource>();
+        _sfxAudioSource.playOnAwake = false;
+        _sfxAudioSource.spatialBlend = 0f;
         InitializePlayerHitEffect();
         InitializeDiceRollEffect();
         InitializeCoinTossEffect();
         EnsureHandPanel();
+        _prevPlayerHP = playerHP;
+        _prevLux = lux;
+        _prevEnemyHP = enemyHP;
+        _prevEnemyEmotion = enemyEmotion;
+        _prevShield = shield;
         UpdateUI();
         UpdateEnemyDialogue();
         UpdateEnemySprite();
         SetupDeck();
         DrawCards(drawCount);
         StartCoroutine(RefreshHandUIRoutine());
+        StartCoroutine(ShowBattleIntroHint());
     }
 
     private Sprite GetEnemyCurrentSprite()
@@ -334,6 +352,7 @@ public class BattleManager : MonoBehaviour
 
     private void PlayEnemyHitEffect()
     {
+        PlayHitClip(enemyHitClip);
         if (enemyCharacterImage == null) return;
 
         if (enemyHitEffectRoutine != null)
@@ -355,8 +374,8 @@ public class BattleManager : MonoBehaviour
         RectTransform rectTransform = enemyCharacterImage.rectTransform;
         enemyHitOriginalPosition = rectTransform.anchoredPosition;
 
-        Sprite angrySprite = enemyRageSprite != null ? enemyRageSprite : GetEnemyCurrentSprite();
-        enemyCharacterImage.sprite = angrySprite;
+        Sprite hitSprite = enemyHitSprite != null ? enemyHitSprite : (enemyRageSprite != null ? enemyRageSprite : GetEnemyCurrentSprite());
+        enemyCharacterImage.sprite = hitSprite;
 
         float elapsed = 0f;
         while (elapsed < enemyHitEffectDuration)
@@ -441,8 +460,29 @@ public class BattleManager : MonoBehaviour
         return actualDamage;
     }
 
+    private void PlayHitClip(AudioClip clip)
+    {
+        if (clip == null || _hitAudioSource == null) return;
+        _hitAudioSource.volume = hitSoundVolume;
+        _hitAudioSource.PlayOneShot(clip);
+    }
+
+    public void PlayCardSelectSound()
+    {
+        PlaySfxClip(cardSelectClip, cardSelectSoundVolume);
+    }
+
+    private void PlaySfxClip(AudioClip clip, float volumeScale)
+    {
+        if (clip == null || _sfxAudioSource == null) return;
+
+        _sfxAudioSource.volume = GameAudioSettings.SfxVolume;
+        _sfxAudioSource.PlayOneShot(clip, Mathf.Clamp(volumeScale, 0f, 3f));
+    }
+
     private void PlayPlayerHitEffect()
     {
+        PlayHitClip(playerHitClip);
         if (playerHitFlashImage == null && playerHitShakeTarget == null) return;
 
         if (playerHitEffectRoutine != null)
@@ -1250,40 +1290,14 @@ private int CalculateRewardLux(int bet)
         return card.isGambleCard || forcedGambleCards.Contains(card);
     }
 
-    private void AddBleedStack(int amount, string reason)
-    {
-        bleedStacks += amount;
-        bleedStacks = Mathf.Max(bleedStacks, 0);
-        WriteLog($"{reason} <color=red>출혈 +{amount}</color> (현재 {bleedStacks}스택)");
-    }
-
-    private void ClearBleedStacks(string reason)
-    {
-        if (bleedStacks <= 0) return;
-        bleedStacks = 0;
-        WriteLog($"{reason} <color=#8fd3ff>출혈이 초기화</color>되었습니다.");
-    }
-
     private int ModifyIncomingDamage(int damage)
     {
-        int debtPenalty = debtStacks >= 5 ? 1 : 0;
-        int resignationReduction = resignationStacks * 2;
-        int modified = damage + debtPenalty - resignationReduction;
-        return Mathf.Max(modified, 0);
-    }
-
-    private bool IsLuxTypeCard(CardData card)
-    {
-        return card.luxGain > 0 || card.specialEffect == SpecialCardEffect.LuxDrain;
+        return Mathf.Max(damage, 0);
     }
 
     private int CalculateLuxGain(CardData card)
     {
-        if (card.luxGain <= 0) return card.luxGain;
-
-        float percentBonus = 1f + (excitementStacks * 0.05f);
-        int scaled = Mathf.RoundToInt(card.luxGain * percentBonus);
-        return scaled + (greedStacks * 3);
+        return card.luxGain;
     }
 
     private int GetEffectiveLuxCost(CardData card)
@@ -1306,65 +1320,15 @@ private int CalculateRewardLux(int bet)
         int effectiveCost = GetEffectiveLuxCost(card);
         string costText = effectiveCost == card.luxCost
             ? $"LUX {effectiveCost}"
-            : $"LUX <s>{card.luxCost}</s> {effectiveCost}";
+            : $"LUX <s>{card.luxCost}</s> <color=#12346f>{effectiveCost}</color>";
 
         return $"{card.cardName}\n<{costText}>";
-    }
-
-    private int ApplyOutgoingCardBonuses(int damage, CardType effectiveType)
-    {
-        if (damage <= 0) return 0;
-
-        if (bleedStacks > 0 && (effectiveType == CardType.Deal || effectiveType == CardType.Gamble))
-        {
-            damage += bleedStacks / 2;
-        }
-
-        if (effectiveType == CardType.Gamble)
-        {
-            damage += excitementStacks * 3;
-            if (debtStacks >= 5)
-            {
-                damage = Mathf.RoundToInt(damage * 1.5f);
-            }
-        }
-
-        if (effectiveType == CardType.Deal && greedStacks > 0)
-        {
-            damage = Mathf.Max(0, damage - greedStacks);
-        }
-
-        if (heartbeatEnabled && heartbeatStacks > 0 && playerHP <= Mathf.RoundToInt(playerMaxHP * 0.5f))
-        {
-            damage = Mathf.RoundToInt(damage * (1f + heartbeatStacks * 0.05f));
-        }
-
-        return damage;
-    }
-
-    private void ApplyGambleResultStacks(CardData card)
-    {
-        if (!IsCardTreatedAsGamble(card) || !gambleResolvedThisUse) return;
-
-        if (gambleSucceededThisUse)
-        {
-            addictionStacks += 1;
-            excitementStacks += 1;
-            resignationStacks = Mathf.Max(0, resignationStacks - 2);
-        }
-        else
-        {
-            excitementStacks = 0;
-            resignationStacks += 1;
-        }
     }
 
     private int GetGambleChanceBonus()
     {
         int chanceBonus = 0;
         chanceBonus += probabilityManipulationTurnsRemaining > 0 ? 20 : 0;
-        chanceBonus -= resignationStacks * 2;
-        if (excitementStacks >= 3) chanceBonus += 10;
 
         return chanceBonus;
     }
@@ -1477,24 +1441,6 @@ private int CalculateRewardLux(int bet)
         currentCardPlayerDamageTaken = 0;
 
         CardType effectiveType = GetEffectiveCardType(card);
-        bool isGambleCard = IsCardTreatedAsGamble(card);
-        bool isLuxTypeCard = IsLuxTypeCard(card);
-
-        if (isGambleCard)
-        {
-            addictionStacks += 1;
-        }
-
-        if (effectiveType == CardType.Poverty || isLuxTypeCard)
-        {
-            debtStacks += 1;
-        }
-
-        if (isLuxTypeCard)
-        {
-            greedStacks += 1;
-        }
-
         gambleResolvedThisUse = false;
         gambleSucceededThisUse = false;
 
@@ -1503,6 +1449,7 @@ private int CalculateRewardLux(int bet)
             reflectNextDamage = true;
         }
 
+        int enemyHPBeforeCard = enemyHP;
         ApplySpecialCardEffect(card);
 
         // 체력 회복
@@ -1512,7 +1459,6 @@ private int CalculateRewardLux(int bet)
             playerHP = Mathf.Clamp(playerHP, 0, playerMaxHP);
 
             WriteLog($"{card.cardName} 사용 → HP {card.healAmount} 회복");
-            ClearBleedStacks($"{card.cardName} 효과로");
         }
 
         if (card.specialEffect == SpecialCardEffect.CoinTriple)
@@ -1528,12 +1474,10 @@ private int CalculateRewardLux(int bet)
         }
 
         int finalDamage = CalculateDamage(card);
-        ApplyGambleResultStacks(card);
-        finalDamage = ApplyOutgoingCardBonuses(finalDamage, effectiveType);
         finalDamage = ApplyTurnDamageModifiers(finalDamage);
 
         // 분노 상태일 때 플레이어의 공격력 감소
-        if (enemyRaged && finalDamage > 0)
+        if (enemyRaged && finalDamage > 0 && effectiveType != CardType.Deal)
         {
             finalDamage -= rageAttackReduction;
             finalDamage = Mathf.Max(finalDamage, 0);
@@ -1546,7 +1490,7 @@ private int CalculateRewardLux(int bet)
         if (!IsCardTreatedAsGamble(card) && card.selfDamage > 0)
         {
             int incoming = ModifyIncomingDamage(card.selfDamage);
-            if (ApplyPlayerDamage(incoming) > 0) AddBleedStack(1, $"{card.cardName} 자해로");
+            ApplyPlayerDamage(incoming);
         }
         enemyEmotion = Mathf.Clamp(enemyEmotion, 0, maxEmotion);
 
@@ -1587,7 +1531,7 @@ private int CalculateRewardLux(int bet)
             playerStunned = true;
         }
 
-        WriteCardUseSummary(card, finalDamage);
+        WriteCardUseSummary(card, enemyHPBeforeCard - enemyHP);
 
 
         if (enemyHP <= 0)
@@ -1632,18 +1576,16 @@ private int CalculateRewardLux(int bet)
         else
         {
             int incoming = ModifyIncomingDamage(20);
-            if (ApplyPlayerDamage(incoming) > 0) AddBleedStack(1, "주사위 실패 반동으로");
+            ApplyPlayerDamage(incoming);
             failedGambleCountThisTurn += 1;
             failedGambleRecordsThisTurn.Add(new FailedGambleRecord { chance = chance, successDamage = 25 });
         }
 
         WriteLog($"<color=#ffd166>주사위:</color> {d1} + {d2} = {total} {(success ? "성공" : "실패")}");
 
-        ApplyGambleResultStacks(card);
-        finalDamage = ApplyOutgoingCardBonuses(finalDamage, effectiveType);
         finalDamage = ApplyTurnDamageModifiers(finalDamage);
 
-        if (enemyRaged && finalDamage > 0)
+        if (enemyRaged && finalDamage > 0 && effectiveType != CardType.Deal)
         {
             finalDamage -= rageAttackReduction;
             finalDamage = Mathf.Max(finalDamage, 0);
@@ -1807,17 +1749,15 @@ private int CalculateRewardLux(int bet)
         else
         {
             int incoming = ModifyIncomingDamage(20);
-            if (ApplyPlayerDamage(incoming) > 0) AddBleedStack(1, "코인 실패 반동으로");
+            ApplyPlayerDamage(incoming);
             failedGambleCountThisTurn += 1;
             failedGambleRecordsThisTurn.Add(new FailedGambleRecord { chance = GetAdjustedGambleSuccessChance(50, false), successDamage = 40 });
             WriteLog($"<color=#ffd166>코인 3연속:</color> 앞면 {heads}/3 실패, 제로가 20 피해를 받습니다.");
         }
 
-        ApplyGambleResultStacks(card);
-        finalDamage = ApplyOutgoingCardBonuses(finalDamage, effectiveType);
         finalDamage = ApplyTurnDamageModifiers(finalDamage);
 
-        if (enemyRaged && finalDamage > 0)
+        if (enemyRaged && finalDamage > 0 && effectiveType != CardType.Deal)
         {
             finalDamage -= rageAttackReduction;
             finalDamage = Mathf.Max(finalDamage, 0);
@@ -1897,10 +1837,6 @@ private int CalculateRewardLux(int bet)
 
         if (card.canOnlyUseInPoverty)
         {
-            damage = povertyStack * card.povertyStackMultiplier;
-
-            povertyStack = 0;
-
             return damage;
         }
 
@@ -1917,7 +1853,7 @@ private int CalculateRewardLux(int bet)
             if (roll > chance)
             {
                 int incoming = ModifyIncomingDamage(card.selfDamage);
-                if (ApplyPlayerDamage(incoming) > 0) AddBleedStack(1, $"{card.cardName} 도박 실패로");
+                ApplyPlayerDamage(incoming);
                 gambleResolvedThisUse = true;
                 gambleSucceededThisUse = false;
                 failedGambleCountThisTurn += 1;
@@ -1939,18 +1875,6 @@ private int CalculateRewardLux(int bet)
         if (damage <= 0)
         {
             return 0;
-        }
-
-        if (state == LuxState.Poverty && GetEffectiveCardType(card) == CardType.Deal)
-        {
-            if (Random.value < 0.2f)
-            {
-                int incoming = ModifyIncomingDamage(damage);
-                if (ApplyPlayerDamage(incoming) > 0) AddBleedStack(1, "불운 역효과로");
-
-                WriteLog("<color=red>불운 발동!</color> 공격이 역효과로 돌아왔습니다.");
-                return 0;
-            }
         }
 
         if (state == LuxState.Lucky)
@@ -1982,7 +1906,7 @@ private int CalculateRewardLux(int bet)
                 break;
             case SpecialCardEffect.BeastHeart:
                 int beastHeartDamage = Mathf.Max(0, playerHP - 1);
-                if (ApplyPlayerDamage(beastHeartDamage) > 0) AddBleedStack(1, "야수의 심장 대가로");
+                ApplyPlayerDamage(beastHeartDamage);
                 forcedGambleCards.Clear();
                 foreach (CardData handCard in hand)
                 {
@@ -2019,8 +1943,7 @@ private int CalculateRewardLux(int bet)
                 WriteLog("<color=#8fd3ff>과부하:</color> 2턴 동안 모든 카드 코스트 -3, 분노 +20.");
                 break;
             case SpecialCardEffect.Heartbeat:
-                heartbeatEnabled = true;
-                WriteLog("<color=#8fd3ff>심장 박동:</color> HP 50% 이하일 때 매턴 공격력 보정이 누적됩니다.");
+                WriteLog("<color=#8fd3ff>심장 박동:</color> 현재 효과가 없습니다.");
                 break;
             case SpecialCardEffect.ReverseOdds:
             {
@@ -2044,7 +1967,7 @@ private int CalculateRewardLux(int bet)
                 int reroll = Random.Range(1, 101);
                 if (reroll <= record.chance)
                 {
-                    int rerollDamage = ApplyOutgoingCardBonuses(record.successDamage, CardType.Gamble);
+                    int rerollDamage = record.successDamage;
                     rerollDamage = ApplyTurnDamageModifiers(rerollDamage);
                     if (enemyRaged && rerollDamage > 0)
                     {
@@ -2068,52 +1991,9 @@ private int CalculateRewardLux(int bet)
                 WriteLog("<color=#8fd3ff>위조 행운:</color> 이번 턴 첫 도박은 무조건 성공, 분노 +20.");
                 break;
             case SpecialCardEffect.BankruptcyDeclaration:
-            {
-                greedStacks = 0;
-                int currentLux = lux;
-                if (Random.value < 0.5f)
-                {
-                    lux = 0;
-                    int damage = Mathf.RoundToInt(currentLux * 2f);
-                    ApplyEnemyDamage(damage);
-                    WriteLog($"<color=#8fd3ff>파산 선언 성공:</color> LUX {currentLux} 소모, {damage} 피해.");
-                }
-                else
-                {
-                    lux = 0;
-                    int incoming = ModifyIncomingDamage(15);
-                    if (ApplyPlayerDamage(incoming) > 0) AddBleedStack(1, "파산 선언 실패 반동으로");
-                    WriteLog("<color=#8fd3ff>파산 선언 실패:</color> LUX 전부 소실, HP -15.");
-                }
                 break;
-            }
             case SpecialCardEffect.Lucky7777:
-            {
-                int roll = Random.Range(0, 4);
-                if (roll == 0)
-                {
-                    ApplyEnemyDamage(7);
-                    WriteLog("<color=#8fd3ff>7777:</color> 7 피해");
-                }
-                else if (roll == 1)
-                {
-                    ApplyEnemyDamage(14);
-                    WriteLog("<color=#8fd3ff>7777:</color> 14 피해");
-                }
-                else if (roll == 2)
-                {
-                    ApplyEnemyDamage(21);
-                    WriteLog("<color=#8fd3ff>7777:</color> 21 피해");
-                }
-                else
-                {
-                    int incoming = ModifyIncomingDamage(7);
-                    if (ApplyPlayerDamage(incoming) > 0) AddBleedStack(1, "7777 역반동으로");
-                    WriteLog("<color=#8fd3ff>7777:</color> 역효과! 제로가 7 피해.");
-                }
-                enemyHP = Mathf.Clamp(enemyHP, 0, enemyMaxHP);
                 break;
-            }
         }
     }
 
@@ -2144,7 +2024,7 @@ private int CalculateRewardLux(int bet)
                 }
 
                 int incoming = ModifyIncomingDamage(20);
-                if (ApplyPlayerDamage(incoming) > 0) AddBleedStack(1, "코인 실패 반동으로");
+                ApplyPlayerDamage(incoming);
                 gambleResolvedThisUse = true;
                 gambleSucceededThisUse = false;
                 failedGambleCountThisTurn += 1;
@@ -2167,6 +2047,71 @@ private int CalculateRewardLux(int bet)
                 }
                 WriteLog($"<color=#ffd166>주사위:</color> {d1} + {d2} = {total} {(success ? "성공" : "실패")}");
                 return success ? 25 : 0;
+            }
+            case SpecialCardEffect.BankruptcyDeclaration:
+            {
+                int consumedLux = Mathf.Clamp(lux + currentCardLuxCost - currentCardLuxGain, 0, 100);
+                int chance = GetAdjustedGambleSuccessChance(card.gambleSuccessChance, true);
+                int roll = Random.Range(1, 101);
+                bool guaranteed = TryUseFirstGambleGuarantee();
+                if (guaranteed)
+                {
+                    roll = 1;
+                }
+
+                lux = 0;
+                gambleResolvedThisUse = true;
+                bool success = roll <= chance;
+                gambleSucceededThisUse = success;
+
+                if (success)
+                {
+                    int damage = Mathf.RoundToInt(consumedLux * 2f);
+                    WriteLog($"<color=#8fd3ff>파산 선언 성공:</color> LUX {consumedLux} 소모, {damage} 피해. ({roll}/{chance})");
+                    return damage;
+                }
+
+                int incoming = ModifyIncomingDamage(15);
+                ApplyPlayerDamage(incoming);
+                failedGambleCountThisTurn += 1;
+                failedGambleRecordsThisTurn.Add(new FailedGambleRecord
+                {
+                    chance = chance,
+                    successDamage = Mathf.RoundToInt(consumedLux * 2f)
+                });
+
+                WriteLog($"<color=#8fd3ff>파산 선언 실패:</color> LUX 전부 소실, HP -15. ({roll}/{chance})");
+                return 0;
+            }
+            case SpecialCardEffect.Lucky7777:
+            {
+                int roll = Random.Range(1, 101);
+                gambleResolvedThisUse = true;
+                gambleSucceededThisUse = roll > 25;
+
+                if (roll <= 25)
+                {
+                    ApplyPlayerDamage(7);
+                    failedGambleCountThisTurn += 1;
+                    failedGambleRecordsThisTurn.Add(new FailedGambleRecord { chance = 75, successDamage = 14 });
+                    WriteLog($"<color=#8fd3ff>7777:</color> 실패! 제로가 7 피해. ({roll}/100)");
+                    return 0;
+                }
+
+                if (roll <= 50)
+                {
+                    WriteLog($"<color=#8fd3ff>7777:</color> 7 피해. ({roll}/100)");
+                    return 7;
+                }
+
+                if (roll <= 75)
+                {
+                    WriteLog($"<color=#8fd3ff>7777:</color> 14 피해. ({roll}/100)");
+                    return 14;
+                }
+
+                WriteLog($"<color=#8fd3ff>7777:</color> 21 피해. ({roll}/100)");
+                return 21;
             }
             default:
                 return -1;
@@ -2265,29 +2210,6 @@ private int CalculateRewardLux(int bet)
 
         turn++;
 
-        if (bleedStacks > 0)
-        {
-            int bleedDamage = bleedStacks / 2;
-            ApplyPlayerDamage(bleedDamage);
-            turnLogs.Add($"<color=red>출혈</color>로 턴 종료 시 {bleedDamage} 피해를 받았습니다.");
-        }
-
-        if (addictionStacks >= 5)
-        {
-            int addictionPenalty = 1;
-            ApplyPlayerDamage(addictionPenalty);
-            turnLogs.Add($"<color=#a35dff>중독 부작용:</color> 턴 종료 시 {addictionPenalty} 피해를 받았습니다.");
-        }
-
-        if (GetLuxState() == LuxState.Poverty)
-        {
-            povertyStack++;
-        }
-        else
-        {
-            povertyStack = 0;
-        }
-
         if (GetLuxState() == LuxState.Overflow)
         {
             lux -= 30;
@@ -2313,7 +2235,7 @@ private int CalculateRewardLux(int bet)
             if (illegalLoanTurnsRemaining == 0 && illegalLoanPenaltyPending)
             {
                 int incoming = ModifyIncomingDamage(10);
-                if (ApplyPlayerDamage(incoming) > 0) AddBleedStack(1, "불법 대출 상환으로");
+                ApplyPlayerDamage(incoming);
                 illegalLoanPenaltyPending = false;
                 turnLogs.Add("<color=#8fd3ff>불법 대출:</color> 만기 도달, HP -10");
             }
@@ -2331,12 +2253,6 @@ private int CalculateRewardLux(int bet)
         if (overloadTurnsRemaining > 0)
         {
             overloadTurnsRemaining--;
-        }
-
-        if (heartbeatEnabled && playerHP <= Mathf.RoundToInt(playerMaxHP * 0.5f))
-        {
-            heartbeatStacks += 1;
-            turnLogs.Add($"<color=#8fd3ff>심장 박동:</color> 저체력 보정 {heartbeatStacks * 5}% 활성");
         }
 
         if (!usedCardThisTurn)
@@ -2418,55 +2334,37 @@ private int CalculateRewardLux(int bet)
         UpdateUI();
     }
 
-    private void WinBattle()
+private void WinBattle()
     {
-        if (battleEnded)
-        {
-            return;
-        }
-
         battleEnded = true;
 
         lux += selectedBet + rewardLux;
         lux = Mathf.Clamp(lux, 0, 100);
 
-        WriteLog($"표적 제압 완료. 베팅 성공! 보상 +{rewardLux} LUX. 현재 LUX: {lux}");
+        WriteLog($"Battle victory. Reward +{rewardLux} LUX. Current LUX: {lux}");
 
         UpdateUI();
         UpdateEnemyDialogue();
 
         int score = BattleScoreStore.CalculateScore(turn);
         BattleScoreStore.SaveScore(missionScoreId, score);
-        StartResultTransition("전투에서 승리하였습니다!", victorySceneName, score);
+        PlayerPrefs.SetInt("BattleVictory", 1);
+        PlayerPrefs.Save();
+        StartResultTransition("\uB2F9\uC2E0\uC740 \uC2B9\uB9AC\uD588\uC5B4\uC694.", "MainScene", score);
     }
 
-    private void LoseBattle()
+private void LoseBattle()
     {
-        if (battleEnded)
-        {
-            return;
-        }
-
         battleEnded = true;
 
         int extraLoss = selectedBet;
         lux -= extraLoss;
         lux = Mathf.Clamp(lux, 0, 100);
 
-        WriteLog($"제로가 쓰러졌습니다. 베팅 실패. 추가 손실 -{extraLoss} LUX. 현재 LUX: {lux}");
+        WriteLog($"Battle defeat. Loss -{extraLoss} LUX. Current LUX: {lux}");
 
         UpdateUI();
-        StartResultTransition("전투에서 패배했습니다.", gameOverSceneName);
-    }
-
-    private string GetBattleReturnSceneName()
-    {
-        if (!string.IsNullOrWhiteSpace(gameOverSceneName))
-        {
-            return gameOverSceneName;
-        }
-
-        return !string.IsNullOrWhiteSpace(victorySceneName) ? victorySceneName : "MainScene";
+        StartResultTransition("\uB2F9\uC2E0\uC740 \uD328\uBC30\uD588\uC5B4\uC694... \uC548\uD0C0\uAE5D\uB124\uC694.", "MainScene");
     }
 
     private void StartResultTransition(string message, string sceneName, int score = -1)
@@ -2477,28 +2375,27 @@ private int CalculateRewardLux(int bet)
         }
 
         resultTransitionStarted = true;
-        message = score >= 0 ? "전투에서 승리했습니다." : "전투에서 패배했습니다.";
-        sceneName = GetBattleReturnSceneName();
         StartCoroutine(ResultTransitionRoutine(message, sceneName, score));
     }
 
-    private IEnumerator ResultTransitionRoutine(string message, string sceneName, int score)
+private IEnumerator ResultTransitionRoutine(string message, string sceneName, int score)
     {
-        score = -1;
+        GameObject overlayCanvasObject = new GameObject("BattleResultCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+        Canvas overlayCanvas = overlayCanvasObject.GetComponent<Canvas>();
+        overlayCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        overlayCanvas.overrideSorting = true;
+        overlayCanvas.sortingOrder = 10000;
 
-        GameObject canvasObject = new GameObject("BattleResultCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-        Canvas resultCanvas = canvasObject.GetComponent<Canvas>();
-        resultCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        resultCanvas.overrideSorting = true;
-        resultCanvas.sortingOrder = 10000;
+        CanvasScaler scaler = overlayCanvasObject.GetComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920f, 1080f);
+        scaler.matchWidthOrHeight = 0.5f;
 
-        CanvasScaler canvasScaler = canvasObject.GetComponent<CanvasScaler>();
-        canvasScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        canvasScaler.referenceResolution = new Vector2(1920f, 1080f);
-        canvasScaler.matchWidthOrHeight = 0.5f;
+        DontDestroyOnLoad(overlayCanvasObject);
 
         GameObject overlayObject = new GameObject("BattleResultOverlay", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-        overlayObject.transform.SetParent(canvasObject.transform, false);
+        overlayObject.transform.SetParent(overlayCanvasObject.transform, false);
+        overlayObject.transform.SetAsLastSibling();
 
         RectTransform overlayRect = overlayObject.GetComponent<RectTransform>();
         overlayRect.anchorMin = Vector2.zero;
@@ -2507,7 +2404,7 @@ private int CalculateRewardLux(int bet)
         overlayRect.offsetMax = Vector2.zero;
 
         Image overlayImage = overlayObject.GetComponent<Image>();
-        overlayImage.color = new Color(0f, 0f, 0f, 0f);
+        overlayImage.color = Color.black;
         overlayImage.raycastTarget = true;
 
         GameObject textObject = new GameObject("ResultText", typeof(RectTransform), typeof(TextMeshProUGUI));
@@ -2517,11 +2414,11 @@ private int CalculateRewardLux(int bet)
         textRect.anchorMin = new Vector2(0.5f, 0.5f);
         textRect.anchorMax = new Vector2(0.5f, 0.5f);
         textRect.pivot = new Vector2(0.5f, 0.5f);
-        textRect.anchoredPosition = score >= 0 ? new Vector2(0f, 42f) : Vector2.zero;
-        textRect.sizeDelta = new Vector2(1100f, 160f);
+        textRect.anchoredPosition = Vector2.zero;
+        textRect.sizeDelta = new Vector2(1800f, 240f);
 
         TextMeshProUGUI resultText = textObject.GetComponent<TextMeshProUGUI>();
-        resultText.text = message;
+        resultText.text = score >= 0 ? $"{message}\n\uC810\uC218: {score}" : message;
         if (TMP_Settings.defaultFontAsset != null)
         {
             resultText.font = TMP_Settings.defaultFontAsset;
@@ -2529,63 +2426,159 @@ private int CalculateRewardLux(int bet)
 
         resultText.fontSize = 74f;
         resultText.alignment = TextAlignmentOptions.Center;
-        resultText.color = new Color(1f, 1f, 1f, 0f);
-        resultText.raycastTarget = false;
-
-        TextMeshProUGUI scoreText = null;
-        if (score >= 0)
-        {
-            GameObject scoreObject = new GameObject("ResultScoreText", typeof(RectTransform), typeof(TextMeshProUGUI));
-            scoreObject.transform.SetParent(overlayObject.transform, false);
-
-            RectTransform scoreRect = scoreObject.GetComponent<RectTransform>();
-            scoreRect.anchorMin = new Vector2(0.5f, 0.5f);
-            scoreRect.anchorMax = new Vector2(0.5f, 0.5f);
-            scoreRect.pivot = new Vector2(0.5f, 0.5f);
-            scoreRect.anchoredPosition = new Vector2(0f, -52f);
-            scoreRect.sizeDelta = new Vector2(780f, 80f);
-
-            scoreText = scoreObject.GetComponent<TextMeshProUGUI>();
-            scoreText.text = $"점수: {score}";
-            if (TMP_Settings.defaultFontAsset != null)
-            {
-                scoreText.font = TMP_Settings.defaultFontAsset;
-            }
-            scoreText.fontSize = 44f;
-            scoreText.alignment = TextAlignmentOptions.Center;
-            scoreText.color = new Color(1f, 1f, 1f, 0f);
-            scoreText.raycastTarget = false;
-        }
-
-
-        float elapsed = 0f;
-        while (elapsed < resultFadeDuration)
-        {
-            elapsed += Time.unscaledDeltaTime;
-            float t = resultFadeDuration <= 0f ? 1f : Mathf.Clamp01(elapsed / resultFadeDuration);
-            overlayImage.color = new Color(0f, 0f, 0f, t);
-            resultText.color = new Color(1f, 1f, 1f, t);
-            if (scoreText != null)
-            {
-                scoreText.color = new Color(1f, 1f, 1f, t);
-            }
-
-            yield return null;
-        }
-
-        overlayImage.color = Color.black;
         resultText.color = Color.white;
-        if (scoreText != null)
-        {
-            scoreText.color = Color.white;
-        }
+        resultText.raycastTarget = false;
+        resultText.enableWordWrapping = false;
 
-        yield return new WaitForSecondsRealtime(resultHoldDuration);
+        yield return new WaitForSecondsRealtime(Mathf.Max(0.2f, resultHoldDuration));
 
         if (!string.IsNullOrWhiteSpace(sceneName))
         {
             SceneManager.LoadScene(sceneName);
         }
+
+        Destroy(overlayCanvasObject);
+    }
+
+    private IEnumerator ShowBattleIntroHint()
+    {
+        GameObject canvasObject = new GameObject("BattleIntroHintCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
+        Canvas canvas = canvasObject.GetComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.overrideSorting = true;
+        canvas.sortingOrder = 9000;
+
+        CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920f, 1080f);
+        scaler.matchWidthOrHeight = 0.5f;
+
+        GameObject bgObject = new GameObject("HintBackground", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        bgObject.transform.SetParent(canvasObject.transform, false);
+        RectTransform bgRect = bgObject.GetComponent<RectTransform>();
+        bgRect.anchorMin = new Vector2(0.18f, 0.42f);
+        bgRect.anchorMax = new Vector2(0.82f, 0.58f);
+        bgRect.offsetMin = Vector2.zero;
+        bgRect.offsetMax = Vector2.zero;
+        Image bgImage = bgObject.GetComponent<Image>();
+        bgImage.color = new Color(0f, 0f, 0f, 0.55f);
+        bgImage.raycastTarget = false;
+
+        GameObject textObject = new GameObject("HintText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        textObject.transform.SetParent(bgObject.transform, false);
+        RectTransform textRect = textObject.GetComponent<RectTransform>();
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = Vector2.zero;
+        textRect.offsetMax = Vector2.zero;
+        TextMeshProUGUI hintText = textObject.GetComponent<TextMeshProUGUI>();
+        hintText.text = "인벤토리에서 카드를 살펴보세요!";
+        if (TMP_Settings.defaultFontAsset != null)
+        {
+            hintText.font = TMP_Settings.defaultFontAsset;
+        }
+
+        hintText.fontSize = 52f;
+        hintText.alignment = TextAlignmentOptions.Center;
+        hintText.color = Color.white;
+        hintText.raycastTarget = false;
+
+        CanvasGroup group = canvasObject.AddComponent<CanvasGroup>();
+        group.interactable = false;
+        group.blocksRaycasts = false;
+
+        float blinkOnDuration = 0.12f;
+        float blinkOffDuration = 0.10f;
+        float holdDuration = 0.22f;
+        int blinkCount = 4;
+
+        for (int i = 0; i < blinkCount; i++)
+        {
+            yield return FadeCanvasGroup(group, 0f, 1f, blinkOnDuration);
+            yield return new WaitForSecondsRealtime(holdDuration);
+            yield return FadeCanvasGroup(group, 1f, 0f, blinkOffDuration);
+            yield return new WaitForSecondsRealtime(0.08f);
+        }
+
+        Destroy(canvasObject);
+    }
+
+    private IEnumerator FadeCanvasGroup(CanvasGroup group, float from, float to, float duration)
+    {
+        float startTime = Time.realtimeSinceStartup;
+        while (true)
+        {
+            if (group == null) yield break;
+            float t = duration <= 0f ? 1f : Mathf.Clamp01((Time.realtimeSinceStartup - startTime) / duration);
+            group.alpha = Mathf.Lerp(from, to, t);
+            if (t >= 1f) break;
+            yield return null;
+        }
+    }
+
+    private void SpawnFloatingDelta(TMP_Text anchor, int delta)
+    {
+        SpawnFloatingDelta(anchor, delta, Vector2.zero);
+    }
+
+    private void SpawnFloatingDelta(TMP_Text anchor, int delta, Vector2 extraOffset)
+    {
+        if (anchor == null || delta == 0) return;
+        StartCoroutine(FloatingDeltaRoutine(anchor, delta, extraOffset));
+    }
+
+    private IEnumerator FloatingDeltaRoutine(TMP_Text anchor, int delta, Vector2 extraOffset)
+    {
+        if (anchor == null) yield break;
+        Canvas canvas = anchor.canvas;
+        if (canvas == null) yield break;
+
+        GameObject obj = new GameObject("FloatingDelta", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        RectTransform canvasRt = canvas.GetComponent<RectTransform>();
+        obj.transform.SetParent(canvasRt, false);
+        obj.transform.SetAsLastSibling();
+
+        TextMeshProUGUI text = obj.GetComponent<TextMeshProUGUI>();
+        text.text = delta > 0 ? $"+{delta}" : $"{delta}";
+        if (TMP_Settings.defaultFontAsset != null)
+            text.font = TMP_Settings.defaultFontAsset;
+        text.fontSize = Mathf.Max(anchor.fontSize * 0.9f, 26f);
+        Color baseColor = delta > 0 ? new Color(0.35f, 0.65f, 1f) : new Color(1f, 0.3f, 0.3f);
+        text.color = baseColor;
+        text.alignment = TextAlignmentOptions.Left;
+        text.raycastTarget = false;
+
+        RectTransform rt = obj.GetComponent<RectTransform>();
+        rt.sizeDelta = new Vector2(120f, 60f);
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.pivot = new Vector2(0f, 0.5f);
+
+        Camera cam = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
+        Vector2 screenPos = RectTransformUtility.WorldToScreenPoint(cam, anchor.rectTransform.position);
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRt, screenPos, cam, out Vector2 localPos);
+        localPos.x += anchor.rectTransform.rect.width * 0.5f + 8f;
+        localPos += extraOffset;
+        rt.anchoredPosition = localPos;
+
+        float holdDelay = 1.0f;
+        float fadeDuration = 0.9f;
+        Vector2 startPos = rt.anchoredPosition;
+
+        yield return new WaitForSecondsRealtime(holdDelay);
+
+        float startTime = Time.realtimeSinceStartup;
+        while (true)
+        {
+            if (obj == null) yield break;
+            float t = Mathf.Clamp01((Time.realtimeSinceStartup - startTime) / fadeDuration);
+            rt.anchoredPosition = startPos;
+            text.color = new Color(baseColor.r, baseColor.g, baseColor.b, Mathf.Lerp(1f, 0f, t));
+            if (t >= 1f) break;
+            yield return null;
+        }
+
+        Destroy(obj);
     }
 
     private void UpdateBettingUI()
@@ -2836,15 +2829,28 @@ private void CheckEnemyRage()
 
     private void UpdateUI()
     {
+        int dPlayerHP = playerHP - _prevPlayerHP;
+        int dLux = lux - _prevLux;
+        int dEnemyHP = enemyHP - _prevEnemyHP;
+        int dEmotion = enemyEmotion - _prevEnemyEmotion;
+        int dShield = shield - _prevShield;
+        _prevPlayerHP = playerHP;
+        _prevLux = lux;
+        _prevEnemyHP = enemyHP;
+        _prevEnemyEmotion = enemyEmotion;
+        _prevShield = shield;
+
         if (playerHPText != null)
         {
             playerHPText.text = $"HP {playerHP}/{playerMaxHP}";
+            if (dPlayerHP != 0) SpawnFloatingDelta(playerHPText, dPlayerHP);
         }
 
         if (shieldText != null)
         {
             shieldText.gameObject.SetActive(shield > 0);
             shieldText.text = $"SHIELD {shield}";
+            if (dShield != 0) SpawnFloatingDelta(shieldText, dShield);
         }
 
         // 이름
@@ -2856,6 +2862,7 @@ private void CheckEnemyRage()
         // HP Bar
         if (playerHPBar != null)
         {
+            EnsureSliderFillVisible(playerHPBar);
             playerHPBar.maxValue = playerMaxHP;
             playerHPBar.value = playerHP;
         }
@@ -2864,11 +2871,15 @@ private void CheckEnemyRage()
         if (luxText != null)
         {
             luxText.text = $"LUX {lux}/100";
+            if (dLux != 0) SpawnFloatingDelta(luxText, dLux, luxFloatingDeltaOffset);
         }
 
         if (luxBar != null)
         {
-            luxBar.value = lux / 100f;
+            EnsureSliderFillVisible(luxBar);
+            luxBar.minValue = 0f;
+            luxBar.maxValue = 100f;
+            luxBar.SetValueWithoutNotify(lux);
             UpdateLuxBarColor();
         }
 
@@ -2880,33 +2891,30 @@ private void CheckEnemyRage()
         if (enemyHPText != null)
         {
             enemyHPText.text = $"HP {enemyHP}/{enemyMaxHP}";
+            if (dEnemyHP != 0) SpawnFloatingDelta(enemyHPText, dEnemyHP);
         }
 
         if (enemyHPBar != null)
         {
+            EnsureSliderFillVisible(enemyHPBar);
             enemyHPBar.value = (float)enemyHP / enemyMaxHP;
         }
 
         if (emotionText != null)
         {
             emotionText.text = enemyRaged ? $"분노 {enemyEmotion}/{maxEmotion} - 분노 상태" : $"분노 {enemyEmotion}/{maxEmotion}";
+            if (dEmotion != 0) SpawnFloatingDelta(emotionText, dEmotion);
         }
 
         if (emotionBar != null)
         {
+            EnsureSliderFillVisible(emotionBar);
             emotionBar.value = (float)enemyEmotion / maxEmotion;
         }
 
         if (turnText != null)
         {
             turnText.text = $"턴 {turn}";
-        }
-
-        if (stackTagText != null)
-        {
-            stackTagText.text =
-                $"출혈 x{bleedStacks} | 중독 x{addictionStacks} | 채무 x{debtStacks}\n" +
-                $"흥분 x{excitementStacks} | 탐욕 x{greedStacks} | 체념 x{resignationStacks}";
         }
 
         UpdateLuxState();
@@ -2960,6 +2968,25 @@ private void CheckEnemyRage()
             case LuxState.Overflow:
                 fillImage.color = overflowLuxBarColor;
                 break;
+        }
+    }
+
+    private void EnsureSliderFillVisible(Slider slider)
+    {
+        if (slider == null || slider.fillRect == null)
+        {
+            return;
+        }
+
+        Transform current = slider.fillRect;
+        while (current != null && current != slider.transform)
+        {
+            if (!current.gameObject.activeSelf)
+            {
+                current.gameObject.SetActive(true);
+            }
+
+            current = current.parent;
         }
     }
 

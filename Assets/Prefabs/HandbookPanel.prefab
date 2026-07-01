@@ -465,3 +465,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   handbookClickImage: {fileID: 0}
   inventoryPanel: {fileID: 0}
+  clickSfxSource: {fileID: 0}
+  clickClip: {fileID: 8300000, guid: 090c8958655eb574390259056d65a58c, type: 3}

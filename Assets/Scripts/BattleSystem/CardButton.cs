@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
+[ExecuteAlways]
 public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 {
     public CardData cardData;
@@ -20,10 +21,30 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     [SerializeField] private Sprite manipulationImage;
     [SerializeField] private Sprite fluxImage;
     [SerializeField] private Sprite barrierImage;
+    [SerializeField] private Color nameOutlineColor = new Color(0.16f, 0.16f, 0.16f, 0.50f);
+    [SerializeField] private float nameOutlineDistance = 1.7f;
+
+    private static readonly Vector2[] NameOutlineOffsets =
+    {
+        new Vector2(-1f, 0f),
+        new Vector2(1f, 0f),
+        new Vector2(0f, -1f),
+        new Vector2(0f, 1f),
+        new Vector2(-1f, -1f),
+        new Vector2(-1f, 1f),
+        new Vector2(1f, -1f),
+        new Vector2(1f, 1f)
+    };
+
+    private readonly TextMeshProUGUI[] nameOutlineTexts = new TextMeshProUGUI[NameOutlineOffsets.Length];
+#if UNITY_EDITOR
+    private bool nameOutlineRefreshQueued;
+#endif
 
     private void Awake()
     {
         EnsureImageReference();
+        RefreshNameTextOutlineSafely();
     }
 
     private void OnValidate()
@@ -58,7 +79,155 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
             ? battleManager.GetCardButtonLabel(cardData)
             : $"{cardData.cardName}\n<LUX {cardData.luxCost}>";
 
+        ApplyNameTextOutline();
         ApplyCardImage();
+    }
+
+    private void ApplyNameTextOutline()
+    {
+        if (cardNameText == null)
+        {
+            return;
+        }
+
+        TextMeshProUGUI source = cardNameText as TextMeshProUGUI;
+        if (source == null)
+        {
+            return;
+        }
+
+        RemoveUnusedNameOutlineTexts(source.transform.parent);
+        EnsureNameOutlineTexts(source);
+
+        for (int i = 0; i < nameOutlineTexts.Length; i++)
+        {
+            TextMeshProUGUI outline = nameOutlineTexts[i];
+            if (outline == null) continue;
+
+            CopyNameTextStyle(source, outline);
+            outline.text = source.text;
+            outline.color = nameOutlineColor;
+        }
+
+        source.transform.SetAsLastSibling();
+    }
+
+    private void RefreshNameTextOutlineSafely()
+    {
+#if UNITY_EDITOR
+        if (!Application.isPlaying)
+        {
+            QueueNameOutlineRefresh();
+            return;
+        }
+#endif
+        ApplyNameTextOutline();
+    }
+
+#if UNITY_EDITOR
+    private void QueueNameOutlineRefresh()
+    {
+        if (nameOutlineRefreshQueued)
+        {
+            return;
+        }
+
+        nameOutlineRefreshQueued = true;
+        UnityEditor.EditorApplication.delayCall += () =>
+        {
+            nameOutlineRefreshQueued = false;
+            if (this == null)
+            {
+                return;
+            }
+
+            ApplyNameTextOutline();
+        };
+    }
+#endif
+
+    private void EnsureNameOutlineTexts(TextMeshProUGUI source)
+    {
+        Transform parent = source.transform.parent;
+        for (int i = 0; i < nameOutlineTexts.Length; i++)
+        {
+            Vector2 offset = NameOutlineOffsets[i];
+
+            if (nameOutlineTexts[i] == null)
+            {
+                Transform existing = parent.Find("CardNameTextOutline_" + i);
+                if (existing != null)
+                {
+                    nameOutlineTexts[i] = existing.GetComponent<TextMeshProUGUI>();
+                }
+            }
+
+            if (nameOutlineTexts[i] == null)
+            {
+                GameObject outlineObject = new GameObject("CardNameTextOutline_" + i, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+                outlineObject.transform.SetParent(parent, false);
+                outlineObject.transform.SetSiblingIndex(source.transform.GetSiblingIndex());
+                nameOutlineTexts[i] = outlineObject.GetComponent<TextMeshProUGUI>();
+            }
+
+            RectTransform sourceRect = source.rectTransform;
+            RectTransform outlineRect = nameOutlineTexts[i].rectTransform;
+            outlineRect.anchorMin = sourceRect.anchorMin;
+            outlineRect.anchorMax = sourceRect.anchorMax;
+            outlineRect.pivot = sourceRect.pivot;
+            outlineRect.sizeDelta = sourceRect.sizeDelta;
+            outlineRect.anchoredPosition = sourceRect.anchoredPosition + offset * nameOutlineDistance;
+            outlineRect.localRotation = sourceRect.localRotation;
+            outlineRect.localScale = sourceRect.localScale;
+            nameOutlineTexts[i].raycastTarget = false;
+            nameOutlineTexts[i].transform.SetSiblingIndex(source.transform.GetSiblingIndex());
+        }
+    }
+
+    private void RemoveUnusedNameOutlineTexts(Transform parent)
+    {
+        if (parent == null)
+        {
+            return;
+        }
+
+        for (int i = nameOutlineTexts.Length; i < 24; i++)
+        {
+            Transform extra = parent.Find("CardNameTextOutline_" + i);
+            if (extra == null)
+            {
+                continue;
+            }
+
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                DestroyImmediate(extra.gameObject);
+            }
+            else
+#endif
+            {
+                Destroy(extra.gameObject);
+            }
+        }
+    }
+
+    private void CopyNameTextStyle(TextMeshProUGUI source, TextMeshProUGUI target)
+    {
+        target.font = source.font;
+        target.fontSharedMaterial = source.fontSharedMaterial;
+        target.fontSize = source.fontSize;
+        target.fontStyle = source.fontStyle;
+        target.alignment = source.alignment;
+        target.textWrappingMode = source.textWrappingMode;
+        target.overflowMode = source.overflowMode;
+        target.richText = source.richText;
+        target.characterSpacing = source.characterSpacing;
+        target.wordSpacing = source.wordSpacing;
+        target.lineSpacing = source.lineSpacing;
+        target.enableAutoSizing = source.enableAutoSizing;
+        target.fontSizeMin = source.fontSizeMin;
+        target.fontSizeMax = source.fontSizeMax;
     }
 
     private void ApplyCardImage()
@@ -124,6 +293,7 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
         return;
     }
 
+    battleManager.PlayCardSelectSound();
     battleManager.UseCard(cardData);
 }
 

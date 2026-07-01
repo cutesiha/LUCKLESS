@@ -3,9 +3,12 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 [RequireComponent(typeof(Image))]
-public class BattleInventoryOpener : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
+public class BattleInventoryOpener : MonoBehaviour
 {
     [SerializeField] private GameObject inventoryPanel;
+    [SerializeField] private Color hoverTintColor = new Color(0.72f, 0.12f, 0.42f, 1f);
+    [SerializeField] [Range(0f, 1f)] private float hoverTintAmount = 0.28f;
+    [SerializeField] [Range(0f, 1f)] private float hoverDarkenAmount = 0.12f;
 
     private Button button;
     private Image targetImage;
@@ -27,6 +30,14 @@ public class BattleInventoryOpener : MonoBehaviour, IPointerClickHandler, IPoint
         EnsureButton();
     }
 
+    public void SetHoverStyle(Color tintColor, float tintAmount, float darkenAmount)
+    {
+        hoverTintColor = tintColor;
+        hoverTintAmount = Mathf.Clamp01(tintAmount);
+        hoverDarkenAmount = Mathf.Clamp01(darkenAmount);
+        EnsureButton();
+    }
+
     private void EnsureButton()
     {
         button = GetComponent<Button>();
@@ -42,23 +53,9 @@ public class BattleInventoryOpener : MonoBehaviour, IPointerClickHandler, IPoint
         button.transition = Selectable.Transition.None;
         button.targetGraphic = targetImage;
         button.onClick.RemoveListener(OpenInventory);
+        button.onClick.AddListener(OpenInventory);
 
         SetupHover();
-    }
-
-    public void OnPointerClick(PointerEventData eventData)
-    {
-        OpenInventory();
-    }
-
-    public void OnPointerEnter(PointerEventData eventData)
-    {
-        ApplyHoverColor();
-    }
-
-    public void OnPointerExit(PointerEventData eventData)
-    {
-        RestoreNormalColor();
     }
 
     public void OpenInventory()
@@ -98,12 +95,18 @@ public class BattleInventoryOpener : MonoBehaviour, IPointerClickHandler, IPoint
 
         AddPointerEvent(trigger, EventTriggerType.PointerEnter, () =>
         {
-            ApplyHoverColor();
+            if (targetImage != null)
+            {
+                targetImage.color = GetHoverColor(normalColor);
+            }
         });
 
         AddPointerEvent(trigger, EventTriggerType.PointerExit, () =>
         {
-            RestoreNormalColor();
+            if (targetImage != null)
+            {
+                targetImage.color = normalColor;
+            }
         });
     }
 
@@ -114,26 +117,14 @@ public class BattleInventoryOpener : MonoBehaviour, IPointerClickHandler, IPoint
         trigger.triggers.Add(entry);
     }
 
-    private void ApplyHoverColor()
-    {
-        if (targetImage != null)
-        {
-            targetImage.color = GetHoverColor(normalColor);
-        }
-    }
-
-    private void RestoreNormalColor()
-    {
-        if (targetImage != null)
-        {
-            targetImage.color = normalColor;
-        }
-    }
-
     private Color GetHoverColor(Color baseColor)
     {
-        Color pinkTint = Color.Lerp(baseColor, new Color(1f, 0.12f, 0.78f, baseColor.a), 0.38f);
-        return Color.Lerp(pinkTint, Color.black, 0.12f);
+        Color tint = hoverTintColor;
+        tint.a = baseColor.a;
+        Color tintedColor = Color.Lerp(baseColor, tint, hoverTintAmount);
+        Color hoverColor = Color.Lerp(tintedColor, Color.black, hoverDarkenAmount);
+        hoverColor.a = baseColor.a;
+        return hoverColor;
     }
 
     private GameObject FindInventoryPanel()

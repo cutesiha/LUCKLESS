@@ -2,6 +2,7 @@ using System.Collections;
 using System.Text;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -58,6 +59,7 @@ public class IdapenDialogueController : MonoBehaviour
     [SerializeField] private IdapenDialogueLine[] lines = new IdapenDialogueLine[1];
     [SerializeField] private string guardSpeakerName = "17구역 경비";
     [SerializeField] private string shakeSpeakerName = "???";
+    [SerializeField] private string shakeDialogueText = "멈춰요!";
     [SerializeField] private string battleSceneName = "BattleScene";
 
     [Header("Timing")]
@@ -68,6 +70,9 @@ public class IdapenDialogueController : MonoBehaviour
     [SerializeField] private float shakeInterval = 0.035f;
     [SerializeField] private float battleSceneFadeDuration = 0.8f;
 
+    [Header("Screen Shake")]
+    [SerializeField] private Camera screenShakeCamera;
+
     private int lineIndex;
     private bool isTyping;
     private bool advanceRequested;
@@ -76,18 +81,30 @@ public class IdapenDialogueController : MonoBehaviour
     private IdapenChoiceOption selectedChoice;
     private Coroutine typingRoutine;
     private RectTransform choicePanel;
+    private RectTransform dialogueControlPanel;
+    private TextMeshProUGUI autoButtonText;
     private TMP_Text currentNameText;
     private TMP_Text currentDialogueText;
     private Image currentCharacterImage;
     private GameObject currentDialogueCanvasRoot;
     private Coroutine shakeRoutine;
+    private RectTransform[] activeShakeTargets;
+    private Vector2[] activeShakeStartPositions;
+    private Transform activeShakeCameraTransform;
+    private Vector3 activeShakeCameraStartPosition;
+    private bool autoModeEnabled;
+    private bool currentLineHasVoice;
     private bool sceneTransitionStarted;
+    private const float ChoiceButtonHeight = 58f;
+    private const float ChoiceFontSize = 41f;
+    private const float ChoicePanelWidth = 680f;
 
     private void Awake()
     {
         EnsureDialogueCanvases();
         EnsureChoiceSlots();
         SetActiveDialogueCanvas(false);
+        EnsureDialogueControlButtons();
     }
 
     private void Start()
@@ -95,8 +112,23 @@ public class IdapenDialogueController : MonoBehaviour
         StartCoroutine(PlayDialogue());
     }
 
+    private void OnDisable()
+    {
+        ResetActiveShake();
+    }
+
     private void Update()
     {
+        if (choicePanel != null && choicePanel.gameObject.activeInHierarchy)
+        {
+            return;
+        }
+
+        if (IsPointerOverDialogueControls())
+        {
+            return;
+        }
+
         if (Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Return))
         {
             if (isTyping)
@@ -147,7 +179,8 @@ public class IdapenDialogueController : MonoBehaviour
             if (!showedChoices)
             {
                 advanceRequested = false;
-                yield return new WaitUntil(() => advanceRequested);
+                yield return WaitForAdvanceOrAuto();
+                advanceRequested = false;
             }
         }
     }
@@ -165,7 +198,6 @@ public class IdapenDialogueController : MonoBehaviour
         {
             currentCharacterImage.sprite = line.characterSprite;
             currentCharacterImage.enabled = line.characterSprite != null;
-            currentCharacterImage.preserveAspect = true;
         }
 
         if (voiceSource != null)
@@ -173,13 +205,18 @@ public class IdapenDialogueController : MonoBehaviour
             voiceSource.Stop();
             voiceSource.clip = line.voiceClip;
             voiceSource.volume = GameAudioSettings.GetVoiceSourceVolume(voiceVolume);
+            currentLineHasVoice = line.voiceClip != null;
             if (line.voiceClip != null)
             {
                 voiceSource.Play();
             }
         }
+        else
+        {
+            currentLineHasVoice = false;
+        }
 
-        if (ShouldShakeForSpeaker(line.speakerName))
+        if (ShouldShakeForLine(line.speakerName, line.dialogue))
         {
             StartShake();
         }
@@ -202,7 +239,6 @@ public class IdapenDialogueController : MonoBehaviour
         {
             currentCharacterImage.sprite = characterSprite;
             currentCharacterImage.enabled = characterSprite != null;
-            currentCharacterImage.preserveAspect = true;
         }
 
         if (voiceSource != null)
@@ -210,13 +246,18 @@ public class IdapenDialogueController : MonoBehaviour
             voiceSource.Stop();
             voiceSource.clip = voiceClip;
             voiceSource.volume = GameAudioSettings.GetVoiceSourceVolume(voiceVolume);
+            currentLineHasVoice = voiceClip != null;
             if (voiceClip != null)
             {
                 voiceSource.Play();
             }
         }
+        else
+        {
+            currentLineHasVoice = false;
+        }
 
-        if (ShouldShakeForSpeaker(speakerName))
+        if (ShouldShakeForLine(speakerName, line.dialogue))
         {
             StartShake();
         }
@@ -262,13 +303,23 @@ public class IdapenDialogueController : MonoBehaviour
     {
         if (dialogueCanvasRoot == null && dialogueCanvasPrefab != null)
         {
-            dialogueCanvasRoot = Instantiate(dialogueCanvasPrefab);
-            dialogueCanvasRoot.name = "DialogueCanvas";
+            dialogueCanvasRoot = FindSceneObjectByName("DialogueCanvas");
+
+            if (dialogueCanvasRoot == null)
+            {
+                dialogueCanvasRoot = Instantiate(dialogueCanvasPrefab);
+                dialogueCanvasRoot.name = "DialogueCanvas";
+            }
         }
 
-        if (alternateDialogueCanvasRoot == null)
+        if (alternateDialogueCanvasRoot == null || alternateDialogueCanvasRoot == dialogueCanvasRoot)
         {
-            GameObject existingAlternate = GameObject.Find("DialogueCanvas (1)");
+            GameObject existingAlternate = FindSceneObjectByName("DialogueCanvas (1)");
+            if (existingAlternate == null)
+            {
+                existingAlternate = FindSceneObjectByName("DialogueCanvas 1");
+            }
+
             if (existingAlternate != null)
             {
                 alternateDialogueCanvasRoot = existingAlternate;
@@ -299,20 +350,53 @@ public class IdapenDialogueController : MonoBehaviour
             canvas.sortingOrder = 100;
         }
 
-        if (canvasNameText == null)
+        RectTransform rectTransform = canvasRoot.GetComponent<RectTransform>();
+        if (rectTransform != null && rectTransform.localScale == Vector3.zero)
+        {
+            rectTransform.localScale = Vector3.one;
+        }
+
+        if (canvasRoot.transform.localScale == Vector3.zero)
+        {
+            canvasRoot.transform.localScale = Vector3.one;
+        }
+
+        if (canvasNameText == null || !canvasNameText.transform.IsChildOf(canvasRoot.transform))
         {
             canvasNameText = FindChildComponent<TMP_Text>(canvasRoot.transform, "NameText");
         }
 
-        if (canvasDialogueText == null)
+        if (canvasDialogueText == null || !canvasDialogueText.transform.IsChildOf(canvasRoot.transform))
         {
             canvasDialogueText = FindChildComponent<TMP_Text>(canvasRoot.transform, "DialogueText");
         }
 
-        if (canvasCharacterImage == null)
+        if (canvasCharacterImage == null || !canvasCharacterImage.transform.IsChildOf(canvasRoot.transform))
         {
             canvasCharacterImage = FindChildComponent<Image>(canvasRoot.transform, "CharacterImage");
+            if (canvasCharacterImage == null)
+            {
+                canvasCharacterImage = FindChildComponent<Image>(canvasRoot.transform, "CharacterImage2");
+            }
         }
+    }
+
+    private GameObject FindSceneObjectByName(string objectName)
+    {
+#if UNITY_2023_1_OR_NEWER
+        GameObject[] objects = FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+#else
+        GameObject[] objects = Resources.FindObjectsOfTypeAll<GameObject>();
+#endif
+        for (int i = 0; i < objects.Length; i++)
+        {
+            if (objects[i] != null && objects[i].scene == gameObject.scene && objects[i].name == objectName)
+            {
+                return objects[i];
+            }
+        }
+
+        return null;
     }
 
     private T FindChildComponent<T>(Transform root, string childName) where T : Component
@@ -333,18 +417,220 @@ public class IdapenDialogueController : MonoBehaviour
     {
         if (dialogueCanvasRoot != null)
         {
-            dialogueCanvasRoot.SetActive(useGuardCanvas);
+            dialogueCanvasRoot.SetActive(!useGuardCanvas);
         }
 
         if (alternateDialogueCanvasRoot != null)
         {
-            alternateDialogueCanvasRoot.SetActive(!useGuardCanvas);
+            alternateDialogueCanvasRoot.SetActive(useGuardCanvas);
         }
 
-        currentDialogueCanvasRoot = useGuardCanvas ? dialogueCanvasRoot : alternateDialogueCanvasRoot;
-        currentNameText = useGuardCanvas ? nameText : alternateNameText;
-        currentDialogueText = useGuardCanvas ? dialogueText : alternateDialogueText;
-        currentCharacterImage = useGuardCanvas ? characterImage : alternateCharacterImage;
+        currentDialogueCanvasRoot = useGuardCanvas ? alternateDialogueCanvasRoot : dialogueCanvasRoot;
+        currentNameText = useGuardCanvas ? alternateNameText : nameText;
+        currentDialogueText = useGuardCanvas ? alternateDialogueText : dialogueText;
+        currentCharacterImage = useGuardCanvas ? alternateCharacterImage : characterImage;
+        EnsureDialogueControlButtons();
+    }
+
+    private void EnsureDialogueControlButtons()
+    {
+        EnsureEventSystem();
+
+        RectTransform dialoguePanel = currentDialogueText != null
+            ? currentDialogueText.transform.parent as RectTransform
+            : null;
+
+        if (dialoguePanel == null)
+        {
+            return;
+        }
+
+        if (dialogueControlPanel != null)
+        {
+            if (dialogueControlPanel.parent != dialoguePanel)
+            {
+                dialogueControlPanel.SetParent(dialoguePanel, false);
+            }
+
+            PlaceDialogueControlPanel();
+            dialogueControlPanel.SetAsLastSibling();
+            return;
+        }
+
+        GameObject panelObject = new GameObject("DialogueControlButtons", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+        panelObject.transform.SetParent(dialoguePanel, false);
+
+        dialogueControlPanel = panelObject.GetComponent<RectTransform>();
+        PlaceDialogueControlPanel();
+
+        HorizontalLayoutGroup layout = panelObject.GetComponent<HorizontalLayoutGroup>();
+        layout.spacing = 10f;
+        layout.childAlignment = TextAnchor.MiddleRight;
+        layout.childControlWidth = false;
+        layout.childControlHeight = false;
+        layout.childForceExpandWidth = false;
+        layout.childForceExpandHeight = false;
+
+        CreateControlButton("Skip", OnSkipClicked);
+        autoButtonText = CreateControlButton("Auto", ToggleAutoMode);
+        dialogueControlPanel.SetAsLastSibling();
+    }
+
+    private void PlaceDialogueControlPanel()
+    {
+        if (dialogueControlPanel == null)
+        {
+            return;
+        }
+
+        dialogueControlPanel.anchorMin = new Vector2(1f, 0f);
+        dialogueControlPanel.anchorMax = new Vector2(1f, 0f);
+        dialogueControlPanel.pivot = new Vector2(1f, 0f);
+        dialogueControlPanel.anchoredPosition = new Vector2(-54f, 24f);
+        dialogueControlPanel.sizeDelta = new Vector2(190f, 42f);
+    }
+
+    private TextMeshProUGUI CreateControlButton(string label, UnityEngine.Events.UnityAction onClick)
+    {
+        GameObject buttonObject = new GameObject(label + "Button", typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement), typeof(EventTrigger));
+        buttonObject.transform.SetParent(dialogueControlPanel, false);
+
+        RectTransform buttonTransform = buttonObject.GetComponent<RectTransform>();
+        buttonTransform.sizeDelta = new Vector2(92f, 44f);
+
+        Image image = buttonObject.GetComponent<Image>();
+        image.color = new Color(0.35f, 0.35f, 0.35f, 0.28f);
+
+        Button button = buttonObject.GetComponent<Button>();
+        button.targetGraphic = image;
+        button.transition = Selectable.Transition.None;
+        button.onClick.AddListener(onClick);
+
+        LayoutElement layoutElement = buttonObject.GetComponent<LayoutElement>();
+        layoutElement.preferredWidth = 92f;
+        layoutElement.preferredHeight = 44f;
+
+        GameObject textObject = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
+        textObject.transform.SetParent(buttonObject.transform, false);
+
+        RectTransform textTransform = textObject.GetComponent<RectTransform>();
+        textTransform.anchorMin = Vector2.zero;
+        textTransform.anchorMax = Vector2.one;
+        textTransform.offsetMin = Vector2.zero;
+        textTransform.offsetMax = Vector2.zero;
+
+        TextMeshProUGUI labelText = textObject.GetComponent<TextMeshProUGUI>();
+        labelText.text = label;
+        labelText.fontSize = 34f;
+        labelText.color = GetControlTextColor(false);
+        labelText.alignment = TextAlignmentOptions.Center;
+        labelText.raycastTarget = false;
+
+        if (currentDialogueText != null && currentDialogueText.font != null)
+        {
+            labelText.font = currentDialogueText.font;
+        }
+
+        AddTextHover(buttonObject.GetComponent<EventTrigger>(), labelText);
+        return labelText;
+    }
+
+    private bool IsPointerOverDialogueControls()
+    {
+        if (dialogueControlPanel == null || !dialogueControlPanel.gameObject.activeInHierarchy)
+        {
+            return false;
+        }
+
+        Canvas canvas = dialogueControlPanel.GetComponentInParent<Canvas>();
+        Camera eventCamera = canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay
+            ? canvas.worldCamera
+            : null;
+
+        return RectTransformUtility.RectangleContainsScreenPoint(dialogueControlPanel, Input.mousePosition, eventCamera);
+    }
+
+    private void AddTextHover(EventTrigger trigger, TextMeshProUGUI labelText)
+    {
+        trigger.triggers.Clear();
+        AddPointerEvent(trigger, EventTriggerType.PointerEnter, () => labelText.color = Color.white);
+        AddPointerEvent(trigger, EventTriggerType.PointerExit, () => labelText.color = GetControlTextColor(labelText == autoButtonText));
+    }
+
+    private void AddPointerEvent(EventTrigger trigger, EventTriggerType eventType, UnityEngine.Events.UnityAction callback)
+    {
+        EventTrigger.Entry entry = new EventTrigger.Entry { eventID = eventType };
+        entry.callback.AddListener(_ => callback());
+        trigger.triggers.Add(entry);
+    }
+
+    private Color GetControlTextColor(bool isAutoButton)
+    {
+        if (isAutoButton && autoModeEnabled)
+        {
+            return new Color(0.62f, 0.62f, 0.62f, 1f);
+        }
+
+        return new Color(0.42f, 0.42f, 0.42f, 1f);
+    }
+
+    private void OnSkipClicked()
+    {
+        if (sceneTransitionStarted)
+        {
+            return;
+        }
+
+        StartCoroutine(FadeToBattleScene());
+    }
+
+    private void ToggleAutoMode()
+    {
+        autoModeEnabled = !autoModeEnabled;
+
+        if (autoButtonText != null)
+        {
+            autoButtonText.color = GetControlTextColor(true);
+        }
+    }
+
+    private IEnumerator WaitForAdvanceOrAuto()
+    {
+        while (!advanceRequested)
+        {
+            if (autoModeEnabled)
+            {
+                yield return WaitForVoiceToFinishOrAutoCancel();
+
+                if (advanceRequested || autoModeEnabled)
+                {
+                    yield break;
+                }
+            }
+
+            yield return null;
+        }
+    }
+
+    private IEnumerator WaitForVoiceToFinishOrAutoCancel()
+    {
+        if (currentLineHasVoice)
+        {
+            yield return new WaitWhile(() =>
+                autoModeEnabled
+                && !advanceRequested
+                && voiceSource != null
+                && voiceSource.isPlaying);
+        }
+        else
+        {
+            float elapsed = 0f;
+            while (autoModeEnabled && !advanceRequested && elapsed < 0.35f)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                yield return null;
+            }
+        }
     }
 
     private bool ShouldUseGuardCanvas(string speakerName)
@@ -355,6 +641,16 @@ public class IdapenDialogueController : MonoBehaviour
     private bool ShouldShakeForSpeaker(string speakerName)
     {
         return NormalizeSpeakerName(speakerName) == NormalizeSpeakerName(shakeSpeakerName);
+    }
+
+    private bool ShouldShakeForLine(string speakerName, string dialogue)
+    {
+        bool speakerMatches = ShouldShakeForSpeaker(speakerName);
+        string normalizedShakeText = NormalizeSpeakerName(shakeDialogueText);
+        bool dialogueMatches = !string.IsNullOrEmpty(normalizedShakeText)
+            && NormalizeSpeakerName(dialogue).Contains(normalizedShakeText);
+
+        return speakerMatches || dialogueMatches;
     }
 
     private string NormalizeSpeakerName(string speakerName)
@@ -423,47 +719,64 @@ public class IdapenDialogueController : MonoBehaviour
 
             yield return new WaitForSecondsRealtime(lineEndDelay);
             advanceRequested = false;
-            yield return new WaitUntil(() => advanceRequested);
+            yield return WaitForAdvanceOrAuto();
+            advanceRequested = false;
         }
     }
 
     private void EnsureChoicePanel()
     {
+        RectTransform dialoguePanel = currentDialogueText != null
+            ? currentDialogueText.transform.parent as RectTransform
+            : null;
+
         if (choicePanel != null)
         {
-            Transform expectedParent = currentDialogueCanvasRoot != null ? currentDialogueCanvasRoot.transform : transform;
-            if (choicePanel.parent != expectedParent)
-            {
-                choicePanel.SetParent(expectedParent, false);
-                choicePanel.anchorMin = new Vector2(0.5f, 0.5f);
-                choicePanel.anchorMax = new Vector2(0.5f, 0.5f);
-                choicePanel.pivot = new Vector2(0.5f, 0.5f);
-                choicePanel.anchoredPosition = new Vector2(0f, 80f);
-                choicePanel.sizeDelta = new Vector2(680f, 210f);
-            }
+            PlaceChoicePanel(dialoguePanel);
             return;
         }
 
-        Transform parent = currentDialogueCanvasRoot != null ? currentDialogueCanvasRoot.transform : transform;
+        Transform parent = dialoguePanel != null
+            ? dialoguePanel
+            : currentDialogueCanvasRoot != null ? currentDialogueCanvasRoot.transform : transform;
         GameObject panelObject = new GameObject("DialogueChoices", typeof(RectTransform), typeof(VerticalLayoutGroup));
         panelObject.transform.SetParent(parent, false);
 
         choicePanel = panelObject.GetComponent<RectTransform>();
-        choicePanel.anchorMin = new Vector2(0.5f, 0.5f);
-        choicePanel.anchorMax = new Vector2(0.5f, 0.5f);
-        choicePanel.pivot = new Vector2(0.5f, 0.5f);
-        choicePanel.anchoredPosition = new Vector2(0f, 80f);
-        choicePanel.sizeDelta = new Vector2(680f, 210f);
+        PlaceChoicePanel(dialoguePanel);
 
         VerticalLayoutGroup layout = panelObject.GetComponent<VerticalLayoutGroup>();
-        layout.spacing = 12f;
-        layout.childAlignment = TextAnchor.MiddleCenter;
-        layout.childControlWidth = true;
+        layout.spacing = 10f;
+        layout.childAlignment = TextAnchor.LowerRight;
+        layout.childControlWidth = false;
         layout.childControlHeight = true;
-        layout.childForceExpandWidth = true;
+        layout.childForceExpandWidth = false;
         layout.childForceExpandHeight = false;
 
         panelObject.SetActive(false);
+    }
+
+    private void PlaceChoicePanel(RectTransform dialoguePanel)
+    {
+        if (choicePanel == null)
+        {
+            return;
+        }
+
+        Transform parent = dialoguePanel != null
+            ? dialoguePanel
+            : currentDialogueCanvasRoot != null ? currentDialogueCanvasRoot.transform : transform;
+
+        if (parent != null && choicePanel.parent != parent)
+        {
+            choicePanel.SetParent(parent, false);
+        }
+
+        choicePanel.anchorMin = new Vector2(1f, 1f);
+        choicePanel.anchorMax = new Vector2(1f, 1f);
+        choicePanel.pivot = new Vector2(1f, 0f);
+        choicePanel.anchoredPosition = new Vector2(-48f, 18f);
+        choicePanel.sizeDelta = new Vector2(ChoicePanelWidth, 204f);
     }
 
     private void RefreshChoiceButtons(IdapenDialogueLine line)
@@ -494,37 +807,109 @@ public class IdapenDialogueController : MonoBehaviour
 
     private void CreateChoiceButton(IdapenChoiceOption choice)
     {
-        GameObject buttonObject = new GameObject("ChoiceButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(LayoutElement));
+        GameObject buttonObject = new GameObject("ChoiceButton", typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement), typeof(EventTrigger));
         buttonObject.transform.SetParent(choicePanel, false);
 
-        Image image = buttonObject.GetComponent<Image>();
-        image.color = new Color(0f, 0f, 0f, 0.72f);
+        float buttonWidth = GetChoiceButtonWidth(choice.choiceText);
+        RectTransform rectTransform = buttonObject.GetComponent<RectTransform>();
+        rectTransform.sizeDelta = new Vector2(buttonWidth, ChoiceButtonHeight);
 
-        LayoutElement layoutElement = buttonObject.GetComponent<LayoutElement>();
-        layoutElement.preferredHeight = 58f;
+        Image image = buttonObject.GetComponent<Image>();
+        image.color = new Color(0.05f, 0.05f, 0.06f, 0.94f);
 
         Button button = buttonObject.GetComponent<Button>();
+        button.targetGraphic = image;
+        button.transition = Selectable.Transition.ColorTint;
+        button.colors = CreateChoiceButtonColors();
         button.onClick.AddListener(() =>
         {
             selectedChoice = choice;
             choiceSelected = true;
         });
 
-        GameObject labelObject = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
+        LayoutElement layoutElement = buttonObject.GetComponent<LayoutElement>();
+        layoutElement.preferredWidth = buttonWidth;
+        layoutElement.minWidth = buttonWidth;
+        layoutElement.preferredHeight = ChoiceButtonHeight;
+        layoutElement.minHeight = ChoiceButtonHeight;
+
+        GameObject labelObject = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
         labelObject.transform.SetParent(buttonObject.transform, false);
 
         RectTransform labelRect = labelObject.GetComponent<RectTransform>();
         labelRect.anchorMin = Vector2.zero;
         labelRect.anchorMax = Vector2.one;
-        labelRect.offsetMin = new Vector2(24f, 0f);
-        labelRect.offsetMax = new Vector2(-24f, 0f);
+        labelRect.offsetMin = new Vector2(18f, 4f);
+        labelRect.offsetMax = new Vector2(-18f, -4f);
 
         TextMeshProUGUI label = labelObject.GetComponent<TextMeshProUGUI>();
         label.text = choice.choiceText;
-        label.fontSize = 36f;
+        label.fontSize = ChoiceFontSize;
         label.color = Color.white;
-        label.alignment = TextAlignmentOptions.Center;
+        label.alignment = TextAlignmentOptions.MidlineRight;
+        label.textWrappingMode = TextWrappingModes.NoWrap;
+        label.overflowMode = TextOverflowModes.Overflow;
         label.raycastTarget = false;
+
+        if (currentDialogueText != null && currentDialogueText.font != null)
+        {
+            label.font = currentDialogueText.font;
+        }
+
+        EventTrigger trigger = buttonObject.GetComponent<EventTrigger>();
+        AddPointerEvent(trigger, EventTriggerType.PointerEnter, () => label.color = new Color(0.62f, 0.62f, 0.62f, 1f));
+        AddPointerEvent(trigger, EventTriggerType.PointerExit, () => label.color = Color.white);
+    }
+
+    private float GetChoiceButtonWidth(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return 300f;
+        }
+
+        float width = 72f;
+
+        foreach (char character in text)
+        {
+            if (char.IsWhiteSpace(character))
+            {
+                width += 14f;
+            }
+            else if (character <= 0x007f)
+            {
+                width += 21f;
+            }
+            else
+            {
+                width += 38f;
+            }
+        }
+
+        return Mathf.Clamp(width, 300f, ChoicePanelWidth);
+    }
+
+    private ColorBlock CreateChoiceButtonColors()
+    {
+        ColorBlock colors = ColorBlock.defaultColorBlock;
+        colors.normalColor = new Color(0.05f, 0.05f, 0.06f, 0.94f);
+        colors.highlightedColor = new Color(0.18f, 0.16f, 0.12f, 1f);
+        colors.pressedColor = new Color(0.28f, 0.23f, 0.15f, 1f);
+        colors.selectedColor = colors.highlightedColor;
+        colors.disabledColor = new Color(0.45f, 0.45f, 0.45f, 0.5f);
+        colors.colorMultiplier = 1f;
+        colors.fadeDuration = 0.08f;
+        return colors;
+    }
+
+    private void EnsureEventSystem()
+    {
+        if (EventSystem.current != null)
+        {
+            return;
+        }
+
+        new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
     }
 
     private bool IsLastDialogueLine(int index)
@@ -551,21 +936,7 @@ public class IdapenDialogueController : MonoBehaviour
 
     private Image CreateFadeImage()
     {
-        Transform parent = currentDialogueCanvasRoot != null ? currentDialogueCanvasRoot.transform : transform;
-        GameObject fadeObject = new GameObject("BattleSceneFade", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-        fadeObject.transform.SetParent(parent, false);
-        fadeObject.transform.SetAsLastSibling();
-
-        RectTransform rectTransform = fadeObject.GetComponent<RectTransform>();
-        rectTransform.anchorMin = Vector2.zero;
-        rectTransform.anchorMax = Vector2.one;
-        rectTransform.offsetMin = Vector2.zero;
-        rectTransform.offsetMax = Vector2.zero;
-
-        Image fadeImage = fadeObject.GetComponent<Image>();
-        fadeImage.color = new Color(0f, 0f, 0f, 0f);
-        fadeImage.raycastTarget = true;
-        return fadeImage;
+        return SceneFadeOverlay.CreateImage("BattleSceneFade");
     }
 
     private IEnumerator FadeImage(Image image, float from, float to, float duration)
@@ -631,6 +1002,7 @@ public class IdapenDialogueController : MonoBehaviour
         if (shakeRoutine != null)
         {
             StopCoroutine(shakeRoutine);
+            ResetActiveShake();
         }
 
         shakeRoutine = StartCoroutine(ShakeScreen());
@@ -647,10 +1019,19 @@ public class IdapenDialogueController : MonoBehaviour
 
         float elapsed = 0f;
         int direction = 1;
+        Camera shakeCamera = GetScreenShakeCamera();
+        Transform cameraTransform = shakeCamera != null ? shakeCamera.transform : null;
+        Vector3 cameraStartPosition = cameraTransform != null ? cameraTransform.localPosition : Vector3.zero;
+        float cameraShakeDistance = GetCameraShakeDistance(shakeCamera);
+        activeShakeTargets = targets;
+        activeShakeStartPositions = startPositions;
+        activeShakeCameraTransform = cameraTransform;
+        activeShakeCameraStartPosition = cameraStartPosition;
 
         while (elapsed < shakeDuration)
         {
             float offset = direction * shakeDistance;
+            float cameraOffset = direction * cameraShakeDistance;
             for (int i = 0; i < targets.Length; i++)
             {
                 if (targets[i] != null)
@@ -659,20 +1040,68 @@ public class IdapenDialogueController : MonoBehaviour
                 }
             }
 
+            if (cameraTransform != null)
+            {
+                cameraTransform.localPosition = cameraStartPosition + new Vector3(cameraOffset, 0f, 0f);
+            }
+
             direction *= -1;
             elapsed += shakeInterval;
             yield return new WaitForSecondsRealtime(shakeInterval);
         }
 
-        for (int i = 0; i < targets.Length; i++)
+        ResetActiveShake();
+        shakeRoutine = null;
+    }
+
+    private void ResetActiveShake()
+    {
+        if (activeShakeTargets != null && activeShakeStartPositions != null)
         {
-            if (targets[i] != null)
+            int count = Mathf.Min(activeShakeTargets.Length, activeShakeStartPositions.Length);
+            for (int i = 0; i < count; i++)
             {
-                targets[i].anchoredPosition = startPositions[i];
+                if (activeShakeTargets[i] != null)
+                {
+                    activeShakeTargets[i].anchoredPosition = activeShakeStartPositions[i];
+                }
             }
         }
 
-        shakeRoutine = null;
+        if (activeShakeCameraTransform != null)
+        {
+            activeShakeCameraTransform.localPosition = activeShakeCameraStartPosition;
+        }
+
+        activeShakeTargets = null;
+        activeShakeStartPositions = null;
+        activeShakeCameraTransform = null;
+        activeShakeCameraStartPosition = Vector3.zero;
+    }
+
+    private Camera GetScreenShakeCamera()
+    {
+        if (screenShakeCamera != null)
+        {
+            return screenShakeCamera;
+        }
+
+        return Camera.main;
+    }
+
+    private float GetCameraShakeDistance(Camera shakeCamera)
+    {
+        if (shakeCamera == null)
+        {
+            return 0f;
+        }
+
+        if (shakeCamera.orthographic && Screen.height > 0)
+        {
+            return shakeDistance * (shakeCamera.orthographicSize * 2f / Screen.height);
+        }
+
+        return shakeDistance * 0.01f;
     }
 
     private RectTransform[] GetScreenShakeTargets()
@@ -691,7 +1120,28 @@ public class IdapenDialogueController : MonoBehaviour
             return;
         }
 
+        Canvas canvas = targetObject.GetComponent<Canvas>();
+        if (canvas != null)
+        {
+            int addedCountBeforeCanvas = targets.Count;
+            for (int i = 0; i < targetObject.transform.childCount; i++)
+            {
+                RectTransform childTransform = targetObject.transform.GetChild(i) as RectTransform;
+                AddShakeRectTransform(targets, childTransform);
+            }
+
+            if (targets.Count > addedCountBeforeCanvas)
+            {
+                return;
+            }
+        }
+
         RectTransform rectTransform = targetObject.GetComponent<RectTransform>();
+        AddShakeRectTransform(targets, rectTransform);
+    }
+
+    private void AddShakeRectTransform(System.Collections.Generic.List<RectTransform> targets, RectTransform rectTransform)
+    {
         if (rectTransform != null && !targets.Contains(rectTransform))
         {
             targets.Add(rectTransform);

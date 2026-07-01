@@ -593,7 +593,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 0.92156863}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -1369,6 +1369,7 @@ MonoBehaviour:
   titleHoldSeconds: 2
   titleFadeAfterEyeDelay: 1
   eyeOpenDuration: 1.15
+  initialBlackHoldSeconds: 0.25
   missionPanel: {fileID: 1491488310}
   handbookPanelPrefab: {fileID: 8579181119384531084, guid: 854e4af839f95244a9760eef814c1d58, type: 3}
   handbookParent: {fileID: 1338016891}
@@ -2023,7 +2024,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 0}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2
@@ -2355,7 +2356,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: 5bc90b96d6f61a94bb9970eb649c52f1, type: 3}
   m_PlayOnAwake: 1
-  m_Volume: 0.679
+  m_Volume: 0.96
   m_Pitch: 1
   Loop: 1
   Mute: 0
@@ -2761,6 +2762,8 @@ MonoBehaviour:
   bgmAudioSources: []
   sfxAudioSources: []
   audioMixer: {fileID: 0}
+  clickSfxSource: {fileID: 0}
+  clickClip: {fileID: 8300000, guid: 090c8958655eb574390259056d65a58c, type: 3}
   textFont: {fileID: 11400000, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
   worldInfoPanelSize: {x: 1440, y: 830}
   worldInfoPanelAlpha: 0.94
@@ -3415,25 +3418,6 @@ MonoBehaviour:
   cardPrefab: {fileID: 0}
   cardLibrary: []
   cardBrowserPanelSize: {x: 1360, y: 760}
-  stackDescriptions:
-  - stackName: "\uCD9C\uD608"
-    description: "\uD134 \uC885\uB8CC\uB9C8\uB2E4 \uB204\uC801 \uC218\uCE58\uC5D0
-      \uB530\uB77C \uD53C\uD574\uB97C \uBC1B\uC2B5\uB2C8\uB2E4."
-  - stackName: "\uC911\uB3C5"
-    description: "\uC313\uC77C\uC218\uB85D \uB9E4 \uD134 \uCCB4\uB825\uC774 \uAC10\uC18C\uD558\uAC70\uB098
-      \uBD88\uB9AC\uD55C \uD6A8\uACFC\uAC00 \uCEE4\uC9D1\uB2C8\uB2E4."
-  - stackName: "\uCC44\uBB34"
-    description: "\uBE5A \uAD00\uB828 \uCE74\uB4DC \uD6A8\uACFC\uC640 \uD398\uB110\uD2F0
-      \uACC4\uC0B0\uC5D0 \uC0AC\uC6A9\uB429\uB2C8\uB2E4."
-  - stackName: "\uD765\uBD84"
-    description: "\uACF5\uACA9\uC801 \uD6A8\uACFC\uB098 \uB3C4\uBC15 \uD750\uB984\uC744
-      \uAC15\uD654\uD558\uC9C0\uB9CC \uC704\uD5D8\uB3C4 \uD568\uAED8 \uCEE4\uC9D1\uB2C8\uB2E4."
-  - stackName: "\uC695\uB9DD"
-    description: "LUX\uC640 \uBCF4\uC0C1 \uAD00\uB828 \uC120\uD0DD\uC758 \uC774\uB4DD\uACFC
-      \uB9AC\uC2A4\uD06C\uB97C \uD0A4\uC6C1\uB2C8\uB2E4."
-  - stackName: "\uCCB4\uB150"
-    description: "\uD589\uB3D9 \uC81C\uD55C\uC774\uB098 \uBD88\uB9AC\uD55C \uC0C1\uD0DC\uB97C
-      \uB098\uD0C0\uB0B4\uB294 \uB204\uC801\uAC12\uC785\uB2C8\uB2E4."
   saveSlotCount: 4
   savePanelSize: {x: 760, y: 520}
 --- !u!114 &1318660201
@@ -3743,13 +3727,15 @@ MonoBehaviour:
   dPanelTriggerImage: {fileID: 267222118}
   grayBlend: 0.24
   flashDuration: 0.16
-  lockedMessage: "\uB2E4\uC74C \uBC84\uC804\uC744 \uAE30\uB300\uD574\uC8FC\uC138\uC694!"
+  lockedMessage: "\uC7A0\uAE08 \uD574\uC81C\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4!"
   firstMissionSceneName: Idapen
   sceneFadeDuration: 0.8
   sceneLoadHoldSeconds: 1
   missionScoreLabelOffset: {x: 18, y: 0}
   missionScoreLabelSize: {x: 260, y: 136}
   missionScoreFontSize: 22
+  missionScoreBackgroundPadding: {x: 22, y: 14}
+  missionScoreBackgroundAlpha: 0.42
 --- !u!1 &1614818451
 GameObject:
   m_ObjectHideFlags: 0
@@ -3829,7 +3815,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 0}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2
@@ -4685,7 +4671,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 0}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2

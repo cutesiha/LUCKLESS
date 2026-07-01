@@ -359,7 +359,6 @@ RectTransform:
   - {fileID: 1350517850}
   - {fileID: 1017525476}
   - {fileID: 263993060}
-  - {fileID: 2000668971}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -416,7 +415,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: 9f983a7076aaa30468b111308b294550, type: 3}
   m_PlayOnAwake: 1
-  m_Volume: 0.64
+  m_Volume: 0.613
   m_Pitch: 1
   Loop: 0
   Mute: 0
@@ -599,6 +598,14 @@ PrefabInstance:
       propertyPath: m_sharedMaterial
       value: 
       objectReference: {fileID: 6301557175569863728, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
+    - target: {fileID: 1985871486617541855, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2425689179991971608, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 1a0a4b2c72811a945b126e1d9c0d8e07, type: 3}
     - target: {fileID: 5115026756069746307, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
       propertyPath: m_Name
       value: DialogueCanvas
@@ -615,6 +622,22 @@ PrefabInstance:
       propertyPath: m_sharedMaterial
       value: 
       objectReference: {fileID: 6301557175569863728, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
+    - target: {fileID: 6859003354056574574, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 819.4537
+      objectReference: {fileID: 0}
+    - target: {fileID: 6859003354056574574, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 1365.7563
+      objectReference: {fileID: 0}
+    - target: {fileID: 6859003354056574574, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: -11
+      objectReference: {fileID: 0}
+    - target: {fileID: 6859003354056574574, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: -229
+      objectReference: {fileID: 0}
     - target: {fileID: 8369987043188565258, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
       propertyPath: m_Pivot.x
       value: 0
@@ -645,6 +668,18 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8369987043188565258, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
       propertyPath: m_SizeDelta.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8369987043188565258, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8369987043188565258, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8369987043188565258, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
+      propertyPath: m_LocalScale.z
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8369987043188565258, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
@@ -762,6 +797,14 @@ PrefabInstance:
       propertyPath: m_sharedMaterial
       value: 
       objectReference: {fileID: 6301557175569863728, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
+    - target: {fileID: 1985871486617541855, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
+      propertyPath: m_Name
+      value: CharacterImage2
+      objectReference: {fileID: 0}
+    - target: {fileID: 1985871486617541855, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 5115026756069746307, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
       propertyPath: m_Name
       value: DialogueCanvas (1)
@@ -778,6 +821,14 @@ PrefabInstance:
       propertyPath: m_sharedMaterial
       value: 
       objectReference: {fileID: 6301557175569863728, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
+    - target: {fileID: 6859003354056574574, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: -4
+      objectReference: {fileID: 0}
+    - target: {fileID: 6859003354056574574, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: -125
+      objectReference: {fileID: 0}
     - target: {fileID: 8369987043188565258, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
       propertyPath: m_Pivot.x
       value: 0
@@ -808,6 +859,18 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8369987043188565258, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
       propertyPath: m_SizeDelta.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8369987043188565258, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8369987043188565258, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8369987043188565258, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
+      propertyPath: m_LocalScale.z
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8369987043188565258, guid: 39390d5acdac47647aef581ab25291e6, type: 3}
@@ -1069,7 +1132,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 1
-  m_Volume: 0.644
+  m_Volume: 0.79
   m_Pitch: 1
   Loop: 0
   Mute: 0
@@ -1175,7 +1238,7 @@ MonoBehaviour:
   alternateDialogueText: {fileID: 1660004669}
   alternateCharacterImage: {fileID: 1660004670}
   voiceSource: {fileID: 1822192645}
-  voiceVolume: 0.53
+  voiceVolume: 1.29
   lines:
   - speakerName: "\uC774\uB2E4 \uD39C"
     dialogue: "\uC654\uAD70\uC694."
@@ -1265,6 +1328,7 @@ MonoBehaviour:
       responseLines: []
   guardSpeakerName: "17\uAD6C\uC5ED \uACBD\uBE44"
   shakeSpeakerName: ???
+  shakeDialogueText: "\uBA48\uCDB0\uC694!"
   battleSceneName: BattleScene
   typingSpeed: 0.035
   lineEndDelay: 0.08
@@ -1272,6 +1336,7 @@ MonoBehaviour:
   shakeDistance: 18
   shakeInterval: 0.035
   battleSceneFadeDuration: 0.8
+  screenShakeCamera: {fileID: 1734611971}
 --- !u!4 &1822192647
 Transform:
   m_ObjectHideFlags: 0

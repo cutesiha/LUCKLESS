@@ -1,8 +1,13 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 public class HandbookPanelController : MonoBehaviour
 {
+    private static readonly Color HandbookHoverTint = new Color(0.72f, 0.12f, 0.42f, 1f);
+    private const float HandbookHoverTintAmount = 0.28f;
+    private const float HandbookHoverDarkenAmount = 0.12f;
+
     private static readonly string[] InventoryPanelNames =
     {
         "InventoryPanel1",
@@ -13,6 +18,12 @@ public class HandbookPanelController : MonoBehaviour
 
     [SerializeField] private Image handbookClickImage;
     [SerializeField] private GameObject inventoryPanel;
+
+    [Header("SFX")]
+    [SerializeField] private AudioSource clickSfxSource;
+    [SerializeField] private AudioClip clickClip;
+
+    private int lastClickSfxFrame = -1;
 
     private void OnEnable()
     {
@@ -31,15 +42,6 @@ public class HandbookPanelController : MonoBehaviour
 
     public void OpenInventoryPanel()
     {
-        Image clickImage = GetHandbookClickImage();
-        BattleInventoryOpener opener = clickImage != null ? clickImage.GetComponent<BattleInventoryOpener>() : null;
-
-        if (opener != null)
-        {
-            opener.OpenInventory();
-            return;
-        }
-
         GameObject targetPanel = GetInventoryPanel();
 
         if (targetPanel == null)
@@ -115,18 +117,10 @@ public class HandbookPanelController : MonoBehaviour
             return;
         }
 
+        SetupPinkHover(targetImage, GetDarkPinkHoverColor);
+        AddClickEvent(targetImage, OpenInventoryPanel);
         EnsureBattleInventoryOpener(targetImage);
-    }
-
-    private void EnsureBattleInventoryOpener(Image targetImage)
-    {
-        BattleInventoryOpener opener = targetImage.GetComponent<BattleInventoryOpener>();
-        if (opener == null)
-        {
-            opener = targetImage.gameObject.AddComponent<BattleInventoryOpener>();
-        }
-
-        opener.SetInventoryPanel(GetInventoryPanel());
+        EnsureClickSfx(targetImage);
     }
 
     private void EnsureHandbookCanvasOnTop()
@@ -138,12 +132,32 @@ public class HandbookPanelController : MonoBehaviour
         }
 
         canvas.overrideSorting = true;
-        canvas.sortingOrder = 4500;
+        canvas.sortingOrder = 2000;
 
         if (GetComponent<GraphicRaycaster>() == null)
         {
             gameObject.AddComponent<GraphicRaycaster>();
         }
+
+        transform.SetAsLastSibling();
+    }
+
+    private void EnsureBattleInventoryOpener(Image targetImage)
+    {
+        BattleInventoryOpener[] openers = targetImage.GetComponents<BattleInventoryOpener>();
+        BattleInventoryOpener opener = openers.Length > 0 ? openers[0] : null;
+        if (opener == null)
+        {
+            opener = targetImage.gameObject.AddComponent<BattleInventoryOpener>();
+        }
+
+        for (int i = 1; i < openers.Length; i++)
+        {
+            Destroy(openers[i]);
+        }
+
+        opener.SetHoverStyle(HandbookHoverTint, HandbookHoverTintAmount, HandbookHoverDarkenAmount);
+        opener.SetInventoryPanel(GetInventoryPanel());
     }
 
     private Image GetHandbookClickImage()
@@ -179,5 +193,84 @@ public class HandbookPanelController : MonoBehaviour
 
         handbookClickImage = largestImage;
         return handbookClickImage;
+    }
+
+    private void SetupPinkHover(Image image, System.Func<Color, Color> getHoverColor)
+    {
+        if (image == null)
+        {
+            return;
+        }
+
+        image.raycastTarget = true;
+        EventTrigger trigger = image.GetComponent<EventTrigger>();
+
+        if (trigger == null)
+        {
+            trigger = image.gameObject.AddComponent<EventTrigger>();
+        }
+
+        Color originalColor = image.color;
+        trigger.triggers.RemoveAll(entry =>
+            entry.eventID == EventTriggerType.PointerEnter || entry.eventID == EventTriggerType.PointerExit);
+        AddPointerEvent(trigger, EventTriggerType.PointerEnter, () => image.color = getHoverColor(originalColor));
+        AddPointerEvent(trigger, EventTriggerType.PointerExit, () => image.color = originalColor);
+    }
+
+    private void AddClickEvent(Image image, UnityEngine.Events.UnityAction callback)
+    {
+        image.raycastTarget = true;
+        EventTrigger trigger = image.GetComponent<EventTrigger>();
+
+        if (trigger == null)
+        {
+            trigger = image.gameObject.AddComponent<EventTrigger>();
+        }
+
+        trigger.triggers.RemoveAll(entry => entry.eventID == EventTriggerType.PointerClick);
+        AddPointerEvent(trigger, EventTriggerType.PointerClick, callback);
+    }
+
+    private void AddPointerEvent(EventTrigger trigger, EventTriggerType eventType, UnityEngine.Events.UnityAction callback)
+    {
+        EventTrigger.Entry entry = new EventTrigger.Entry { eventID = eventType };
+        entry.callback.AddListener(_ => callback());
+        trigger.triggers.Add(entry);
+    }
+
+    private void EnsureClickSfx(Image targetImage)
+    {
+        Button button = targetImage.GetComponent<Button>();
+
+        if (button == null)
+        {
+            button = targetImage.gameObject.AddComponent<Button>();
+        }
+
+        button.transition = Selectable.Transition.None;
+        button.targetGraphic = targetImage;
+        button.onClick.RemoveListener(PlayClickSfx);
+        button.onClick.AddListener(PlayClickSfx);
+    }
+
+    private void PlayClickSfx()
+    {
+        if (lastClickSfxFrame == Time.frameCount)
+        {
+            return;
+        }
+
+        lastClickSfxFrame = Time.frameCount;
+        UIClickSoundPlayer.Play(gameObject, ref clickSfxSource, clickClip);
+    }
+
+    private Color GetDarkPinkHoverColor(Color originalColor)
+    {
+        Color tint = HandbookHoverTint;
+        tint.a = originalColor.a;
+        Color tintedColor = Color.Lerp(originalColor, tint, HandbookHoverTintAmount);
+        Color hoverColor = Color.Lerp(tintedColor, Color.black, HandbookHoverDarkenAmount);
+        hoverColor.a = originalColor.a;
+        return hoverColor;
     }
 }

@@ -9,8 +9,6 @@ public class GameManager : MonoBehaviour
     public int currentLux = 0;
     // 제로는 LUX가 없는 캐릭터 — 시작값 0이 맞음
 
-    public int unluckStack = 0;
-
     // ── 씬간 선택 저장 ───────────────────────────
     // 이다 펜 처리 선택 (0=완전제거 1=방치 2=도주허용 -1=미선택)
     public int slum17Choice = -1;
@@ -41,17 +39,11 @@ public class GameManager : MonoBehaviour
         currentLux = Mathf.Max(0, currentLux + amount);
     }
 
-    public void AddUnluck(int amount)
-    {
-        unluckStack = Mathf.Max(0, unluckStack + amount);
-    }
-
     // ── 런(Run) 리셋 ─────────────────────────────
     // 사망하거나 새 런 시작할 때 호출
     public void ResetRun()
     {
         currentLux = 0;
-        unluckStack = 0;
         slum17Choice = -1;
         nextScene = "BattleScene";
     }

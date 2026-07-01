@@ -14,8 +14,7 @@ public class MainSceneIntroController : MonoBehaviour
     [SerializeField] private float titleHoldSeconds = 2f;
     [SerializeField] private float titleFadeAfterEyeDelay = 1f;
     [SerializeField] private float eyeOpenDuration = 1.15f;
-    [SerializeField] private GameObject blackBackground;
-    [SerializeField] private GameObject canvas1Background;
+    [SerializeField] private float initialBlackHoldSeconds = 0.25f;
 
     [Header("Panels")]
     [SerializeField] private GameObject missionPanel;
@@ -31,16 +30,18 @@ public class MainSceneIntroController : MonoBehaviour
     private Vector2 bottomEyeClosedPosition;
     private GameObject handbookPanelInstance;
     private float[] musicTargetVolumes;
+    private Image titleBlackBackdrop;
+    private Transform canvas1Background;
 
     private void Awake()
     {
-        AutoFillIntroObjects();
         PrepareMusicFadeIn();
         CacheEyeCoverPositions();
+        CacheCanvas1Background();
+        EnsureTitleBlackBackdrop();
+        SetCanvas1BackgroundVisible(false);
         SetMissionVisible(false);
         SetHandbookVisible(false);
-        SetCanvas1BackgroundVisible(false);
-        SetBlackBackgroundVisible(true);
         SetEyeCoversVisible(false);
         SetTitleVisible(false, 0f);
     }
@@ -48,11 +49,13 @@ public class MainSceneIntroController : MonoBehaviour
     private IEnumerator Start()
     {
         StartCoroutine(FadeInMusic());
-        SetTitleVisible(true, 0f);
+        ShowTitleBlackOnly(0f);
         yield return FadeGroup(titleGroup, 0f, 1f, titleFadeDuration, true);
+        yield return new WaitForSecondsRealtime(initialBlackHoldSeconds);
+        SetTitleImageVisible(true);
         yield return new WaitForSecondsRealtime(titleHoldSeconds);
         SetCanvas1BackgroundVisible(true);
-        SetBlackBackgroundVisible(false);
+        SetTitleBlackBackdropVisible(false);
         yield return OpenEyeCovers();
         yield return new WaitForSecondsRealtime(titleFadeAfterEyeDelay);
         SetTitleVisible(false, 0f);
@@ -99,51 +102,6 @@ public class MainSceneIntroController : MonoBehaviour
         }
     }
 
-    private void AutoFillIntroObjects()
-    {
-        if (blackBackground == null)
-        {
-            Transform found = transform.root.Find("TitleTransitionCanvas/BlackBackground");
-            if (found != null)
-            {
-                blackBackground = found.gameObject;
-            }
-        }
-
-        if (canvas1Background == null)
-        {
-            Transform found = transform.root.Find("Canvas1/HouseMasterBackground");
-            if (found != null)
-            {
-                canvas1Background = found.gameObject;
-            }
-        }
-    }
-
-    private void SetBlackBackgroundVisible(bool visible)
-    {
-        if (blackBackground != null)
-        {
-            blackBackground.SetActive(visible);
-            if (visible)
-            {
-                blackBackground.transform.SetAsFirstSibling();
-            }
-        }
-    }
-
-    private void SetCanvas1BackgroundVisible(bool visible)
-    {
-        if (canvas1Background != null)
-        {
-            canvas1Background.SetActive(visible);
-            if (visible)
-            {
-                canvas1Background.transform.SetAsFirstSibling();
-            }
-        }
-    }
-
     private void NormalizeHandbookPanel(GameObject panel)
     {
         RectTransform rectTransform = panel.GetComponent<RectTransform>();
@@ -161,11 +119,7 @@ public class MainSceneIntroController : MonoBehaviour
 
     private void SetTitleVisible(bool visible, float alpha)
     {
-        if (titleImage != null)
-        {
-            titleImage.gameObject.SetActive(visible);
-            titleImage.SetAsLastSibling();
-        }
+        SetTitleImageVisible(visible);
 
         if (titleGroup != null)
         {
@@ -173,6 +127,117 @@ public class MainSceneIntroController : MonoBehaviour
             titleGroup.interactable = visible;
             titleGroup.blocksRaycasts = visible;
             titleGroup.gameObject.SetActive(visible || alpha > 0f);
+        }
+    }
+
+    private void ShowTitleBlackOnly(float alpha)
+    {
+        if (titleGroup != null)
+        {
+            if (titleGroup.transform.localScale == Vector3.zero)
+            {
+                titleGroup.transform.localScale = Vector3.one;
+            }
+
+            titleGroup.gameObject.SetActive(true);
+            titleGroup.alpha = alpha;
+            titleGroup.interactable = true;
+            titleGroup.blocksRaycasts = true;
+        }
+
+        SetTitleImageVisible(false);
+        SetEyeCoversVisible(false);
+        SetTitleBlackBackdropVisible(true);
+    }
+
+    private void SetTitleImageVisible(bool visible)
+    {
+        if (titleImage == null)
+        {
+            return;
+        }
+
+        titleImage.gameObject.SetActive(visible);
+        if (visible)
+        {
+            titleImage.SetAsLastSibling();
+        }
+    }
+
+    private void CacheCanvas1Background()
+    {
+        GameObject canvas1 = GameObject.Find("Canvas1");
+        if (canvas1 == null)
+        {
+            return;
+        }
+
+        Transform background = canvas1.transform.Find("HouseMasterBackground");
+        if (background != null)
+        {
+            canvas1Background = background;
+        }
+    }
+
+    private void SetCanvas1BackgroundVisible(bool visible)
+    {
+        if (canvas1Background == null)
+        {
+            CacheCanvas1Background();
+        }
+
+        if (canvas1Background != null)
+        {
+            canvas1Background.gameObject.SetActive(visible);
+            if (visible)
+            {
+                canvas1Background.SetAsFirstSibling();
+            }
+        }
+    }
+
+    private void EnsureTitleBlackBackdrop()
+    {
+        if (titleGroup == null)
+        {
+            return;
+        }
+
+        Transform existing = titleGroup.transform.Find("TitleBlackBackdrop");
+        if (existing != null)
+        {
+            titleBlackBackdrop = existing.GetComponent<Image>();
+        }
+
+        if (titleBlackBackdrop == null)
+        {
+            GameObject backdropObject = new GameObject("TitleBlackBackdrop", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            backdropObject.transform.SetParent(titleGroup.transform, false);
+            titleBlackBackdrop = backdropObject.GetComponent<Image>();
+        }
+
+        RectTransform backdropTransform = titleBlackBackdrop.rectTransform;
+        backdropTransform.anchorMin = Vector2.zero;
+        backdropTransform.anchorMax = Vector2.one;
+        backdropTransform.offsetMin = Vector2.zero;
+        backdropTransform.offsetMax = Vector2.zero;
+        backdropTransform.localScale = Vector3.one;
+
+        titleBlackBackdrop.color = Color.black;
+        titleBlackBackdrop.raycastTarget = true;
+        titleBlackBackdrop.transform.SetAsFirstSibling();
+    }
+
+    private void SetTitleBlackBackdropVisible(bool visible)
+    {
+        EnsureTitleBlackBackdrop();
+        if (titleBlackBackdrop != null)
+        {
+            titleBlackBackdrop.gameObject.SetActive(visible);
+            if (visible)
+            {
+                titleBlackBackdrop.transform.SetAsFirstSibling();
+            }
         }
     }
 

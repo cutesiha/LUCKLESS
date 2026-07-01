@@ -1279,10 +1279,12 @@ MonoBehaviour:
   titleFadeAfterCanvas2Delay: 1
   eyeOpenDuration: 1.15
   voiceSource: {fileID: 337525892}
-  voiceVolume: 1.48
+  voiceVolume: 1.29
+  voiceMixerGroup: {fileID: -7831534843659442592, guid: 2c0fa5d69bf081d499a8e40f186edf5c, type: 2}
   titleMusicSource: {fileID: 337525894}
   titleMusicClip: {fileID: 8300000, guid: 2c20503d7c1a2f347b960cfb8137bcf8, type: 3}
-  titleMusicVolume: 0.5
+  titleMusicVolume: 0.6
+  titleMusicMixerGroup: {fileID: 2419397164534876385, guid: 2c0fa5d69bf081d499a8e40f186edf5c, type: 2}
   titleMusicFadeInDuration: 1.8
   handbookRewardAfterCanvasNumber: 3
   handbookPanelPrefab: {fileID: 8579181119384531084, guid: 854e4af839f95244a9760eef814c1d58, type: 3}
@@ -1291,6 +1293,7 @@ MonoBehaviour:
   handbookDimAlpha: 0.42
   handbookRewardBlinkSeconds: 2.4
   handbookRewardBlinkInterval: 0.22
+  handbookPromptOffset: {x: 26, y: -70}
   mainSceneName: MainScene
 --- !u!82 &337525892
 AudioSource:
@@ -1301,7 +1304,7 @@ AudioSource:
   m_GameObject: {fileID: 337525890}
   m_Enabled: 1
   serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: 2419397164534876385, guid: 2c0fa5d69bf081d499a8e40f186edf5c, type: 2}
+  OutputAudioMixerGroup: {fileID: -7831534843659442592, guid: 2c0fa5d69bf081d499a8e40f186edf5c, type: 2}
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 0
@@ -1624,6 +1627,8 @@ MonoBehaviour:
   bgmAudioSources: []
   sfxAudioSources: []
   audioMixer: {fileID: 0}
+  clickSfxSource: {fileID: 0}
+  clickClip: {fileID: 8300000, guid: 090c8958655eb574390259056d65a58c, type: 3}
   textFont: {fileID: 11400000, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
   worldInfoPanelSize: {x: 1440, y: 830}
   worldInfoPanelAlpha: 0.94
@@ -2275,6 +2280,11 @@ MonoBehaviour:
         \uC54A\uB294 \uAC83\uC774 \uC788\uB2E4. \uC790\uC2E0\uC740 \uCC98\uC74C\uBD80\uD130
         LUX\uAC00 \uC5C6\uC5C8\uC9C0\uB9CC, \uC81C\uB85C\uB294 \u2014 \uBE7C\uC557\uACBC\uB2E4.
         \uADF8 \uCC28\uC774\uAC00 \uACB0\uAD6D \uB450 \uC874\uC7AC\uB97C \uAC00\uB978\uB2E4."
+  cardPrefab: {fileID: 0}
+  cardLibrary: []
+  cardBrowserPanelSize: {x: 1360, y: 760}
+  saveSlotCount: 4
+  savePanelSize: {x: 760, y: 520}
 --- !u!1 &478076766
 GameObject:
   m_ObjectHideFlags: 0

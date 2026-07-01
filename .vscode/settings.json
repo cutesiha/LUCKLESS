@@ -67,5 +67,7 @@
         "*.sln": "*.csproj",
         "*.slnx": "*.csproj"
     },
-    "dotnet.defaultSolution": "My-project--1----crad-game.slnx"
+    "dotnet.defaultSolution": "My-project--1----crad-game.slnx",
+    "workbench.preferredDarkColorTheme": "Dark 2026",
+    "workbench.colorTheme": "Visual Studio 2019 Light"
 }

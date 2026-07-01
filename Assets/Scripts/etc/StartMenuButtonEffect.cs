@@ -12,7 +12,9 @@ public class StartMenuButtonEffect : MonoBehaviour, IPointerEnterHandler, IPoint
         None,
         LoadPrologue,
         QuitGame,
-        AutoByObjectName
+        AutoByObjectName,
+        OpenLoadSlots,
+        OpenOptions
     }
 
     [Header("Hover")]
@@ -27,6 +29,9 @@ public class StartMenuButtonEffect : MonoBehaviour, IPointerEnterHandler, IPoint
     [SerializeField] private float audioFadeTime = 2f;
     [SerializeField] private float sceneLoadDelayAfterFade = 2f;
     [SerializeField] private AudioSource[] audioSourcesToFade;
+
+    [Header("Panels")]
+    [SerializeField] private InventoryPanelController startMenuInventoryPanel;
 
     [Header("SFX")]
     [SerializeField] private AudioSource sfxSource;
@@ -44,6 +49,7 @@ public class StartMenuButtonEffect : MonoBehaviour, IPointerEnterHandler, IPoint
         rectTransform = GetComponent<RectTransform>();
         image = GetComponent<Image>();
         image.raycastTarget = true;
+        EnsureSfxSource();
     }
 
     private void OnEnable()
@@ -91,18 +97,44 @@ public class StartMenuButtonEffect : MonoBehaviour, IPointerEnterHandler, IPoint
         }
 
         PlayClickSfx();
+
+        if (resolvedAction == ClickAction.OpenLoadSlots || resolvedAction == ClickAction.OpenOptions)
+        {
+            OpenStartMenuPanel(resolvedAction);
+            return;
+        }
+
         StartCoroutine(PlayClickAndRun(resolvedAction));
     }
 
     private void PlayClickSfx()
     {
+        EnsureSfxSource();
+
         if (sfxSource == null || clickClip == null)
         {
             return;
         }
 
-        float volume = Mathf.Clamp01(PlayerPrefs.GetFloat("SFX", 1f));
+        float volume = GameAudioSettings.SfxVolume;
         sfxSource.PlayOneShot(clickClip, volume);
+    }
+
+    private void EnsureSfxSource()
+    {
+        if (sfxSource != null)
+        {
+            return;
+        }
+
+        sfxSource = GetComponent<AudioSource>();
+        if (sfxSource == null)
+        {
+            sfxSource = gameObject.AddComponent<AudioSource>();
+        }
+
+        sfxSource.playOnAwake = false;
+        sfxSource.spatialBlend = 0f;
     }
 
     private ClickAction ResolveAction()
@@ -117,12 +149,60 @@ public class StartMenuButtonEffect : MonoBehaviour, IPointerEnterHandler, IPoint
             return ClickAction.LoadPrologue;
         }
 
+        if (name.EndsWith("_02"))
+        {
+            return ClickAction.OpenLoadSlots;
+        }
+
+        if (name.EndsWith("_03"))
+        {
+            return ClickAction.OpenOptions;
+        }
+
         if (name.EndsWith("_04"))
         {
             return ClickAction.QuitGame;
         }
 
         return ClickAction.None;
+    }
+
+    private void OpenStartMenuPanel(ClickAction resolvedAction)
+    {
+        InventoryPanelController panel = GetStartMenuInventoryPanel();
+        if (panel == null)
+        {
+            Debug.LogWarning("Start menu inventory panel was not found.");
+            return;
+        }
+
+        if (resolvedAction == ClickAction.OpenLoadSlots)
+        {
+            panel.ToggleSaveSlotLoadPanelOnly();
+            return;
+        }
+
+        panel.ToggleOptionPanelOnly();
+    }
+
+    private InventoryPanelController GetStartMenuInventoryPanel()
+    {
+        if (startMenuInventoryPanel != null)
+        {
+            return startMenuInventoryPanel;
+        }
+
+        InventoryPanelController[] panels = Resources.FindObjectsOfTypeAll<InventoryPanelController>();
+        for (int i = 0; i < panels.Length; i++)
+        {
+            if (panels[i] != null && panels[i].gameObject.scene == gameObject.scene)
+            {
+                startMenuInventoryPanel = panels[i];
+                return startMenuInventoryPanel;
+            }
+        }
+
+        return null;
     }
 
     private void MoveTo(Vector2 targetPosition)
@@ -317,20 +397,6 @@ public class StartMenuButtonEffect : MonoBehaviour, IPointerEnterHandler, IPoint
 
     private Image CreateFadeImage()
     {
-        Canvas canvas = GetComponentInParent<Canvas>();
-        GameObject fadeObject = new GameObject("StartMenuFade", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-        fadeObject.transform.SetParent(canvas != null ? canvas.transform : transform.root, false);
-        fadeObject.transform.SetAsLastSibling();
-
-        RectTransform fadeRect = fadeObject.GetComponent<RectTransform>();
-        fadeRect.anchorMin = Vector2.zero;
-        fadeRect.anchorMax = Vector2.one;
-        fadeRect.offsetMin = Vector2.zero;
-        fadeRect.offsetMax = Vector2.zero;
-
-        Image fadeImage = fadeObject.GetComponent<Image>();
-        fadeImage.raycastTarget = true;
-        fadeImage.color = new Color(0f, 0f, 0f, 0f);
-        return fadeImage;
+        return SceneFadeOverlay.CreateImage("StartMenuFade");
     }
 }

@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(grep -v \"^.*m_Name: $\")"
+      "Bash(grep -v \"^.*m_Name: $\")",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\sihan\\\\My project \\(1\\)\" -Directory)",
+      "Bash(Select-Object Name)"
     ]
   }
 }
