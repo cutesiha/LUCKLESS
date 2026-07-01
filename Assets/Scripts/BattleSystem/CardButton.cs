@@ -24,6 +24,11 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     [SerializeField] private Sprite barrierImage;
     [SerializeField] private Color nameOutlineColor = new Color(0.16f, 0.16f, 0.16f, 0.50f);
     [SerializeField] private float nameOutlineDistance = 1.7f;
+    [SerializeField] private Color cardOutlineColor = new Color(0.08f, 0.03f, 0.07f, 0.82f);
+    [SerializeField] private Vector2 cardOutlineDistance = new Vector2(4f, -4f);
+    [SerializeField] [Range(0f, 1f)] private float hoverDarkenAmount = 0.28f;
+    [SerializeField] private float hoverScale = 1.025f;
+    [SerializeField] private float hoverTweenDuration = 0.12f;
 
     private static readonly Vector2[] NameOutlineOffsets =
     {
@@ -39,9 +44,15 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
 
     private readonly TextMeshProUGUI[] nameOutlineTexts = new TextMeshProUGUI[NameOutlineOffsets.Length];
     private Coroutine clickFeedbackRoutine;
+    private Coroutine hoverFeedbackRoutine;
     private Vector3 clickFeedbackBaseScale = Vector3.one;
     private Vector2 clickFeedbackBasePosition;
     private Color clickFeedbackBaseColor = Color.white;
+    private Vector3 hoverBaseScale = Vector3.one;
+    private Color hoverBaseColor = Color.white;
+    private Vector3 visualBaseScale = Vector3.one;
+    private Color visualBaseColor = Color.white;
+    private bool hovering;
 #if UNITY_EDITOR
     private bool nameOutlineRefreshQueued;
 #endif
@@ -49,6 +60,10 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     private void Awake()
     {
         EnsureImageReference();
+        if (Application.isPlaying)
+        {
+            EnsureCardOutline();
+        }
         RefreshNameTextOutlineSafely();
     }
 
@@ -86,6 +101,8 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
 
         ApplyNameTextOutline();
         ApplyCardImage();
+        EnsureCardOutline();
+        CaptureVisualBaseState();
     }
 
     private void ApplyNameTextOutline()
@@ -251,12 +268,41 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
         }
     }
 
+    private void CaptureVisualBaseState()
+    {
+        visualBaseScale = transform.localScale == Vector3.zero ? Vector3.one : transform.localScale;
+
+        Image image = GetComponent<Image>();
+        if (image != null)
+        {
+            visualBaseColor = image.color;
+        }
+    }
+
     private void EnsureImageReference()
     {
         if (cardImage == null)
         {
             cardImage = GetComponent<Image>();
         }
+    }
+
+    private void EnsureCardOutline()
+    {
+        if (cardImage == null)
+        {
+            return;
+        }
+
+        Outline outline = cardImage.GetComponent<Outline>();
+        if (outline == null)
+        {
+            outline = cardImage.gameObject.AddComponent<Outline>();
+        }
+
+        outline.effectColor = cardOutlineColor;
+        outline.effectDistance = cardOutlineDistance;
+        outline.useGraphicAlpha = true;
     }
 
     private Sprite GetTypeImage(CardType cardType)
@@ -300,9 +346,16 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
 
     battleManager.PlayCardSelectSound();
 
-    if (!battleManager.HasEnoughLuxForCard(cardData))
+    if (!battleManager.CanAcceptCardClick(cardData, out bool insufficientLux))
     {
-        PlayInsufficientLuxFeedback();
+        if (insufficientLux)
+        {
+            PlayInsufficientLuxFeedback();
+        }
+        else
+        {
+            PlayClickBoing();
+        }
         return;
     }
 
@@ -334,17 +387,15 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     private IEnumerator ClickBoingRoutine()
     {
         Transform target = transform;
-        clickFeedbackBaseScale = target.localScale == Vector3.zero ? Vector3.one : target.localScale;
+        clickFeedbackBaseScale = GetRestScale();
         RectTransform rectTransform = transform as RectTransform;
         clickFeedbackBasePosition = rectTransform != null ? rectTransform.anchoredPosition : Vector2.zero;
-        Image image = GetComponent<Image>();
-        clickFeedbackBaseColor = image != null ? image.color : Color.white;
+        clickFeedbackBaseColor = visualBaseColor;
 
-        yield return ScaleOver(clickFeedbackBaseScale, clickFeedbackBaseScale * 1.09f, 0.07f);
-        yield return ScaleOver(clickFeedbackBaseScale * 1.09f, clickFeedbackBaseScale * 0.98f, 0.055f);
-        yield return ScaleOver(clickFeedbackBaseScale * 0.98f, clickFeedbackBaseScale, 0.055f);
+        yield return ScaleOver(transform.localScale, clickFeedbackBaseScale * 1.03f, 0.045f);
+        yield return ScaleOver(clickFeedbackBaseScale * 1.03f, clickFeedbackBaseScale, 0.065f);
 
-        target.localScale = clickFeedbackBaseScale;
+        target.localScale = GetRestScale();
         clickFeedbackRoutine = null;
     }
 
@@ -353,14 +404,19 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
         RectTransform rectTransform = transform as RectTransform;
         Image image = GetComponent<Image>();
 
-        clickFeedbackBaseScale = transform.localScale == Vector3.zero ? Vector3.one : transform.localScale;
+        clickFeedbackBaseScale = GetRestScale();
         clickFeedbackBasePosition = rectTransform != null ? rectTransform.anchoredPosition : Vector2.zero;
-        clickFeedbackBaseColor = image != null ? image.color : Color.white;
+        clickFeedbackBaseColor = visualBaseColor;
 
-        Color darkColor = Color.Lerp(clickFeedbackBaseColor, Color.black, 0.38f);
+        yield return ScaleOver(transform.localScale, clickFeedbackBaseScale * 1.03f, 0.045f);
+        yield return ScaleOver(clickFeedbackBaseScale * 1.03f, clickFeedbackBaseScale, 0.065f);
+
+        Color restColor = GetRestColor();
+        Color darkColor = Color.Lerp(visualBaseColor, Color.black, 0.38f);
+        darkColor.a = visualBaseColor.a;
         if (image != null)
         {
-            yield return LerpImageColor(image, clickFeedbackBaseColor, darkColor, 0.04f);
+            yield return LerpImageColor(image, image.color, darkColor, 0.04f);
         }
 
         float startTime = Time.realtimeSinceStartup;
@@ -386,11 +442,10 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
             yield return null;
         }
 
-        RestoreClickFeedbackState();
-
         if (image != null)
         {
-            yield return LerpImageColor(image, darkColor, clickFeedbackBaseColor, 0.08f);
+            restColor = GetRestColor();
+            yield return LerpImageColor(image, darkColor, restColor, 0.08f);
         }
 
         RestoreClickFeedbackState();
@@ -443,7 +498,7 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
 
     private void RestoreClickFeedbackState()
     {
-        transform.localScale = clickFeedbackBaseScale;
+        transform.localScale = GetRestScale();
 
         RectTransform rectTransform = transform as RectTransform;
         if (rectTransform != null)
@@ -454,12 +509,15 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
         Image image = GetComponent<Image>();
         if (image != null)
         {
-            image.color = clickFeedbackBaseColor;
+            image.color = GetRestColor();
         }
     }
 
     public void OnPointerEnter(PointerEventData eventData)
     {
+        hovering = true;
+        StartHoverFeedback(true);
+
         if (battleManager != null && cardData != null)
         {
             battleManager.ShowCardTooltip(cardData);
@@ -468,9 +526,90 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
 
     public void OnPointerExit(PointerEventData eventData)
     {
+        hovering = false;
+        StartHoverFeedback(false);
+
         if (battleManager != null)
         {
             battleManager.HideCardTooltip();
         }
+    }
+
+    private void StartHoverFeedback(bool enter)
+    {
+        if (hoverFeedbackRoutine != null)
+        {
+            StopCoroutine(hoverFeedbackRoutine);
+        }
+
+        hoverFeedbackRoutine = StartCoroutine(HoverFeedbackRoutine(enter));
+    }
+
+    private IEnumerator HoverFeedbackRoutine(bool enter)
+    {
+        EnsureImageReference();
+
+        Image image = cardImage != null ? cardImage : GetComponent<Image>();
+        if (enter)
+        {
+            hoverBaseScale = visualBaseScale;
+            hoverBaseColor = visualBaseColor;
+        }
+
+        Vector3 fromScale = transform.localScale;
+        Vector3 toScale = enter ? GetHoverScale() : visualBaseScale;
+        Color fromColor = image != null ? image.color : Color.white;
+        Color toColor = enter ? GetHoverColor(visualBaseColor) : visualBaseColor;
+
+        float startTime = Time.realtimeSinceStartup;
+        while (true)
+        {
+            float elapsed = Time.realtimeSinceStartup - startTime;
+            float t = hoverTweenDuration <= 0f ? 1f : Mathf.Clamp01(elapsed / hoverTweenDuration);
+            float eased = t * t * (3f - 2f * t);
+
+            transform.localScale = Vector3.LerpUnclamped(fromScale, toScale, eased);
+            if (image != null)
+            {
+                image.color = Color.Lerp(fromColor, toColor, eased);
+            }
+
+            if (t >= 1f)
+            {
+                break;
+            }
+
+            yield return null;
+        }
+
+        transform.localScale = toScale;
+        if (image != null)
+        {
+            image.color = toColor;
+        }
+
+        hoverFeedbackRoutine = null;
+    }
+
+    private Color GetHoverColor(Color baseColor)
+    {
+        Color hoverColor = Color.Lerp(baseColor, Color.black, hoverDarkenAmount);
+        hoverColor.a = baseColor.a;
+        return hoverColor;
+    }
+
+    private Vector3 GetHoverScale()
+    {
+        return visualBaseScale * hoverScale;
+    }
+
+    private Vector3 GetRestScale()
+    {
+        return hovering ? GetHoverScale() : visualBaseScale;
+    }
+
+    private Color GetRestColor()
+    {
+        return hovering ? GetHoverColor(visualBaseColor) : visualBaseColor;
     }
 }

@@ -3351,7 +3351,7 @@ MonoBehaviour:
   rewardLux: 0
   turn: 1
   gameOverSceneName: MainScene
-  victorySceneName: VictoryScene
+  victorySceneName: Victory2Scene
   resultFadeDuration: 0.8
   resultHoldDuration: 2
   missionScoreId: Mission1

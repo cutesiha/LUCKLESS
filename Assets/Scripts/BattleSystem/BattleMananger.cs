@@ -106,7 +106,7 @@ public class BattleManager : MonoBehaviour
     private bool battleEnded = false;
     private bool battleStarted = false;
     [SerializeField] private string gameOverSceneName = "MainScene";
-    [SerializeField] private string victorySceneName = "VictoryScene";
+    [SerializeField] private string victorySceneName = "Victory2Scene";
     [SerializeField] private float resultFadeDuration = 0.8f;
     [SerializeField] private float resultHoldDuration = 1.1f;
     [SerializeField] private string missionScoreId = BattleScoreStore.DefaultMissionId;
@@ -284,6 +284,7 @@ public class BattleManager : MonoBehaviour
         InitializePlayerHitEffect();
         InitializeDiceRollEffect();
         InitializeCoinTossEffect();
+        EnsureEndTurnButtonHoverEffect();
         EnsureHandPanel();
         _prevPlayerHP = playerHP;
         _prevLux = lux;
@@ -297,6 +298,26 @@ public class BattleManager : MonoBehaviour
         DrawCards(drawCount);
         StartCoroutine(RefreshHandUIRoutine());
         StartCoroutine(ShowBattleIntroHint());
+    }
+
+    private void EnsureEndTurnButtonHoverEffect()
+    {
+        GameObject endTurnButtonObject = GameObject.Find("EndTurnButton");
+        if (endTurnButtonObject == null)
+        {
+            return;
+        }
+
+        Button button = endTurnButtonObject.GetComponent<Button>();
+        if (button != null)
+        {
+            button.transition = Selectable.Transition.None;
+        }
+
+        if (endTurnButtonObject.GetComponent<BattleHoverEffect>() == null)
+        {
+            endTurnButtonObject.AddComponent<BattleHoverEffect>();
+        }
     }
 
     private Sprite GetEnemyCurrentSprite()
@@ -1315,6 +1336,25 @@ private int CalculateRewardLux(int bet)
         return card != null && lux >= GetEffectiveLuxCost(card);
     }
 
+    public bool CanAcceptCardClick(CardData card, out bool insufficientLux)
+    {
+        insufficientLux = false;
+
+        if (card == null || !battleStarted || battleEnded || isCardResolving || playerStunned)
+        {
+            return false;
+        }
+
+        int effectiveCost = GetEffectiveLuxCost(card);
+        if (lux < effectiveCost)
+        {
+            insufficientLux = true;
+            return false;
+        }
+
+        return true;
+    }
+
     public string GetCardButtonLabel(CardData card)
     {
         if (card == null)
@@ -1912,14 +1952,7 @@ private int CalculateRewardLux(int bet)
             case SpecialCardEffect.BeastHeart:
                 int beastHeartDamage = Mathf.Max(0, playerHP - 1);
                 ApplyPlayerDamage(beastHeartDamage);
-                forcedGambleCards.Clear();
-                foreach (CardData handCard in hand)
-                {
-                    if (handCard != card)
-                    {
-                        forcedGambleCards.Add(handCard);
-                    }
-                }
+                ReplaceHandWithGambleCards(card, 4);
                 WriteLog("<color=#8fd3ff>야수의 심장:</color> HP를 1로 만들고 손패를 전부 도박 카드로 전환.");
                 break;
             case SpecialCardEffect.LuxDrain:
@@ -2006,6 +2039,8 @@ private int CalculateRewardLux(int bet)
     {
         switch (card.specialEffect)
         {
+            case SpecialCardEffect.BeastHeart:
+                return 0;
             case SpecialCardEffect.CoinTriple:
             {
                 int chanceBonus = GetGambleChanceBonus();
@@ -2971,6 +3006,83 @@ private bool IsLowLuxGuaranteedLuxCard(CardData card)
     if (card.isJackpot) return false;
 
     return card.luxGain > 0 || card.specialEffect == SpecialCardEffect.LuxDrain;
+}
+
+private void ReplaceHandWithGambleCards(CardData usedCard, int targetCount)
+{
+    forcedGambleCards.Clear();
+
+    foreach (CardData handCard in hand)
+    {
+        if (handCard != null && handCard != usedCard)
+        {
+            discardPile.Add(handCard);
+        }
+    }
+
+    hand.Clear();
+
+    for (int i = 0; i < targetCount; i++)
+    {
+        CardData gambleCard = TakeGambleCard(drawPile, usedCard);
+        if (gambleCard == null)
+        {
+            ReshuffleDiscardIntoDeck();
+            gambleCard = TakeGambleCard(drawPile, usedCard);
+        }
+
+        if (gambleCard == null)
+        {
+            gambleCard = GetFallbackGambleCard(usedCard);
+        }
+
+        if (gambleCard != null)
+        {
+            hand.Add(gambleCard);
+        }
+    }
+}
+
+private CardData TakeGambleCard(List<CardData> source, CardData usedCard)
+{
+    int index = source.FindIndex(card => IsBeastHeartGambleCard(card, usedCard));
+    if (index < 0)
+    {
+        return null;
+    }
+
+    CardData card = source[index];
+    source.RemoveAt(index);
+    return card;
+}
+
+private CardData GetFallbackGambleCard(CardData usedCard)
+{
+    if (startingCards == null)
+    {
+        return null;
+    }
+
+    List<CardData> candidates = startingCards
+        .Where(card => IsBeastHeartGambleCard(card, usedCard))
+        .ToList();
+
+    if (candidates.Count <= 0)
+    {
+        return null;
+    }
+
+    return candidates[Random.Range(0, candidates.Count)];
+}
+
+private bool IsBeastHeartGambleCard(CardData card, CardData usedCard)
+{
+    if (card == null || card == usedCard || card.isJackpot)
+    {
+        return false;
+    }
+
+    return card.isGambleCard || card.cardType == CardType.Gamble;
 }
 
 private void ReshuffleDiscardIntoDeck()

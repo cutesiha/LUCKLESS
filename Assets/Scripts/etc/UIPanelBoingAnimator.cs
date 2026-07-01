@@ -4,11 +4,11 @@ using UnityEngine;
 
 public class UIPanelBoingAnimator : MonoBehaviour
 {
-    [SerializeField] private float openDuration = 0.18f;
-    [SerializeField] private float closeDuration = 0.16f;
+    [SerializeField] private float openDuration = 0.17f;
+    [SerializeField] private float closeDuration = 0.15f;
     [SerializeField] private float openStartScale = 0.92f;
-    [SerializeField] private float openOvershootScale = 1.08f;
-    [SerializeField] private float closeOvershootScale = 1.06f;
+    [SerializeField] private float openOvershootScale = 1.03f;
+    [SerializeField] private float closeOvershootScale = 1.03f;
     [SerializeField] private float closeEndScale = 0.9f;
 
     private Coroutine routine;

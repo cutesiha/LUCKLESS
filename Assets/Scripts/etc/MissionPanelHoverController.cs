@@ -563,7 +563,7 @@ private void EnsureMissionScoreLabels()
             string missionId = GetMissionId(image.name);
             int currentScore = BattleScoreStore.GetCurrentScore(missionId);
             int bestScore = BattleScoreStore.GetBestScore(missionId);
-            label.text = $"현재점수: {currentScore}\n최고점수: {bestScore}";
+            label.text = $"현재 점수: {currentScore} / 최고 점수: {bestScore}";
             FitMissionScoreBackground(label);
         }
     }
@@ -573,6 +573,7 @@ private void EnsureMissionScoreLabels()
         const string labelName = "MissionScoreText";
         Transform existing = buttonTransform.Find(labelName);
         TextMeshProUGUI label;
+        bool createdLabel = false;
 
         if (existing != null)
         {
@@ -583,32 +584,40 @@ private void EnsureMissionScoreLabels()
             GameObject labelObject = new GameObject(labelName, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             labelObject.transform.SetParent(buttonTransform, false);
             label = labelObject.GetComponent<TextMeshProUGUI>();
+            createdLabel = true;
         }
 
         Image background = GetOrCreateMissionScoreBackground(buttonTransform);
 
         RectTransform labelTransform = label.rectTransform;
-        labelTransform.anchorMin = new Vector2(1f, 0.5f);
-        labelTransform.anchorMax = new Vector2(1f, 0.5f);
-        labelTransform.pivot = new Vector2(0f, 0.5f);
-        labelTransform.anchoredPosition = missionScoreLabelOffset;
-        labelTransform.sizeDelta = missionScoreLabelSize;
+        if (createdLabel)
+        {
+            labelTransform.anchorMin = new Vector2(1f, 0.5f);
+            labelTransform.anchorMax = new Vector2(1f, 0.5f);
+            labelTransform.pivot = new Vector2(0f, 0.5f);
+            labelTransform.anchoredPosition = missionScoreLabelOffset;
+            labelTransform.sizeDelta = missionScoreLabelSize;
+        }
 
         background.color = new Color(0f, 0f, 0f, missionScoreBackgroundAlpha);
         background.raycastTarget = false;
         background.transform.SetSiblingIndex(label.transform.GetSiblingIndex());
         label.transform.SetAsLastSibling();
 
-        if (TMP_Settings.defaultFontAsset != null)
+        if (createdLabel && TMP_Settings.defaultFontAsset != null)
         {
             label.font = TMP_Settings.defaultFontAsset;
         }
 
-        label.fontSize = missionScoreFontSize;
-        label.color = Color.white;
-        label.alignment = TextAlignmentOptions.MidlineLeft;
+        if (createdLabel)
+        {
+            label.fontSize = missionScoreFontSize;
+            label.color = Color.white;
+            label.alignment = TextAlignmentOptions.MidlineLeft;
+            label.textWrappingMode = TextWrappingModes.NoWrap;
+        }
+
         label.raycastTarget = false;
-        label.textWrappingMode = TextWrappingModes.NoWrap;
         return label;
     }
 
