@@ -3131,8 +3131,8 @@ MonoBehaviour:
   prologueSceneName: Prologue
   flashTime: 0.18
   fadeTime: 0.8
-  audioFadeTime: 2
-  sceneLoadDelayAfterFade: 1
+  audioFadeTime: 1.6
+  sceneLoadDelayAfterFade: 0.7
   audioSourcesToFade: []
   startMenuInventoryPanel: {fileID: 1499925342}
   sfxSource: {fileID: 0}

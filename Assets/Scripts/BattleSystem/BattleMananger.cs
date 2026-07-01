@@ -106,7 +106,7 @@ public class BattleManager : MonoBehaviour
     private bool battleEnded = false;
     private bool battleStarted = false;
     [SerializeField] private string gameOverSceneName = "MainScene";
-    [SerializeField] private string victorySceneName = "MainScene";
+    [SerializeField] private string victorySceneName = "VictoryScene";
     [SerializeField] private float resultFadeDuration = 0.8f;
     [SerializeField] private float resultHoldDuration = 1.1f;
     [SerializeField] private string missionScoreId = BattleScoreStore.DefaultMissionId;
@@ -1310,6 +1310,11 @@ private int CalculateRewardLux(int bet)
         return Mathf.Max(cost, 0);
     }
 
+    public bool HasEnoughLuxForCard(CardData card)
+    {
+        return card != null && lux >= GetEffectiveLuxCost(card);
+    }
+
     public string GetCardButtonLabel(CardData card)
     {
         if (card == null)
@@ -2344,13 +2349,14 @@ private void WinBattle()
         WriteLog($"Battle victory. Reward +{rewardLux} LUX. Current LUX: {lux}");
 
         UpdateUI();
-        UpdateEnemyDialogue();
 
         int score = BattleScoreStore.CalculateScore(turn);
         BattleScoreStore.SaveScore(missionScoreId, score);
         PlayerPrefs.SetInt("BattleVictory", 1);
+        PlayerPrefs.DeleteKey("BattleDefeat");
+        PlayerPrefs.SetString("LastVictoryMission", missionScoreId);
         PlayerPrefs.Save();
-        StartResultTransition("\uB2F9\uC2E0\uC740 \uC2B9\uB9AC\uD588\uC5B4\uC694.", "MainScene", score);
+        StartCoroutine(WinBattleSequence(score));
     }
 
 private void LoseBattle()
@@ -2363,11 +2369,208 @@ private void LoseBattle()
 
         WriteLog($"Battle defeat. Loss -{extraLoss} LUX. Current LUX: {lux}");
 
+        if (enemyDialogueText != null)
+        {
+            enemyDialogueText.text = "다신 이곳에 발도 들이지 마세요.";
+        }
+
+        PlayerPrefs.SetInt("BattleDefeat", 1);
+        PlayerPrefs.DeleteKey("BattleVictory");
+        PlayerPrefs.Save();
         UpdateUI();
-        StartResultTransition("\uB2F9\uC2E0\uC740 \uD328\uBC30\uD588\uC5B4\uC694... \uC548\uD0C0\uAE5D\uB124\uC694.", "MainScene");
+        StartResultTransition("\uB2F9\uC2E0\uC740 \uD328\uBC30\uD588\uC5B4\uC694... \uC548\uD0C0\uAE5D\uB124\uC694.", gameOverSceneName, -1, true, 1.35f);
     }
 
-    private void StartResultTransition(string message, string sceneName, int score = -1)
+    private IEnumerator WinBattleSequence(int score)
+    {
+        if (enemyDialogueText != null)
+        {
+            enemyDialogueText.text = "크윽... 지켜주지 못해 미안해요..";
+        }
+
+        yield return new WaitForSecondsRealtime(0.55f);
+        yield return FadeEnemyAndDialogueAway();
+        StartResultTransition("\uB2F9\uC2E0\uC740 \uC2B9\uB9AC\uD588\uC5B4\uC694.", victorySceneName, score);
+    }
+
+    private IEnumerator FadeEnemyAndDialogueAway()
+    {
+        float duration = 1.15f;
+
+        if (enemyHitEffectRoutine != null)
+        {
+            StopCoroutine(enemyHitEffectRoutine);
+            enemyHitEffectRoutine = null;
+            enemyHitEffectActive = false;
+        }
+
+        Coroutine particleRoutine = StartCoroutine(PlayEnemyDissolveParticles(duration));
+
+        CanvasGroup dialogueGroup = GetEnemyDialogueCanvasGroup();
+        Color enemyStartColor = enemyCharacterImage != null ? enemyCharacterImage.color : Color.white;
+        float dialogueStartAlpha = dialogueGroup != null ? dialogueGroup.alpha : 1f;
+        float startTime = Time.realtimeSinceStartup;
+
+        while (true)
+        {
+            float elapsed = Time.realtimeSinceStartup - startTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+
+            if (enemyCharacterImage != null)
+            {
+                Color color = enemyStartColor;
+                color.a = Mathf.Lerp(enemyStartColor.a, 0f, t);
+                enemyCharacterImage.color = color;
+            }
+
+            if (dialogueGroup != null)
+            {
+                dialogueGroup.alpha = Mathf.Lerp(dialogueStartAlpha, 0f, t);
+            }
+
+            if (t >= 1f)
+            {
+                break;
+            }
+
+            yield return null;
+        }
+
+        if (enemyCharacterImage != null)
+        {
+            enemyCharacterImage.gameObject.SetActive(false);
+        }
+
+        if (dialogueGroup != null)
+        {
+            dialogueGroup.alpha = 0f;
+        }
+
+        if (particleRoutine != null)
+        {
+            yield return particleRoutine;
+        }
+    }
+
+    private CanvasGroup GetEnemyDialogueCanvasGroup()
+    {
+        if (enemyDialogueText == null)
+        {
+            return null;
+        }
+
+        Transform panel = enemyDialogueText.transform.parent;
+        if (panel == null)
+        {
+            return null;
+        }
+
+        CanvasGroup group = panel.GetComponent<CanvasGroup>();
+        if (group == null)
+        {
+            group = panel.gameObject.AddComponent<CanvasGroup>();
+        }
+
+        return group;
+    }
+
+    private IEnumerator PlayEnemyDissolveParticles(float duration)
+    {
+        if (enemyCharacterImage == null)
+        {
+            yield break;
+        }
+
+        Canvas canvas = enemyCharacterImage.canvas;
+        RectTransform canvasTransform = canvas != null ? canvas.transform as RectTransform : null;
+        RectTransform enemyTransform = enemyCharacterImage.rectTransform;
+
+        if (canvasTransform == null || enemyTransform == null)
+        {
+            yield break;
+        }
+
+        Camera eventCamera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
+        Vector3[] corners = new Vector3[4];
+        enemyTransform.GetWorldCorners(corners);
+        Vector3 centerWorld = (corners[0] + corners[2]) * 0.5f;
+        Vector2 centerScreen = RectTransformUtility.WorldToScreenPoint(eventCamera, centerWorld);
+
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasTransform, centerScreen, eventCamera, out Vector2 centerLocal))
+        {
+            yield break;
+        }
+
+        const int particleCount = 20;
+        Image[] particles = new Image[particleCount];
+        Vector2[] startPositions = new Vector2[particleCount];
+        Vector2[] endPositions = new Vector2[particleCount];
+        Color[] startColors = new Color[particleCount];
+
+        for (int i = 0; i < particleCount; i++)
+        {
+            GameObject particleObject = new GameObject("EnemyDissolveParticle", typeof(RectTransform), typeof(Image));
+            particleObject.transform.SetParent(canvasTransform, false);
+            particleObject.transform.SetAsLastSibling();
+
+            RectTransform rectTransform = particleObject.GetComponent<RectTransform>();
+            rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+            rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            rectTransform.sizeDelta = Vector2.one * Random.Range(5f, 13f);
+
+            startPositions[i] = centerLocal + new Vector2(Random.Range(-150f, 150f), Random.Range(-180f, 180f));
+            endPositions[i] = startPositions[i] + new Vector2(Random.Range(-95f, 95f), Random.Range(90f, 230f));
+            rectTransform.anchoredPosition = startPositions[i];
+
+            Image particleImage = particleObject.GetComponent<Image>();
+            particleImage.color = Random.value > 0.45f
+                ? new Color(1f, 0.82f, 0.92f, 0.78f)
+                : new Color(0.65f, 0.78f, 1f, 0.7f);
+            particleImage.raycastTarget = false;
+            particles[i] = particleImage;
+            startColors[i] = particleImage.color;
+        }
+
+        float startTime = Time.realtimeSinceStartup;
+        while (true)
+        {
+            float elapsed = Time.realtimeSinceStartup - startTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+
+            for (int i = 0; i < particles.Length; i++)
+            {
+                if (particles[i] == null)
+                {
+                    continue;
+                }
+
+                RectTransform rectTransform = particles[i].rectTransform;
+                rectTransform.anchoredPosition = Vector2.LerpUnclamped(startPositions[i], endPositions[i], 1f - Mathf.Pow(1f - t, 2f));
+
+                Color color = startColors[i];
+                color.a = Mathf.Lerp(startColors[i].a, 0f, t);
+                particles[i].color = color;
+            }
+
+            if (t >= 1f)
+            {
+                break;
+            }
+
+            yield return null;
+        }
+
+        for (int i = 0; i < particles.Length; i++)
+        {
+            if (particles[i] != null)
+            {
+                Destroy(particles[i].gameObject);
+            }
+        }
+    }
+
+    private void StartResultTransition(string message, string sceneName, int score = -1, bool fadeIn = false, float fadeDuration = -1f)
     {
         if (resultTransitionStarted)
         {
@@ -2375,10 +2578,11 @@ private void LoseBattle()
         }
 
         resultTransitionStarted = true;
-        StartCoroutine(ResultTransitionRoutine(message, sceneName, score));
+        float duration = fadeDuration >= 0f ? fadeDuration : resultFadeDuration;
+        StartCoroutine(ResultTransitionRoutine(message, sceneName, score, fadeIn, duration));
     }
 
-private IEnumerator ResultTransitionRoutine(string message, string sceneName, int score)
+private IEnumerator ResultTransitionRoutine(string message, string sceneName, int score, bool fadeIn, float fadeDuration)
     {
         GameObject overlayCanvasObject = new GameObject("BattleResultCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
         Canvas overlayCanvas = overlayCanvasObject.GetComponent<Canvas>();
@@ -2404,7 +2608,7 @@ private IEnumerator ResultTransitionRoutine(string message, string sceneName, in
         overlayRect.offsetMax = Vector2.zero;
 
         Image overlayImage = overlayObject.GetComponent<Image>();
-        overlayImage.color = Color.black;
+        overlayImage.color = fadeIn ? Color.clear : Color.black;
         overlayImage.raycastTarget = true;
 
         GameObject textObject = new GameObject("ResultText", typeof(RectTransform), typeof(TextMeshProUGUI));
@@ -2426,9 +2630,15 @@ private IEnumerator ResultTransitionRoutine(string message, string sceneName, in
 
         resultText.fontSize = 74f;
         resultText.alignment = TextAlignmentOptions.Center;
-        resultText.color = Color.white;
+        resultText.color = fadeIn ? Color.clear : Color.white;
         resultText.raycastTarget = false;
-        resultText.enableWordWrapping = false;
+        resultText.textWrappingMode = TextWrappingModes.NoWrap;
+
+        if (fadeIn)
+        {
+            yield return FadeResultOverlay(overlayImage, 0f, 1f, fadeDuration);
+            resultText.color = Color.white;
+        }
 
         yield return new WaitForSecondsRealtime(Mathf.Max(0.2f, resultHoldDuration));
 
@@ -2438,6 +2648,29 @@ private IEnumerator ResultTransitionRoutine(string message, string sceneName, in
         }
 
         Destroy(overlayCanvasObject);
+    }
+
+    private IEnumerator FadeResultOverlay(Image image, float from, float to, float duration)
+    {
+        if (image == null)
+        {
+            yield break;
+        }
+
+        float startTime = Time.realtimeSinceStartup;
+        while (true)
+        {
+            float elapsed = Time.realtimeSinceStartup - startTime;
+            float t = duration <= 0f ? 1f : Mathf.Clamp01(elapsed / duration);
+            image.color = new Color(0f, 0f, 0f, Mathf.Lerp(from, to, t));
+
+            if (t >= 1f)
+            {
+                break;
+            }
+
+            yield return null;
+        }
     }
 
     private IEnumerator ShowBattleIntroHint()
@@ -3036,7 +3269,7 @@ private void CheckEnemyRage()
         }
         else
         {
-            enemyDialogueText.text = "“전 이미 각오했습니다. 덤벼요.”";
+            enemyDialogueText.text = "“전 이미 각오했습니다.\n덤벼요.”";
         }
     }
 

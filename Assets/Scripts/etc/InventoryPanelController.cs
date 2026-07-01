@@ -112,6 +112,7 @@ public class InventoryPanelController : MonoBehaviour
     private static readonly Color Card = Hex("#13131a");
     private static readonly Color Border = Rgba(255, 255, 255, 0.07f);
     private static readonly Color BorderHover = Rgba(220, 80, 120, 0.4f);
+    private static readonly Color PanelOutline = Rgba(212, 83, 126, 0.25f);
     private static readonly Color Pink = Hex("#d4537e");
     private static readonly Color PinkLight = Hex("#f0799f");
     private static readonly Color PinkDim = Rgba(212, 83, 126, 0.15f);
@@ -134,6 +135,7 @@ public class InventoryPanelController : MonoBehaviour
     private readonly List<Image> worldNavDots = new List<Image>();
     private readonly List<Image> worldNavLeftBars = new List<Image>();
     private readonly List<TextMeshProUGUI> worldNavLabels = new List<TextMeshProUGUI>();
+    private readonly Dictionary<Transform, Coroutine> iconBoingRoutines = new Dictionary<Transform, Coroutine>();
 
     private GameObject worldInfoPanel;
     private Image worldImage;
@@ -163,6 +165,7 @@ public class InventoryPanelController : MonoBehaviour
     private Image optionImage;
     private GameObject optionPanel;
     private bool standalonePanelMode;
+    private bool inventoryClosing;
     private int lastClickSfxFrame = -1;
 
     private Slider masterSlider;
@@ -234,6 +237,7 @@ public class InventoryPanelController : MonoBehaviour
     public void SetupInventoryPanel()
     {
         transform.localScale = Vector3.one;
+        EnsurePanelBoing(gameObject);
         EnsureDefaultCodexEntries();
         AutoFillCardBrowserAssetsInEditor();
         EnsureEventSystem();
@@ -251,11 +255,13 @@ public class InventoryPanelController : MonoBehaviour
     {
         standalonePanelMode = false;
         saveSlotPanelMode = SaveSlotPanelMode.Save;
+        inventoryClosing = false;
         transform.localScale = Vector3.one;
         gameObject.SetActive(true);
         transform.SetAsLastSibling();
         EnsureInventoryCanvasOnTop();
         SetupInventoryPanel();
+        PlayPanelOpen(gameObject);
     }
 
     public void ShowOptionPanelOnly()
@@ -268,6 +274,7 @@ public class InventoryPanelController : MonoBehaviour
         optionPanel.SetActive(true);
         optionPanel.transform.SetAsLastSibling();
         SetInventoryCloseButtonVisible(false);
+        PlayPanelOpen(optionPanel);
     }
 
     public void ToggleOptionPanelOnly()
@@ -292,8 +299,8 @@ public class InventoryPanelController : MonoBehaviour
         savePanel.SetActive(true);
         savePanel.transform.SetAsLastSibling();
         RefreshSaveSlots();
-        SetInventoryCloseButtonVisible(true);
-        BringCloseButtonToFront();
+        SetInventoryCloseButtonVisible(false);
+        PlayPanelOpen(savePanel);
     }
 
     public void ToggleSaveSlotLoadPanelOnly()
@@ -310,10 +317,12 @@ public class InventoryPanelController : MonoBehaviour
     private void ShowStandalonePanel()
     {
         standalonePanelMode = true;
+        inventoryClosing = false;
         transform.localScale = Vector3.one;
         gameObject.SetActive(true);
         transform.SetAsLastSibling();
         EnsureInventoryCanvasOnTop();
+        EnsurePanelBoing(gameObject);
         EnsureEventSystem();
         EnsureInventoryCloseButton();
         ApplyFontToExistingTexts();
@@ -364,17 +373,29 @@ public class InventoryPanelController : MonoBehaviour
             closeTransform.anchorMin = new Vector2(1f, 1f);
             closeTransform.anchorMax = new Vector2(1f, 1f);
             closeTransform.pivot = new Vector2(0.5f, 0.5f);
-            closeTransform.anchoredPosition = new Vector2(-48f, -44f);
-            closeTransform.sizeDelta = new Vector2(80f, 80f);
+            closeTransform.anchoredPosition = new Vector2(-58f, -56f);
+            closeTransform.sizeDelta = new Vector2(96f, 96f);
 
             closeText = closeObject.GetComponent<TextMeshProUGUI>();
             closeButton = closeObject.GetComponent<Button>();
         }
 
+        RectTransform existingCloseTransform = existingButton != null
+            ? existingButton.GetComponent<RectTransform>()
+            : closeText.GetComponent<RectTransform>();
+        if (existingCloseTransform != null)
+        {
+            existingCloseTransform.anchorMin = new Vector2(1f, 1f);
+            existingCloseTransform.anchorMax = new Vector2(1f, 1f);
+            existingCloseTransform.pivot = new Vector2(0.5f, 0.5f);
+            existingCloseTransform.anchoredPosition = new Vector2(-58f, -56f);
+            existingCloseTransform.sizeDelta = new Vector2(96f, 96f);
+        }
+
         if (closeText != null)
         {
             closeText.text = "X";
-            closeText.fontSize = 50f;
+            closeText.fontSize = 64f;
             closeText.color = Color.white;
             closeText.alignment = TextAlignmentOptions.Center;
             closeText.raycastTarget = true;
@@ -402,39 +423,43 @@ public class InventoryPanelController : MonoBehaviour
     {
         if (cardBrowserPanel != null && cardBrowserPanel.activeInHierarchy)
         {
-            cardBrowserPanel.SetActive(false);
+            ClosePanel(cardBrowserPanel, null);
             return;
         }
 
         if (savePanel != null && savePanel.activeInHierarchy)
         {
-            savePanel.SetActive(false);
-            if (standalonePanelMode)
+            ClosePanel(savePanel, () =>
             {
-                CloseInventoryPanel();
-            }
+                if (standalonePanelMode)
+                {
+                    CloseInventoryPanel();
+                }
+            });
             return;
         }
 
         if (optionPanel != null && optionPanel.activeInHierarchy)
         {
-            optionPanel.SetActive(false);
-            if (standalonePanelMode)
+            ClosePanel(optionPanel, () =>
             {
-                CloseInventoryPanel();
-            }
+                if (standalonePanelMode)
+                {
+                    CloseInventoryPanel();
+                }
+            });
             return;
         }
 
         if (glossaryPanel != null && glossaryPanel.activeInHierarchy)
         {
-            glossaryPanel.SetActive(false);
+            ClosePanel(glossaryPanel, null);
             return;
         }
 
         if (worldInfoPanel != null && worldInfoPanel.activeInHierarchy)
         {
-            worldInfoPanel.SetActive(false);
+            ClosePanel(worldInfoPanel, null);
             return;
         }
 
@@ -443,11 +468,21 @@ public class InventoryPanelController : MonoBehaviour
 
     private void CloseInventoryPanel()
     {
+        if (inventoryClosing || !gameObject.activeInHierarchy)
+        {
+            return;
+        }
+
+        inventoryClosing = true;
         StopFloatRoutines();
-        standalonePanelMode = false;
-        saveSlotPanelMode = SaveSlotPanelMode.Save;
-        gameObject.SetActive(false);
-        InventoryPanelClosed?.Invoke();
+        ClosePanel(gameObject, () =>
+        {
+            inventoryClosing = false;
+            standalonePanelMode = false;
+            saveSlotPanelMode = SaveSlotPanelMode.Save;
+            gameObject.SetActive(false);
+            InventoryPanelClosed?.Invoke();
+        }, false);
     }
 
     private bool IsSubPanelOpen()
@@ -494,6 +529,62 @@ public class InventoryPanelController : MonoBehaviour
         {
             closeButton.gameObject.SetActive(visible);
         }
+    }
+
+    private UIPanelBoingAnimator EnsurePanelBoing(GameObject panel)
+    {
+        if (panel == null)
+        {
+            return null;
+        }
+
+        UIPanelBoingAnimator animator = panel.GetComponent<UIPanelBoingAnimator>();
+        if (animator == null)
+        {
+            animator = panel.AddComponent<UIPanelBoingAnimator>();
+        }
+
+        return animator;
+    }
+
+    private void PlayPanelOpen(GameObject panel)
+    {
+        UIPanelBoingAnimator animator = EnsurePanelBoing(panel);
+        if (animator != null)
+        {
+            animator.PlayOpen();
+        }
+    }
+
+    private void ClosePanel(GameObject panel, Action afterClose, bool deactivatePanel = true)
+    {
+        if (panel == null)
+        {
+            afterClose?.Invoke();
+            return;
+        }
+
+        UIPanelBoingAnimator animator = EnsurePanelBoing(panel);
+        if (animator == null || !panel.activeInHierarchy)
+        {
+            if (deactivatePanel)
+            {
+                panel.SetActive(false);
+            }
+
+            afterClose?.Invoke();
+            return;
+        }
+
+        animator.PlayClose(() =>
+        {
+            if (deactivatePanel)
+            {
+                panel.SetActive(false);
+            }
+
+            afterClose?.Invoke();
+        });
     }
 
     private void SetupInventoryImageEffects()
@@ -572,8 +663,8 @@ public class InventoryPanelController : MonoBehaviour
         wordButton.transition = Selectable.Transition.None;
         wordButton.targetGraphic = wordImage;
         wordButton.onClick.RemoveAllListeners();
-        wordButton.onClick.AddListener(OpenGlossaryPanel);
-        AddClickEvent(wordImage, OpenGlossaryPanel);
+        wordButton.onClick.AddListener(ClickWordImage);
+        AddClickEvent(wordImage, ClickWordImage);
     }
 
     private void SetupOptionImageInteraction()
@@ -642,25 +733,96 @@ public class InventoryPanelController : MonoBehaviour
     private void ClickWorldImage()
     {
         PlayInventoryClickSfx();
+        PlayInventoryIconBoing(worldImage);
         OpenWorldInfoPanel();
+    }
+
+    private void ClickWordImage()
+    {
+        PlayInventoryClickSfx();
+        PlayInventoryIconBoing(wordImage);
+        OpenGlossaryPanel();
     }
 
     private void ClickOptionImage()
     {
         PlayInventoryClickSfx();
+        PlayInventoryIconBoing(optionImage);
         OpenOptionPanel();
     }
 
     private void ClickCardImage()
     {
         PlayInventoryClickSfx();
+        PlayInventoryIconBoing(cardImage);
         OpenCardBrowserPanel();
     }
 
     private void ClickSaveImage()
     {
         PlayInventoryClickSfx();
+        PlayInventoryIconBoing(saveImage);
         OpenSavePanel();
+    }
+
+    private void PlayInventoryIconBoing(Image image)
+    {
+        if (image == null)
+        {
+            return;
+        }
+
+        Transform target = image.transform;
+        if (iconBoingRoutines.TryGetValue(target, out Coroutine routine) && routine != null)
+        {
+            StopCoroutine(routine);
+        }
+
+        iconBoingRoutines[target] = StartCoroutine(InventoryIconBoingRoutine(target));
+    }
+
+    private IEnumerator InventoryIconBoingRoutine(Transform target)
+    {
+        if (target == null)
+        {
+            yield break;
+        }
+
+        Vector3 baseScale = target.localScale == Vector3.zero ? Vector3.one : target.localScale;
+        yield return ScaleTransform(target, baseScale, baseScale * 1.1f, 0.07f);
+        yield return ScaleTransform(target, baseScale * 1.1f, baseScale * 0.97f, 0.055f);
+        yield return ScaleTransform(target, baseScale * 0.97f, baseScale, 0.055f);
+
+        if (target != null)
+        {
+            target.localScale = baseScale;
+            iconBoingRoutines.Remove(target);
+        }
+    }
+
+    private IEnumerator ScaleTransform(Transform target, Vector3 from, Vector3 to, float duration)
+    {
+        float startTime = Time.realtimeSinceStartup;
+
+        while (true)
+        {
+            if (target == null)
+            {
+                yield break;
+            }
+
+            float elapsed = Time.realtimeSinceStartup - startTime;
+            float t = duration <= 0f ? 1f : Mathf.Clamp01(elapsed / duration);
+            float eased = 1f - Mathf.Pow(1f - t, 3f);
+            target.localScale = Vector3.LerpUnclamped(from, to, eased);
+
+            if (t >= 1f)
+            {
+                break;
+            }
+
+            yield return null;
+        }
     }
 
     private void PlayInventoryClickSfx()
@@ -712,6 +874,7 @@ public class InventoryPanelController : MonoBehaviour
         savePanel.transform.SetAsLastSibling();
         RefreshSaveSlots();
         BringCloseButtonToFront();
+        PlayPanelOpen(savePanel);
         ResetInventoryImageHoverColors();
     }
 
@@ -735,13 +898,8 @@ public class InventoryPanelController : MonoBehaviour
         rt.anchoredPosition = Vector2.zero;
         rt.sizeDelta = savePanelSize;
 
-        Image bg = savePanel.GetComponent<Image>();
-        bg.color = Rgba(58, 58, 62, 0.96f);
-        bg.raycastTarget = true;
-
-        Outline outline = savePanel.GetComponent<Outline>();
-        outline.effectColor = Rgba(255, 255, 255, 0.18f);
-        outline.effectDistance = new Vector2(1f, -1f);
+        ApplyDarkPanelStyle(savePanel);
+        CreatePanelChrome(savePanel.transform);
 
         savePanelTitleText = CreateText("SaveTitle", savePanel.transform, "SAVE", 34f, TextColor, TextAlignmentOptions.Center);
         RectTransform titleRt = savePanelTitleText.rectTransform;
@@ -780,6 +938,8 @@ public class InventoryPanelController : MonoBehaviour
         statusRt.offsetMin = new Vector2(32f, 34f);
         statusRt.offsetMax = new Vector2(-32f, 86f);
 
+        CreatePanelCloseButton(savePanel.transform, "SaveCloseButton", CloseTopPanel);
+        EnsurePanelBoing(savePanel);
         savePanel.SetActive(false);
     }
 
@@ -930,6 +1090,7 @@ public class InventoryPanelController : MonoBehaviour
         cardBrowserPanel.transform.SetAsLastSibling();
         RefreshCardBrowser();
         BringCloseButtonToFront();
+        PlayPanelOpen(cardBrowserPanel);
         ResetInventoryImageHoverColors();
     }
 
@@ -953,13 +1114,8 @@ public class InventoryPanelController : MonoBehaviour
         rt.anchoredPosition = Vector2.zero;
         rt.sizeDelta = cardBrowserPanelSize;
 
-        Image bg = cardBrowserPanel.GetComponent<Image>();
-        bg.color = Rgba(54, 54, 58, 0.96f);
-        bg.raycastTarget = true;
-
-        Outline outline = cardBrowserPanel.GetComponent<Outline>();
-        outline.effectColor = Rgba(255, 255, 255, 0.18f);
-        outline.effectDistance = new Vector2(1f, -1f);
+        ApplyDarkPanelStyle(cardBrowserPanel);
+        CreatePanelChrome(cardBrowserPanel.transform);
 
         GameObject titleObj = CreateRectObject("CardBrowserTitle", cardBrowserPanel.transform, typeof(TextMeshProUGUI));
         RectTransform titleRt = titleObj.GetComponent<RectTransform>();
@@ -1001,6 +1157,8 @@ public class InventoryPanelController : MonoBehaviour
         CreateCardScrollArea(cardBrowserPanel.transform);
         CreateCardDescriptionArea(cardBrowserPanel.transform);
 
+        CreatePanelCloseButton(cardBrowserPanel.transform, "CardBrowserCloseButton", CloseTopPanel);
+        EnsurePanelBoing(cardBrowserPanel);
         cardBrowserPanel.SetActive(false);
     }
 
@@ -1010,7 +1168,7 @@ public class InventoryPanelController : MonoBehaviour
         RectTransform scrollRt = scrollObj.GetComponent<RectTransform>();
         scrollRt.anchorMin = new Vector2(0f, 0f);
         scrollRt.anchorMax = new Vector2(1f, 1f);
-        scrollRt.offsetMin = new Vector2(38f, 150f);
+        scrollRt.offsetMin = new Vector2(38f, 176f);
         scrollRt.offsetMax = new Vector2(-125f, -105f);
 
         Image scrollBg = scrollObj.GetComponent<Image>();
@@ -1026,8 +1184,8 @@ public class InventoryPanelController : MonoBehaviour
         cardListRoot.sizeDelta = new Vector2(-36f, 0f);
 
         GridLayoutGroup grid = contentObj.GetComponent<GridLayoutGroup>();
-        grid.cellSize = new Vector2(190f, 255f);
-        grid.spacing = new Vector2(18f, 18f);
+        grid.cellSize = new Vector2(180f, 242f);
+        grid.spacing = new Vector2(16f, 16f);
         grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
         grid.constraintCount = 5;
         grid.childAlignment = TextAnchor.UpperLeft;
@@ -1050,14 +1208,14 @@ public class InventoryPanelController : MonoBehaviour
         descRt.anchorMax = new Vector2(1f, 0f);
         descRt.pivot = new Vector2(0.5f, 0f);
         descRt.offsetMin = new Vector2(38f, 32f);
-        descRt.offsetMax = new Vector2(-38f, 132f);
+        descRt.offsetMax = new Vector2(-38f, 158f);
 
         Image descBg = descObj.GetComponent<Image>();
         descBg.color = Rgba(12, 12, 16, 0.78f);
         descBg.raycastTarget = false;
         descObj.GetComponent<Outline>().effectColor = Rgba(255, 255, 255, 0.12f);
 
-        cardDescriptionText = CreateText("CardDescriptionText", descObj.transform, "", 19f, BodyText, TextAlignmentOptions.Left);
+        cardDescriptionText = CreateText("CardDescriptionText", descObj.transform, "", 23f, BodyText, TextAlignmentOptions.Left);
         SetStretch(cardDescriptionText.rectTransform, new Vector2(18f, 10f), new Vector2(-18f, -10f));
         cardDescriptionText.overflowMode = TextOverflowModes.Ellipsis;
     }
@@ -1187,7 +1345,7 @@ public class InventoryPanelController : MonoBehaviour
             rt.anchorMin = new Vector2(0f, 1f);
             rt.anchorMax = new Vector2(0f, 1f);
             rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.sizeDelta = new Vector2(190f, 255f);
+            rt.sizeDelta = new Vector2(180f, 242f);
         }
 
         LayoutElement layoutElement = cardObject.GetComponent<LayoutElement>();
@@ -1195,8 +1353,8 @@ public class InventoryPanelController : MonoBehaviour
         {
             layoutElement = cardObject.AddComponent<LayoutElement>();
         }
-        layoutElement.preferredWidth = 190f;
-        layoutElement.preferredHeight = 255f;
+        layoutElement.preferredWidth = 180f;
+        layoutElement.preferredHeight = 242f;
 
         CardButton cardButton = cardObject.GetComponent<CardButton>();
         if (cardButton != null)
@@ -1319,6 +1477,7 @@ public class InventoryPanelController : MonoBehaviour
         optionPanel.SetActive(true);
         optionPanel.transform.SetAsLastSibling();
         BringCloseButtonToFront();
+        PlayPanelOpen(optionPanel);
         ResetInventoryImageHoverColors();
     }
 
@@ -1336,6 +1495,7 @@ public class InventoryPanelController : MonoBehaviour
         glossaryPanel.transform.SetAsLastSibling();
         RebuildGlossaryListLayout();
         BringCloseButtonToFront();
+        PlayPanelOpen(glossaryPanel);
         ResetInventoryImageHoverColors();
     }
 
@@ -1372,6 +1532,8 @@ public class InventoryPanelController : MonoBehaviour
         BuildGlossaryTermItems();
         RefreshGlossaryNav();
         RefreshGlossaryTermVisibility();
+        CreatePanelCloseButton(glossaryPanel.transform, "GlossaryCloseButton", CloseTopPanel);
+        EnsurePanelBoing(glossaryPanel);
     }
 
     private void EnsureOptionPanel()
@@ -1409,6 +1571,7 @@ public class InventoryPanelController : MonoBehaviour
 
         CreateOptionTitleBar(optionPanel.transform);
         CreateOptionBody(optionPanel.transform);
+        EnsurePanelBoing(optionPanel);
 
         LoadOptionValues();
     }
@@ -1445,43 +1608,18 @@ public class InventoryPanelController : MonoBehaviour
         titleRT.sizeDelta = new Vector2(-190f, 0f);
         title.characterSpacing = 4f;
 
-        GameObject closeObj = CreateRectObject("OptionClose", bar.transform, typeof(Image), typeof(Button), typeof(Outline));
-        RectTransform closeRT = closeObj.GetComponent<RectTransform>();
-        closeRT.anchorMin = new Vector2(1f, 0.5f);
-        closeRT.anchorMax = new Vector2(1f, 0.5f);
-        closeRT.pivot = new Vector2(0.5f, 0.5f);
-        closeRT.anchoredPosition = new Vector2(-28f, 0f);
-        closeRT.sizeDelta = new Vector2(28f, 28f);
-
-        Image closeImg = closeObj.GetComponent<Image>();
-        closeImg.color = Color.clear;
-        closeImg.raycastTarget = true;
-
-        Outline closeOutline = closeObj.GetComponent<Outline>();
-        closeOutline.effectColor = Border;
-        closeOutline.effectDistance = new Vector2(1f, -1f);
-
-        Button closeBtn = closeObj.GetComponent<Button>();
-        closeBtn.transition = Selectable.Transition.None;
-        closeBtn.targetGraphic = closeImg;
-        closeBtn.onClick.RemoveAllListeners();
-        closeBtn.onClick.AddListener(CloseOptionPanel);
-
-        TextMeshProUGUI x = CreateText("X", closeObj.transform, "X", 15f, TextMuted, TextAlignmentOptions.Center);
-        SetStretch(x.rectTransform, Vector2.zero, Vector2.zero);
+        CreatePanelCloseButton(parent, "OptionClose", CloseOptionPanel);
     }
 
     private void CloseOptionPanel()
     {
-        if (optionPanel != null)
+        ClosePanel(optionPanel, () =>
         {
-            optionPanel.SetActive(false);
-        }
-
-        if (standalonePanelMode)
-        {
-            CloseInventoryPanel();
-        }
+            if (standalonePanelMode)
+            {
+                CloseInventoryPanel();
+            }
+        });
     }
 
     private void CreateOptionBody(Transform parent)
@@ -2475,6 +2613,7 @@ public class InventoryPanelController : MonoBehaviour
         worldInfoPanel.transform.SetAsLastSibling();
         BringCloseButtonToFront();
         ResetInventoryImageHoverColors();
+        PlayPanelOpen(worldInfoPanel);
         SelectWorldInfo(Mathf.Clamp(selectedWorldInfoIndex, 0, GetCodexEntryCount() - 1));
     }
 
@@ -2485,6 +2624,29 @@ public class InventoryPanelController : MonoBehaviour
         if (closeButtonTransform != null)
         {
             closeButtonTransform.SetAsLastSibling();
+        }
+
+        BringPanelCloseButtonToFront(savePanel);
+        BringPanelCloseButtonToFront(cardBrowserPanel);
+        BringPanelCloseButtonToFront(glossaryPanel);
+        BringPanelCloseButtonToFront(optionPanel);
+        BringPanelCloseButtonToFront(worldInfoPanel);
+    }
+
+    private void BringPanelCloseButtonToFront(GameObject panel)
+    {
+        if (panel == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < panel.transform.childCount; i++)
+        {
+            Transform child = panel.transform.GetChild(i);
+            if (child != null && child.name.IndexOf("Close", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                child.SetAsLastSibling();
+            }
         }
     }
 
@@ -2531,6 +2693,8 @@ public class InventoryPanelController : MonoBehaviour
         CreateCodexSidebar(worldInfoPanel.transform);
         CreateCodexContentArea(worldInfoPanel.transform);
         BuildWorldNavigation();
+        CreatePanelCloseButton(worldInfoPanel.transform, "WorldInfoCloseButton", CloseTopPanel);
+        EnsurePanelBoing(worldInfoPanel);
     }
 
     private void CreateCodexSidebar(Transform parent)
@@ -3066,6 +3230,95 @@ public class InventoryPanelController : MonoBehaviour
     private TextMeshProUGUI CreateText(string name, Transform parent, string text, float fontSize, Color color, TextAlignmentOptions alignment)
     {
         return CreateText(name, text, parent, fontSize, color, alignment, FontStyles.Normal);
+    }
+
+    private TextMeshProUGUI CreatePanelCloseButton(Transform parent, string name, UnityEngine.Events.UnityAction onClick)
+    {
+        Transform old = parent.Find(name);
+        if (old != null)
+        {
+            Destroy(old.gameObject);
+        }
+
+        GameObject closeObject = CreateRectObject(name, parent, typeof(TextMeshProUGUI), typeof(Button));
+        RectTransform closeTransform = closeObject.GetComponent<RectTransform>();
+        closeTransform.anchorMin = new Vector2(1f, 1f);
+        closeTransform.anchorMax = new Vector2(1f, 1f);
+        closeTransform.pivot = new Vector2(0.5f, 0.5f);
+        closeTransform.anchoredPosition = new Vector2(-34f, -28f);
+        closeTransform.sizeDelta = new Vector2(92f, 84f);
+
+        TextMeshProUGUI closeText = closeObject.GetComponent<TextMeshProUGUI>();
+        closeText.text = "X";
+        closeText.fontSize = 54f;
+        closeText.color = Color.white;
+        closeText.alignment = TextAlignmentOptions.Center;
+        closeText.raycastTarget = true;
+        ApplyTextFont(closeText);
+        SetupTextHover(closeText, Color.white, new Color(0.62f, 0.62f, 0.62f, 1f));
+
+        Button closeButton = closeObject.GetComponent<Button>();
+        closeButton.transition = Selectable.Transition.None;
+        closeButton.targetGraphic = closeText;
+        closeButton.onClick.RemoveAllListeners();
+        closeButton.onClick.AddListener(onClick);
+
+        closeObject.transform.SetAsLastSibling();
+        return closeText;
+    }
+
+    private void ApplyDarkPanelStyle(GameObject panel)
+    {
+        if (panel == null)
+        {
+            return;
+        }
+
+        Image image = panel.GetComponent<Image>();
+        if (image != null)
+        {
+            image.color = Card;
+            image.raycastTarget = true;
+        }
+
+        Outline outline = panel.GetComponent<Outline>();
+        if (outline != null)
+        {
+            outline.effectColor = PanelOutline;
+            outline.effectDistance = new Vector2(2f, -2f);
+        }
+    }
+
+    private void CreatePanelChrome(Transform parent)
+    {
+        if (parent == null)
+        {
+            return;
+        }
+
+        Transform oldBar = parent.Find("PanelTitleBar");
+        if (oldBar != null)
+        {
+            Destroy(oldBar.gameObject);
+        }
+
+        GameObject bar = CreateRectObject("PanelTitleBar", parent, typeof(Image));
+        RectTransform barRt = bar.GetComponent<RectTransform>();
+        barRt.anchorMin = new Vector2(0f, 1f);
+        barRt.anchorMax = new Vector2(1f, 1f);
+        barRt.pivot = new Vector2(0.5f, 1f);
+        barRt.anchoredPosition = Vector2.zero;
+        barRt.sizeDelta = new Vector2(0f, 44f);
+
+        Image barImage = bar.GetComponent<Image>();
+        barImage.color = Bg2;
+        barImage.raycastTarget = false;
+        bar.transform.SetAsFirstSibling();
+
+        CreateOptionCorner(parent, "TL", new Vector2(0f, 1f), new Vector2(1f, 1f));
+        CreateOptionCorner(parent, "TR", new Vector2(1f, 1f), new Vector2(0f, 1f));
+        CreateOptionCorner(parent, "BL", new Vector2(0f, 0f), new Vector2(1f, 0f));
+        CreateOptionCorner(parent, "BR", new Vector2(1f, 0f), new Vector2(0f, 0f));
     }
 
     private TextMeshProUGUI CreateText(string name, string text, Transform parent, float fontSize, Color color, TextAlignmentOptions alignment, FontStyles fontStyle)

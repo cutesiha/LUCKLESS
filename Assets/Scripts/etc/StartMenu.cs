@@ -15,6 +15,10 @@ public class StartMenu : MonoBehaviour
 
     private void Start()
     {
+        EnsurePanelAnimator(optionPanel);
+        EnsurePanelAnimator(loadPanel);
+        EnsurePanelAnimator(exitPopup);
+
         optionPanel.SetActive(false);
         loadPanel.SetActive(false);
         exitPopup.SetActive(false);
@@ -39,27 +43,27 @@ public class StartMenu : MonoBehaviour
 
     public void OnClickLoad()
     {
-        loadPanel.SetActive(true);
+        OpenPanel(loadPanel);
     }
 
     public void CloseLoad()
     {
-        loadPanel.SetActive(false);
+        ClosePanel(loadPanel);
     }
 
     public void OnClickOption()
     {
-        optionPanel.SetActive(true);
+        OpenPanel(optionPanel);
     }
 
     public void CloseOption()
     {
-        optionPanel.SetActive(false);
+        ClosePanel(optionPanel);
     }
 
     public void OnClickExit()
     {
-        exitPopup.SetActive(true);
+        OpenPanel(exitPopup);
     }
 
     public void ExitYes()
@@ -70,7 +74,57 @@ public class StartMenu : MonoBehaviour
 
     public void ExitNo()
     {
-        exitPopup.SetActive(false);
+        ClosePanel(exitPopup);
+    }
+
+    private void OpenPanel(GameObject panel)
+    {
+        if (panel == null)
+        {
+            return;
+        }
+
+        panel.SetActive(true);
+        panel.transform.SetAsLastSibling();
+
+        UIPanelBoingAnimator animator = EnsurePanelAnimator(panel);
+        if (animator != null)
+        {
+            animator.PlayOpen();
+        }
+    }
+
+    private void ClosePanel(GameObject panel)
+    {
+        if (panel == null || !panel.activeInHierarchy)
+        {
+            return;
+        }
+
+        UIPanelBoingAnimator animator = EnsurePanelAnimator(panel);
+        if (animator == null)
+        {
+            panel.SetActive(false);
+            return;
+        }
+
+        animator.PlayClose(() => panel.SetActive(false));
+    }
+
+    private UIPanelBoingAnimator EnsurePanelAnimator(GameObject panel)
+    {
+        if (panel == null)
+        {
+            return null;
+        }
+
+        UIPanelBoingAnimator animator = panel.GetComponent<UIPanelBoingAnimator>();
+        if (animator == null)
+        {
+            animator = panel.AddComponent<UIPanelBoingAnimator>();
+        }
+
+        return animator;
     }
 
     private void SetBGM(float value)

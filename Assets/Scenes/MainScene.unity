@@ -3725,9 +3725,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::MissionPanelHoverController
   dPanel: {fileID: 2113415310}
   dPanelTriggerImage: {fileID: 267222118}
+  dPanelAlphaHitTestMinimumThreshold: 0.1
   grayBlend: 0.24
   flashDuration: 0.16
   lockedMessage: "\uC7A0\uAE08 \uD574\uC81C\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4!"
+  lockedClickSfxSource: {fileID: 0}
+  lockedClickClip: {fileID: 8300000, guid: 090c8958655eb574390259056d65a58c, type: 3}
+  lockedShakeDuration: 0.24
+  lockedShakeDistance: 16
+  lockedClickDarkenBlend: 0.38
   firstMissionSceneName: Idapen
   sceneFadeDuration: 0.8
   sceneLoadHoldSeconds: 1

@@ -78,9 +78,9 @@ public class PrologueSequenceController : MonoBehaviour
     [SerializeField] private float lineEndDelay = 0.08f;
     [SerializeField] private float fadeDuration = 0.75f;
     [SerializeField] private float titleFadeDuration = 1f;
-    [SerializeField] private float titleHoldSeconds = 2f;
-    [SerializeField] private float titleAppearDelayAfterDialogue = 1.5f;
-    [SerializeField] private float titleFadeAfterCanvas2Delay = 1f;
+    [SerializeField] private float titleHoldSeconds = 1.5f;
+    [SerializeField] private float titleAppearDelayAfterDialogue = 1.15f;
+    [SerializeField] private float titleFadeAfterCanvas2Delay = 0.75f;
     [SerializeField] private float eyeOpenDuration = 1.15f;
 
     [Header("Audio")]
@@ -99,9 +99,13 @@ public class PrologueSequenceController : MonoBehaviour
     [SerializeField] private string handbookRewardMessage = "\uD640\uB85C\uADF8\uB7A8 \uD578\uB4DC\uBD81\uC744 \uC5BB\uC5C8\uC2B5\uB2C8\uB2E4!";
     [SerializeField] private string handbookClickPrompt = "<- \uC778\uBCA4\uD1A0\uB9AC\uB97C \uD074\uB9AD\uD558\uC138\uC694";
     [SerializeField] private float handbookDimAlpha = 0.42f;
-    [SerializeField] private float handbookRewardBlinkSeconds = 2.4f;
-    [SerializeField] private float handbookRewardBlinkInterval = 0.22f;
+    [SerializeField] private float handbookRewardBlinkSeconds = 1.8f;
+    [SerializeField] private float handbookRewardBlinkInterval = 0.13f;
     [SerializeField] private Vector2 handbookPromptOffset = new Vector2(26f, -70f);
+    [SerializeField] private AudioSource handbookRewardSfxSource;
+    [SerializeField] private AudioClip handbookRewardSfxClip;
+    [SerializeField] private AudioMixerGroup handbookRewardSfxMixerGroup;
+    [SerializeField] [Range(0f, 2f)] private float handbookRewardSfxVolume = 1f;
 
     [Header("Control Buttons")]
     [SerializeField] private string mainSceneName = "MainScene";
@@ -477,7 +481,7 @@ public class PrologueSequenceController : MonoBehaviour
         TextMeshProUGUI labelText = textObject.GetComponent<TextMeshProUGUI>();
         labelText.text = label;
         labelText.fontSize = 34f;
-        labelText.color = new Color(0.42f, 0.42f, 0.42f, 1f);
+        labelText.color = GetControlTextColor(false);
         labelText.alignment = TextAlignmentOptions.Center;
         labelText.raycastTarget = false;
 
@@ -508,10 +512,10 @@ public class PrologueSequenceController : MonoBehaviour
     {
         if (isAutoButton && autoModeEnabled)
         {
-            return new Color(0.62f, 0.62f, 0.62f, 1f);
+            return new Color(0.18f, 0.18f, 0.18f, 1f);
         }
 
-        return new Color(0.42f, 0.42f, 0.42f, 1f);
+        return new Color(0.26f, 0.26f, 0.26f, 1f);
     }
 
     private void OnSkipClicked()
@@ -1093,11 +1097,12 @@ public class PrologueSequenceController : MonoBehaviour
 
         rewardOverlay.gameObject.SetActive(true);
         rewardOverlay.SetAsLastSibling();
+        PlayHandbookRewardSfx();
 
         if (rewardDimImage != null)
         {
             rewardDimImage.color = Color.clear;
-            yield return FadeImageAlpha(rewardDimImage, 0f, handbookDimAlpha, 0.45f);
+            yield return FadeImageAlpha(rewardDimImage, 0f, handbookDimAlpha, 0.35f);
         }
 
         if (rewardMessageText != null)
@@ -1196,6 +1201,8 @@ public class PrologueSequenceController : MonoBehaviour
         rewardDimImage = dimObject.GetComponent<Image>();
         rewardDimImage.color = Color.clear;
         rewardDimImage.raycastTarget = false;
+
+        EnsureHandbookRewardSfxSource();
 
         GameObject messageObject = new GameObject("RewardMessage", typeof(RectTransform), typeof(TextMeshProUGUI), typeof(CanvasGroup), typeof(Outline));
         messageObject.transform.SetParent(rewardOverlay, false);
@@ -1510,6 +1517,56 @@ public class PrologueSequenceController : MonoBehaviour
         if (titleMusicSource != null && titleMusicMixerGroup != null)
         {
             titleMusicSource.outputAudioMixerGroup = titleMusicMixerGroup;
+        }
+
+        if (handbookRewardSfxSource != null && handbookRewardSfxMixerGroup != null)
+        {
+            handbookRewardSfxSource.outputAudioMixerGroup = handbookRewardSfxMixerGroup;
+        }
+    }
+
+    private void PlayHandbookRewardSfx()
+    {
+        EnsureHandbookRewardSfxSource();
+
+        if (handbookRewardSfxSource == null || handbookRewardSfxClip == null)
+        {
+            return;
+        }
+
+        float volume = GameAudioSettings.SfxVolume * handbookRewardSfxVolume;
+        handbookRewardSfxSource.PlayOneShot(handbookRewardSfxClip, volume);
+    }
+
+    private void EnsureHandbookRewardSfxSource()
+    {
+        if (handbookRewardSfxSource == null)
+        {
+            Transform parent = rewardOverlay != null ? rewardOverlay : transform;
+            Transform sourceTransform = parent.Find("HandbookRewardSfx");
+
+            if (sourceTransform == null)
+            {
+                GameObject sourceObject = new GameObject("HandbookRewardSfx", typeof(AudioSource));
+                sourceObject.transform.SetParent(parent, false);
+                sourceTransform = sourceObject.transform;
+            }
+
+            handbookRewardSfxSource = sourceTransform.GetComponent<AudioSource>();
+        }
+
+        if (handbookRewardSfxSource == null)
+        {
+            return;
+        }
+
+        handbookRewardSfxSource.playOnAwake = false;
+        handbookRewardSfxSource.spatialBlend = 0f;
+        handbookRewardSfxSource.loop = false;
+
+        if (handbookRewardSfxMixerGroup != null)
+        {
+            handbookRewardSfxSource.outputAudioMixerGroup = handbookRewardSfxMixerGroup;
         }
     }
 

@@ -9,9 +9,15 @@ public class MissionPanelHoverController : MonoBehaviour
 {
     [SerializeField] private GameObject dPanel;
     [SerializeField] private Image dPanelTriggerImage;
+    [SerializeField] [Range(0f, 1f)] private float dPanelAlphaHitTestMinimumThreshold = 0.1f;
     [SerializeField] [Range(0f, 1f)] private float grayBlend = 0.24f;
     [SerializeField] private float flashDuration = 0.16f;
     [SerializeField] private string lockedMessage = "다음 버전을 기대해주세요!";
+    [SerializeField] private AudioSource lockedClickSfxSource;
+    [SerializeField] private AudioClip lockedClickClip;
+    [SerializeField] private float lockedShakeDuration = 0.24f;
+    [SerializeField] private float lockedShakeDistance = 16f;
+    [SerializeField] [Range(0f, 1f)] private float lockedClickDarkenBlend = 0.38f;
     [SerializeField] private string firstMissionSceneName = "Idapen";
     [SerializeField] private float sceneFadeDuration = 0.8f;
     [SerializeField] private float sceneLoadHoldSeconds = 1f;
@@ -25,6 +31,10 @@ public class MissionPanelHoverController : MonoBehaviour
     private TextMeshProUGUI lockedMessageText;
     private CanvasGroup lockedMessageGroup;
     private Coroutine lockedMessageRoutine;
+    private Coroutine lockedFeedbackRoutine;
+    private Image lockedFeedbackImage;
+    private Vector2 lockedFeedbackBasePosition;
+    private Color lockedFeedbackBaseColor;
     private bool sceneTransitionStarted;
 
     private void Awake()
@@ -42,7 +52,7 @@ public class MissionPanelHoverController : MonoBehaviour
         {
             dPanel.SetActive(false);
             DisableDPanelRaycasts();
-            ApplyVictoryDPanelText();
+            ApplyBattleReturnDPanelText();
         }
 
         Image[] images = GetComponentsInChildren<Image>(true);
@@ -56,7 +66,7 @@ public class MissionPanelHoverController : MonoBehaviour
 
             SetupGrayHover(images[i]);
 
-            if (IsMissionButton(images[i].name))
+            if (IsMissionButton(images[i].name) && !IsLockedButton(images[i].name))
             {
                 SetupClickFlash(images[i]);
             }
@@ -113,6 +123,7 @@ private void OnEnable()
     private void SetupDPanelTrigger(Image image)
     {
         image.raycastTarget = true;
+        ConfigureAlphaHitTest(image);
         EventTrigger trigger = image.GetComponent<EventTrigger>();
         if (trigger == null)
         {
@@ -153,10 +164,26 @@ private void OnEnable()
             eventCamera = canvas.worldCamera;
         }
 
-        if (!RectTransformUtility.RectangleContainsScreenPoint(image.rectTransform, Input.mousePosition, eventCamera))
+        bool pointerStillOnOpaquePixel =
+            RectTransformUtility.RectangleContainsScreenPoint(image.rectTransform, Input.mousePosition, eventCamera)
+            && image.IsRaycastLocationValid(Input.mousePosition, eventCamera);
+
+        if (!pointerStillOnOpaquePixel)
         {
             SetDPanelVisible(false);
         }
+    }
+
+    private void ConfigureAlphaHitTest(Image image)
+    {
+        if (image == null || image.sprite == null || image.sprite.texture == null)
+        {
+            return;
+        }
+
+        image.alphaHitTestMinimumThreshold = image.sprite.texture.isReadable
+            ? Mathf.Clamp01(dPanelAlphaHitTestMinimumThreshold)
+            : 0f;
     }
 
     private void DisableDPanelRaycasts()
@@ -196,7 +223,42 @@ private void OnEnable()
             trigger = image.gameObject.AddComponent<EventTrigger>();
         }
 
-        AddPointerEvent(trigger, EventTriggerType.PointerClick, ShowLockedMessage);
+        AddPointerEvent(trigger, EventTriggerType.PointerClick, () => HandleLockedClick(image));
+    }
+
+    private void HandleLockedClick(Image image)
+    {
+        PlayLockedClickSfx();
+        ShowLockedMessage();
+
+        if (lockedFeedbackRoutine != null)
+        {
+            StopCoroutine(lockedFeedbackRoutine);
+            RestoreLockedFeedbackTarget();
+        }
+
+        lockedFeedbackRoutine = StartCoroutine(PlayLockedClickFeedback(image));
+    }
+
+    private void PlayLockedClickSfx()
+    {
+        UIClickSoundPlayer.Play(gameObject, ref lockedClickSfxSource, lockedClickClip);
+    }
+
+    private void RestoreLockedFeedbackTarget()
+    {
+        if (lockedFeedbackImage == null)
+        {
+            return;
+        }
+
+        lockedFeedbackImage.color = lockedFeedbackBaseColor;
+
+        RectTransform rectTransform = lockedFeedbackImage.rectTransform;
+        if (rectTransform != null)
+        {
+            rectTransform.anchoredPosition = lockedFeedbackBasePosition;
+        }
     }
 
     private void SetupFirstMissionClick(Image image)
@@ -248,6 +310,52 @@ private void OnEnable()
         yield return LerpImageColor(image, flash, original, halfDuration);
     }
 
+    private IEnumerator PlayLockedClickFeedback(Image image)
+    {
+        if (image == null)
+        {
+            yield break;
+        }
+
+        lockedFeedbackImage = image;
+        RectTransform rectTransform = image.rectTransform;
+        lockedFeedbackBasePosition = rectTransform != null ? rectTransform.anchoredPosition : Vector2.zero;
+        lockedFeedbackBaseColor = image.color;
+
+        Color darkColor = Color.Lerp(lockedFeedbackBaseColor, Color.black, lockedClickDarkenBlend);
+        yield return LerpImageColor(image, lockedFeedbackBaseColor, darkColor, 0.04f);
+
+        float startTime = Time.realtimeSinceStartup;
+        while (true)
+        {
+            if (image == null || rectTransform == null)
+            {
+                yield break;
+            }
+
+            float elapsed = Time.realtimeSinceStartup - startTime;
+            float t = lockedShakeDuration <= 0f ? 1f : Mathf.Clamp01(elapsed / lockedShakeDuration);
+            float dampedShake = Mathf.Sin(t * Mathf.PI * 8f) * lockedShakeDistance * (1f - t);
+            rectTransform.anchoredPosition = lockedFeedbackBasePosition + new Vector2(dampedShake, 0f);
+
+            if (t >= 1f)
+            {
+                break;
+            }
+
+            yield return null;
+        }
+
+        if (rectTransform != null)
+        {
+            rectTransform.anchoredPosition = lockedFeedbackBasePosition;
+        }
+
+        yield return LerpImageColor(image, darkColor, lockedFeedbackBaseColor, 0.08f);
+        lockedFeedbackRoutine = null;
+        lockedFeedbackImage = null;
+    }
+
     private IEnumerator LerpImageColor(Image image, Color from, Color to, float duration)
     {
         float startTime = Time.realtimeSinceStartup;
@@ -272,20 +380,25 @@ private void OnEnable()
         }
     }
 
-    private void ApplyVictoryDPanelText()
+    private void ApplyBattleReturnDPanelText()
     {
-        if (PlayerPrefs.GetInt("BattleVictory", 0) != 1)
+        bool defeated = PlayerPrefs.GetInt("BattleDefeat", 0) == 1;
+        bool victorious = PlayerPrefs.GetInt("BattleVictory", 0) == 1;
+
+        if (!defeated && !victorious)
         {
             return;
         }
 
+        string message = defeated ? "실망이군요." : "잘했어요.";
+        PlayerPrefs.DeleteKey("BattleDefeat");
         PlayerPrefs.DeleteKey("BattleVictory");
         PlayerPrefs.Save();
 
         TextMeshProUGUI[] texts = dPanel.GetComponentsInChildren<TextMeshProUGUI>(true);
         for (int i = 0; i < texts.Length; i++)
         {
-            texts[i].text = "잘했어요.";
+            texts[i].text = message;
         }
     }
 

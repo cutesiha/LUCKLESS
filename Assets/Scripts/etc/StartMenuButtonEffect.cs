@@ -26,8 +26,8 @@ public class StartMenuButtonEffect : MonoBehaviour, IPointerEnterHandler, IPoint
     [SerializeField] private string prologueSceneName = "Prologue";
     [SerializeField] private float flashTime = 0.18f;
     [SerializeField] private float fadeTime = 0.8f;
-    [SerializeField] private float audioFadeTime = 2f;
-    [SerializeField] private float sceneLoadDelayAfterFade = 2f;
+    [SerializeField] private float audioFadeTime = 1.6f;
+    [SerializeField] private float sceneLoadDelayAfterFade = 1.5f;
     [SerializeField] private AudioSource[] audioSourcesToFade;
 
     [Header("Panels")]
@@ -43,12 +43,13 @@ public class StartMenuButtonEffect : MonoBehaviour, IPointerEnterHandler, IPoint
     private Coroutine moveRoutine;
     private bool pointerInside;
     private bool isTransitioning;
+    private bool inputEnabled = true;
 
     private void Awake()
     {
         rectTransform = GetComponent<RectTransform>();
         image = GetComponent<Image>();
-        image.raycastTarget = true;
+        image.raycastTarget = inputEnabled;
         EnsureSfxSource();
     }
 
@@ -61,7 +62,7 @@ public class StartMenuButtonEffect : MonoBehaviour, IPointerEnterHandler, IPoint
 
     public void OnPointerEnter(PointerEventData eventData)
     {
-        if (isTransitioning)
+        if (!inputEnabled || isTransitioning)
         {
             return;
         }
@@ -73,7 +74,7 @@ public class StartMenuButtonEffect : MonoBehaviour, IPointerEnterHandler, IPoint
 
     public void OnPointerExit(PointerEventData eventData)
     {
-        if (isTransitioning)
+        if (!inputEnabled || isTransitioning)
         {
             return;
         }
@@ -84,7 +85,7 @@ public class StartMenuButtonEffect : MonoBehaviour, IPointerEnterHandler, IPoint
 
     public void OnPointerClick(PointerEventData eventData)
     {
-        if (isTransitioning)
+        if (!inputEnabled || isTransitioning)
         {
             return;
         }
@@ -105,6 +106,36 @@ public class StartMenuButtonEffect : MonoBehaviour, IPointerEnterHandler, IPoint
         }
 
         StartCoroutine(PlayClickAndRun(resolvedAction));
+    }
+
+    public void SetInputEnabled(bool enabled)
+    {
+        inputEnabled = enabled;
+
+        if (image == null)
+        {
+            image = GetComponent<Image>();
+        }
+
+        if (image != null)
+        {
+            image.raycastTarget = enabled;
+        }
+
+        if (!enabled)
+        {
+            pointerInside = false;
+
+            if (moveRoutine != null)
+            {
+                StopCoroutine(moveRoutine);
+                moveRoutine = null;
+            }
+        }
+        else if (rectTransform != null)
+        {
+            restPosition = rectTransform.anchoredPosition;
+        }
     }
 
     private void PlayClickSfx()

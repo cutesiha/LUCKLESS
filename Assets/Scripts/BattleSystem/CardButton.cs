@@ -1,3 +1,4 @@
+using System.Collections;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -37,6 +38,10 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     };
 
     private readonly TextMeshProUGUI[] nameOutlineTexts = new TextMeshProUGUI[NameOutlineOffsets.Length];
+    private Coroutine clickFeedbackRoutine;
+    private Vector3 clickFeedbackBaseScale = Vector3.one;
+    private Vector2 clickFeedbackBasePosition;
+    private Color clickFeedbackBaseColor = Color.white;
 #if UNITY_EDITOR
     private bool nameOutlineRefreshQueued;
 #endif
@@ -294,8 +299,164 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     }
 
     battleManager.PlayCardSelectSound();
+
+    if (!battleManager.HasEnoughLuxForCard(cardData))
+    {
+        PlayInsufficientLuxFeedback();
+        return;
+    }
+
+    PlayClickBoing();
     battleManager.UseCard(cardData);
 }
+
+    private void PlayClickBoing()
+    {
+        StartClickFeedback(ClickBoingRoutine());
+    }
+
+    private void PlayInsufficientLuxFeedback()
+    {
+        StartClickFeedback(InsufficientLuxFeedbackRoutine());
+    }
+
+    private void StartClickFeedback(IEnumerator routine)
+    {
+        if (clickFeedbackRoutine != null)
+        {
+            StopCoroutine(clickFeedbackRoutine);
+            RestoreClickFeedbackState();
+        }
+
+        clickFeedbackRoutine = StartCoroutine(routine);
+    }
+
+    private IEnumerator ClickBoingRoutine()
+    {
+        Transform target = transform;
+        clickFeedbackBaseScale = target.localScale == Vector3.zero ? Vector3.one : target.localScale;
+        RectTransform rectTransform = transform as RectTransform;
+        clickFeedbackBasePosition = rectTransform != null ? rectTransform.anchoredPosition : Vector2.zero;
+        Image image = GetComponent<Image>();
+        clickFeedbackBaseColor = image != null ? image.color : Color.white;
+
+        yield return ScaleOver(clickFeedbackBaseScale, clickFeedbackBaseScale * 1.09f, 0.07f);
+        yield return ScaleOver(clickFeedbackBaseScale * 1.09f, clickFeedbackBaseScale * 0.98f, 0.055f);
+        yield return ScaleOver(clickFeedbackBaseScale * 0.98f, clickFeedbackBaseScale, 0.055f);
+
+        target.localScale = clickFeedbackBaseScale;
+        clickFeedbackRoutine = null;
+    }
+
+    private IEnumerator InsufficientLuxFeedbackRoutine()
+    {
+        RectTransform rectTransform = transform as RectTransform;
+        Image image = GetComponent<Image>();
+
+        clickFeedbackBaseScale = transform.localScale == Vector3.zero ? Vector3.one : transform.localScale;
+        clickFeedbackBasePosition = rectTransform != null ? rectTransform.anchoredPosition : Vector2.zero;
+        clickFeedbackBaseColor = image != null ? image.color : Color.white;
+
+        Color darkColor = Color.Lerp(clickFeedbackBaseColor, Color.black, 0.38f);
+        if (image != null)
+        {
+            yield return LerpImageColor(image, clickFeedbackBaseColor, darkColor, 0.04f);
+        }
+
+        float startTime = Time.realtimeSinceStartup;
+        const float duration = 0.24f;
+        const float distance = 16f;
+
+        while (true)
+        {
+            float elapsed = Time.realtimeSinceStartup - startTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+            float offset = Mathf.Sin(t * Mathf.PI * 8f) * distance * (1f - t);
+
+            if (rectTransform != null)
+            {
+                rectTransform.anchoredPosition = clickFeedbackBasePosition + new Vector2(offset, 0f);
+            }
+
+            if (t >= 1f)
+            {
+                break;
+            }
+
+            yield return null;
+        }
+
+        RestoreClickFeedbackState();
+
+        if (image != null)
+        {
+            yield return LerpImageColor(image, darkColor, clickFeedbackBaseColor, 0.08f);
+        }
+
+        RestoreClickFeedbackState();
+        clickFeedbackRoutine = null;
+    }
+
+    private IEnumerator ScaleOver(Vector3 from, Vector3 to, float duration)
+    {
+        float startTime = Time.realtimeSinceStartup;
+
+        while (true)
+        {
+            float elapsed = Time.realtimeSinceStartup - startTime;
+            float t = duration <= 0f ? 1f : Mathf.Clamp01(elapsed / duration);
+            float eased = 1f - Mathf.Pow(1f - t, 3f);
+            transform.localScale = Vector3.LerpUnclamped(from, to, eased);
+
+            if (t >= 1f)
+            {
+                break;
+            }
+
+            yield return null;
+        }
+    }
+
+    private IEnumerator LerpImageColor(Image image, Color from, Color to, float duration)
+    {
+        float startTime = Time.realtimeSinceStartup;
+
+        while (true)
+        {
+            if (image == null)
+            {
+                yield break;
+            }
+
+            float elapsed = Time.realtimeSinceStartup - startTime;
+            float t = duration <= 0f ? 1f : Mathf.Clamp01(elapsed / duration);
+            image.color = Color.Lerp(from, to, t);
+
+            if (t >= 1f)
+            {
+                break;
+            }
+
+            yield return null;
+        }
+    }
+
+    private void RestoreClickFeedbackState()
+    {
+        transform.localScale = clickFeedbackBaseScale;
+
+        RectTransform rectTransform = transform as RectTransform;
+        if (rectTransform != null)
+        {
+            rectTransform.anchoredPosition = clickFeedbackBasePosition;
+        }
+
+        Image image = GetComponent<Image>();
+        if (image != null)
+        {
+            image.color = clickFeedbackBaseColor;
+        }
+    }
 
     public void OnPointerEnter(PointerEventData eventData)
     {

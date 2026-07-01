@@ -111,6 +111,7 @@ public class StartMenuIntro : MonoBehaviour
             }
 
             menuButtons[i].anchoredPosition = buttonTargets[i] + Vector2.right * buttonStartOffset;
+            SetButtonInputEnabled(menuButtons[i], false);
             menuButtons[i].gameObject.SetActive(false);
         }
     }
@@ -167,8 +168,36 @@ public class StartMenuIntro : MonoBehaviour
             }
 
             menuButtons[i].gameObject.SetActive(true);
-            StartCoroutine(Move(menuButtons[i], menuButtons[i].anchoredPosition, buttonTargets[i], buttonSlideDuration));
+            StartCoroutine(MoveButtonIntoPlace(menuButtons[i], menuButtons[i].anchoredPosition, buttonTargets[i], buttonSlideDuration));
             yield return new WaitForSecondsRealtime(buttonStagger);
+        }
+    }
+
+    private IEnumerator MoveButtonIntoPlace(RectTransform button, Vector2 from, Vector2 to, float duration)
+    {
+        SetButtonInputEnabled(button, false);
+        yield return Move(button, from, to, duration);
+        SetButtonInputEnabled(button, true);
+    }
+
+    private void SetButtonInputEnabled(RectTransform button, bool enabled)
+    {
+        if (button == null)
+        {
+            return;
+        }
+
+        StartMenuButtonEffect effect = button.GetComponent<StartMenuButtonEffect>();
+        if (effect != null)
+        {
+            effect.SetInputEnabled(enabled);
+            return;
+        }
+
+        Graphic[] graphics = button.GetComponentsInChildren<Graphic>(true);
+        for (int i = 0; i < graphics.Length; i++)
+        {
+            graphics[i].raycastTarget = enabled;
         }
     }
 
