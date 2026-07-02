@@ -4,6 +4,13 @@ public static class BattleScoreStore
 {
     public const int MaxScore = 500;
     public const string DefaultMissionId = "Mission1";
+    public const string KarimHasanMissionId = "Mission2";
+    public const string ActiveBattleMissionKey = "ActiveBattleMission";
+    public const string PendingPostVictoryDialogueKey = "PendingPostVictoryDialogue";
+    public const string IdapenFirstVictoryDialogueShownKey = "IdapenFirstVictoryDialogueShown";
+    public const string IdapenFirstVictoryJustWonKey = "IdapenFirstVictoryJustWon";
+    public const string KarimFirstVictoryDialogueShownKey = "KarimFirstVictoryDialogueShown";
+    public const string KarimFirstVictoryJustWonKey = "KarimFirstVictoryJustWon";
 
     private const string CurrentPrefix = "BattleScore.Current.";
     private const string BestPrefix = "BattleScore.Best.";

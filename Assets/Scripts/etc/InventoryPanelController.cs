@@ -63,6 +63,9 @@ public class InventoryPanelController : MonoBehaviour
     private const string OptionPanelName = "OptionPanel";
     private const string CardBrowserPanelName = "CardBrowserPanel";
     private const string SavePanelName = "SavePanel";
+    private const string CardPrefabResourcePath = "CardPrefab";
+    private const string CardPrefabEditorAssetPath = "Assets/Resources/CardPrefab.prefab";
+    private const float InventoryAlphaHitThreshold = 0.1f;
 
     public static event Action InventoryPanelClosed;
 
@@ -152,8 +155,15 @@ public class InventoryPanelController : MonoBehaviour
     private ScrollRect cardListScroll;
     private TextMeshProUGUI cardBrowserTitleText;
     private TextMeshProUGUI cardDescriptionText;
+    private Image cardDetailImage;
+    private TextMeshProUGUI cardDetailNameText;
+    private TextMeshProUGUI cardDetailCostText;
+    private TextMeshProUGUI cardDetailTypeText;
+    private Slider cardTypeSlider;
+    private bool syncingCardTypeSlider;
     private int selectedCardTypeIndex;
     private readonly List<CardType> visibleCardTypes = new List<CardType>();
+    private readonly List<TextMeshProUGUI> cardTypeNavLabels = new List<TextMeshProUGUI>();
 
     private Image saveImage;
     private GameObject savePanel;
@@ -605,11 +615,7 @@ public class InventoryPanelController : MonoBehaviour
                 continue;
             }
 
-            image.raycastTarget = true;
-            if (image.sprite != null && image.sprite.texture != null && image.sprite.texture.isReadable)
-            {
-                image.alphaHitTestMinimumThreshold = 0.1f;
-            }
+            ApplySpriteAlphaHitTest(image);
             inventoryHoverImages.Add(image);
             inventoryHoverOriginalColors.Add(image.color);
 
@@ -636,7 +642,7 @@ public class InventoryPanelController : MonoBehaviour
             return;
         }
 
-        worldImage.raycastTarget = true;
+        ApplySpriteAlphaHitTest(worldImage);
         Button worldButton = worldImage.GetComponent<Button>();
 
         if (worldButton == null)
@@ -656,7 +662,7 @@ public class InventoryPanelController : MonoBehaviour
         wordImage = FindChildImageByName(transform, WordImageName);
         if (wordImage == null) return;
 
-        wordImage.raycastTarget = true;
+        ApplySpriteAlphaHitTest(wordImage);
         Button wordButton = wordImage.GetComponent<Button>();
         if (wordButton == null) wordButton = wordImage.gameObject.AddComponent<Button>();
 
@@ -672,7 +678,7 @@ public class InventoryPanelController : MonoBehaviour
         optionImage = FindChildImageByName(transform, OptionImageName);
         if (optionImage == null) return;
 
-        optionImage.raycastTarget = true;
+        ApplySpriteAlphaHitTest(optionImage);
 
         Button optionButton = optionImage.GetComponent<Button>();
         if (optionButton == null)
@@ -693,7 +699,7 @@ public class InventoryPanelController : MonoBehaviour
         cardImage = FindChildImageByName(transform, CardImageName);
         if (cardImage == null) return;
 
-        cardImage.raycastTarget = true;
+        ApplySpriteAlphaHitTest(cardImage);
 
         Button cardButton = cardImage.GetComponent<Button>();
         if (cardButton == null)
@@ -714,7 +720,7 @@ public class InventoryPanelController : MonoBehaviour
         saveImage = FindChildImageByName(transform, SaveImageName);
         if (saveImage == null) return;
 
-        saveImage.raycastTarget = true;
+        ApplySpriteAlphaHitTest(saveImage);
 
         Button saveButton = saveImage.GetComponent<Button>();
         if (saveButton == null)
@@ -773,6 +779,29 @@ public class InventoryPanelController : MonoBehaviour
         }
 
         Transform target = image.transform;
+        if (iconBoingRoutines.TryGetValue(target, out Coroutine routine) && routine != null)
+        {
+            StopCoroutine(routine);
+        }
+
+        iconBoingRoutines[target] = StartCoroutine(InventoryIconBoingRoutine(target));
+    }
+
+    private void PlayInventoryCardBoing(GameObject cardObject)
+    {
+        if (cardObject == null)
+        {
+            return;
+        }
+
+        Image image = cardObject.GetComponent<Image>();
+        if (image != null)
+        {
+            PlayInventoryIconBoing(image);
+            return;
+        }
+
+        Transform target = cardObject.transform;
         if (iconBoingRoutines.TryGetValue(target, out Coroutine routine) && routine != null)
         {
             StopCoroutine(routine);
@@ -1116,7 +1145,14 @@ public class InventoryPanelController : MonoBehaviour
 
         ApplyDarkPanelStyle(cardBrowserPanel);
         CreatePanelChrome(cardBrowserPanel.transform);
+        BuildModernCardBrowserPanel(cardBrowserPanel.transform);
+        CreatePanelCloseButton(cardBrowserPanel.transform, "CardBrowserCloseButton", CloseTopPanel);
+        EnsurePanelBoing(cardBrowserPanel);
+        cardBrowserPanel.SetActive(false);
+        return;
+    }
 
+#if false
         GameObject titleObj = CreateRectObject("CardBrowserTitle", cardBrowserPanel.transform, typeof(TextMeshProUGUI));
         RectTransform titleRt = titleObj.GetComponent<RectTransform>();
         titleRt.anchorMin = new Vector2(0f, 1f);
@@ -1161,6 +1197,97 @@ public class InventoryPanelController : MonoBehaviour
         EnsurePanelBoing(cardBrowserPanel);
         cardBrowserPanel.SetActive(false);
     }
+#endif
+
+    private void BuildModernCardBrowserPanel(Transform parent)
+    {
+        cardTypeNavLabels.Clear();
+        cardBrowserTitleText = null;
+
+        CreateCardTypeStrip(parent);
+        CreateCardScrollArea(parent);
+        CreateCardDescriptionArea(parent);
+        CreateCardTypeSlider(parent);
+    }
+
+    private void CreateCardTypeStrip(Transform parent)
+    {
+        GameObject stripObj = CreateRectObject("CardTypeStrip", parent, typeof(Image));
+        RectTransform stripRt = stripObj.GetComponent<RectTransform>();
+        stripRt.anchorMin = new Vector2(0f, 1f);
+        stripRt.anchorMax = new Vector2(1f, 1f);
+        stripRt.pivot = new Vector2(0.5f, 1f);
+        stripRt.anchoredPosition = new Vector2(0f, -44f);
+        stripRt.sizeDelta = new Vector2(-96f, 72f);
+
+        Image stripImage = stripObj.GetComponent<Image>();
+        stripImage.color = Rgba(13, 13, 13, 0.98f);
+        stripImage.raycastTarget = false;
+
+        for (int i = 0; i < 5; i++)
+        {
+            TextMeshProUGUI label = CreateText("CardTypeLabel_" + i, stripObj.transform, "", 30f, TextMuted, TextAlignmentOptions.Center);
+            RectTransform labelRt = label.rectTransform;
+            labelRt.anchorMin = new Vector2(i / 5f, 0f);
+            labelRt.anchorMax = new Vector2((i + 1f) / 5f, 1f);
+            labelRt.offsetMin = Vector2.zero;
+            labelRt.offsetMax = Vector2.zero;
+            label.textWrappingMode = TextWrappingModes.NoWrap;
+            label.overflowMode = TextOverflowModes.Ellipsis;
+            cardTypeNavLabels.Add(label);
+        }
+    }
+
+    private void CreateCardTypeSlider(Transform parent)
+    {
+        GameObject sliderObj = CreateRectObject("CardTypeSlider", parent, typeof(RectTransform), typeof(Slider));
+        RectTransform sliderRt = sliderObj.GetComponent<RectTransform>();
+        sliderRt.anchorMin = new Vector2(0f, 0f);
+        sliderRt.anchorMax = new Vector2(1f, 0f);
+        sliderRt.pivot = new Vector2(0.5f, 0f);
+        sliderRt.offsetMin = new Vector2(70f, 28f);
+        sliderRt.offsetMax = new Vector2(-70f, 52f);
+
+        GameObject backgroundObj = CreateRectObject("Background", sliderObj.transform, typeof(Image));
+        RectTransform bgRt = backgroundObj.GetComponent<RectTransform>();
+        SetStretch(bgRt, Vector2.zero, Vector2.zero);
+        Image bg = backgroundObj.GetComponent<Image>();
+        bg.color = Rgba(42, 42, 42, 1f);
+        bg.raycastTarget = true;
+
+        GameObject fillArea = CreateRectObject("Fill Area", sliderObj.transform, typeof(RectTransform));
+        RectTransform fillAreaRt = fillArea.GetComponent<RectTransform>();
+        SetStretch(fillAreaRt, Vector2.zero, Vector2.zero);
+
+        GameObject fillObj = CreateRectObject("Fill", fillArea.transform, typeof(Image));
+        RectTransform fillRt = fillObj.GetComponent<RectTransform>();
+        SetStretch(fillRt, Vector2.zero, Vector2.zero);
+        Image fill = fillObj.GetComponent<Image>();
+        fill.color = PinkLight;
+        fill.raycastTarget = false;
+
+        GameObject handleArea = CreateRectObject("Handle Slide Area", sliderObj.transform, typeof(RectTransform));
+        RectTransform handleAreaRt = handleArea.GetComponent<RectTransform>();
+        SetStretch(handleAreaRt, Vector2.zero, Vector2.zero);
+
+        GameObject handleObj = CreateRectObject("Handle", handleArea.transform, typeof(Image), typeof(Outline));
+        RectTransform handleRt = handleObj.GetComponent<RectTransform>();
+        handleRt.sizeDelta = new Vector2(22f, 42f);
+        Image handle = handleObj.GetComponent<Image>();
+        handle.color = Color.white;
+        handle.raycastTarget = true;
+        handleObj.GetComponent<Outline>().effectColor = Pink;
+
+        cardTypeSlider = sliderObj.GetComponent<Slider>();
+        cardTypeSlider.minValue = 0f;
+        cardTypeSlider.maxValue = 0f;
+        cardTypeSlider.wholeNumbers = true;
+        cardTypeSlider.direction = Slider.Direction.LeftToRight;
+        cardTypeSlider.targetGraphic = handle;
+        cardTypeSlider.fillRect = fillRt;
+        cardTypeSlider.handleRect = handleRt;
+        cardTypeSlider.onValueChanged.AddListener(OnCardTypeSliderChanged);
+    }
 
     private void CreateCardScrollArea(Transform parent)
     {
@@ -1168,8 +1295,8 @@ public class InventoryPanelController : MonoBehaviour
         RectTransform scrollRt = scrollObj.GetComponent<RectTransform>();
         scrollRt.anchorMin = new Vector2(0f, 0f);
         scrollRt.anchorMax = new Vector2(1f, 1f);
-        scrollRt.offsetMin = new Vector2(38f, 176f);
-        scrollRt.offsetMax = new Vector2(-125f, -105f);
+        scrollRt.offsetMin = new Vector2(38f, 92f);
+        scrollRt.offsetMax = new Vector2(-720f, -138f);
 
         Image scrollBg = scrollObj.GetComponent<Image>();
         scrollBg.color = Rgba(22, 22, 26, 0.32f);
@@ -1184,10 +1311,10 @@ public class InventoryPanelController : MonoBehaviour
         cardListRoot.sizeDelta = new Vector2(-36f, 0f);
 
         GridLayoutGroup grid = contentObj.GetComponent<GridLayoutGroup>();
-        grid.cellSize = new Vector2(180f, 242f);
-        grid.spacing = new Vector2(16f, 16f);
+        grid.cellSize = new Vector2(170f, 226f);
+        grid.spacing = new Vector2(18f, 20f);
         grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-        grid.constraintCount = 5;
+        grid.constraintCount = 3;
         grid.childAlignment = TextAnchor.UpperLeft;
 
         ContentSizeFitter fitter = contentObj.GetComponent<ContentSizeFitter>();
@@ -1204,19 +1331,69 @@ public class InventoryPanelController : MonoBehaviour
     {
         GameObject descObj = CreateRectObject("CardDescriptionBox", parent, typeof(Image), typeof(Outline));
         RectTransform descRt = descObj.GetComponent<RectTransform>();
-        descRt.anchorMin = new Vector2(0f, 0f);
-        descRt.anchorMax = new Vector2(1f, 0f);
-        descRt.pivot = new Vector2(0.5f, 0f);
-        descRt.offsetMin = new Vector2(38f, 32f);
-        descRt.offsetMax = new Vector2(-38f, 158f);
+        descRt.anchorMin = new Vector2(1f, 0f);
+        descRt.anchorMax = new Vector2(1f, 1f);
+        descRt.pivot = new Vector2(1f, 0.5f);
+        descRt.offsetMin = new Vector2(-690f, 92f);
+        descRt.offsetMax = new Vector2(-38f, -138f);
 
         Image descBg = descObj.GetComponent<Image>();
-        descBg.color = Rgba(12, 12, 16, 0.78f);
+        descBg.color = Rgba(13, 13, 13, 0.98f);
         descBg.raycastTarget = false;
-        descObj.GetComponent<Outline>().effectColor = Rgba(255, 255, 255, 0.12f);
+        descObj.GetComponent<Outline>().effectColor = Pink;
 
-        cardDescriptionText = CreateText("CardDescriptionText", descObj.transform, "", 23f, BodyText, TextAlignmentOptions.Left);
-        SetStretch(cardDescriptionText.rectTransform, new Vector2(18f, 10f), new Vector2(-18f, -10f));
+        GameObject imageObj = CreateRectObject("CardDetailImage", descObj.transform, typeof(Image), typeof(Outline));
+        RectTransform imageRt = imageObj.GetComponent<RectTransform>();
+        imageRt.anchorMin = new Vector2(0.5f, 1f);
+        imageRt.anchorMax = new Vector2(0.5f, 1f);
+        imageRt.pivot = new Vector2(0.5f, 1f);
+        imageRt.anchoredPosition = new Vector2(0f, -26f);
+        imageRt.sizeDelta = new Vector2(180f, 230f);
+        cardDetailImage = imageObj.GetComponent<Image>();
+        cardDetailImage.color = Color.white;
+        cardDetailImage.preserveAspect = true;
+        imageObj.GetComponent<Outline>().effectColor = Rgba(255, 255, 255, 0.18f);
+
+        cardDetailNameText = CreateText("CardDetailName", descObj.transform, "", 44f, TextColor, TextAlignmentOptions.Center);
+        RectTransform nameRt = cardDetailNameText.rectTransform;
+        nameRt.anchorMin = new Vector2(0f, 1f);
+        nameRt.anchorMax = new Vector2(1f, 1f);
+        nameRt.pivot = new Vector2(0.5f, 1f);
+        nameRt.offsetMin = new Vector2(28f, 0f);
+        nameRt.offsetMax = new Vector2(-28f, -286f);
+        cardDetailNameText.textWrappingMode = TextWrappingModes.Normal;
+        cardDetailNameText.overflowMode = TextOverflowModes.Ellipsis;
+
+        cardDetailCostText = CreateText("CardDetailCost", descObj.transform, "", 25f, PinkLight, TextAlignmentOptions.Center);
+        RectTransform costRt = cardDetailCostText.rectTransform;
+        costRt.anchorMin = new Vector2(0f, 1f);
+        costRt.anchorMax = new Vector2(1f, 1f);
+        costRt.pivot = new Vector2(0.5f, 1f);
+        costRt.offsetMin = new Vector2(28f, 0f);
+        costRt.offsetMax = new Vector2(-28f, -334f);
+
+        cardDetailTypeText = CreateText("CardDetailType", descObj.transform, "", 18f, TextMuted, TextAlignmentOptions.Center);
+        RectTransform typeRt = cardDetailTypeText.rectTransform;
+        typeRt.anchorMin = new Vector2(0f, 1f);
+        typeRt.anchorMax = new Vector2(1f, 1f);
+        typeRt.pivot = new Vector2(0.5f, 1f);
+        typeRt.offsetMin = new Vector2(28f, 0f);
+        typeRt.offsetMax = new Vector2(-28f, -364f);
+
+        GameObject detailBox = CreateRectObject("CardDetailDescriptionBox", descObj.transform, typeof(Image), typeof(Outline));
+        RectTransform detailRt = detailBox.GetComponent<RectTransform>();
+        detailRt.anchorMin = new Vector2(0f, 0f);
+        detailRt.anchorMax = new Vector2(1f, 0f);
+        detailRt.pivot = new Vector2(0.5f, 0f);
+        detailRt.offsetMin = new Vector2(28f, 28f);
+        detailRt.offsetMax = new Vector2(-28f, 178f);
+        Image detailBg = detailBox.GetComponent<Image>();
+        detailBg.color = Rgba(26, 26, 26, 1f);
+        detailBg.raycastTarget = false;
+        detailBox.GetComponent<Outline>().effectColor = Rgba(255, 110, 199, 0.55f);
+
+        cardDescriptionText = CreateText("CardDescriptionText", detailBox.transform, "", 22f, BodyText, TextAlignmentOptions.Left);
+        SetStretch(cardDescriptionText.rectTransform, new Vector2(18f, 14f), new Vector2(-18f, -14f));
         cardDescriptionText.overflowMode = TextOverflowModes.Ellipsis;
     }
 
@@ -1241,6 +1418,7 @@ public class InventoryPanelController : MonoBehaviour
 
         RefreshVisibleCardTypes();
         selectedCardTypeIndex = Mathf.Clamp(selectedCardTypeIndex, 0, Mathf.Max(0, visibleCardTypes.Count - 1));
+        RefreshCardTypeNavigation();
 
         ClearChildren(cardListRoot);
         ClearCardDescription();
@@ -1259,6 +1437,8 @@ public class InventoryPanelController : MonoBehaviour
         }
 
         int count = 0;
+        CardData firstCard = null;
+        GameObject firstCardObject = null;
         if (cardLibrary != null)
         {
             for (int i = 0; i < cardLibrary.Length; i++)
@@ -1274,6 +1454,11 @@ public class InventoryPanelController : MonoBehaviour
                     : CreateSimpleInventoryCard(cardData, cardListRoot);
 
                 ConfigureInventoryCardInstance(cardObject, cardData);
+                if (firstCard == null)
+                {
+                    firstCard = cardData;
+                    firstCardObject = cardObject;
+                }
                 count++;
             }
         }
@@ -1282,11 +1467,73 @@ public class InventoryPanelController : MonoBehaviour
         {
             CreateEmptyCardMessage("이 타입에 표시할 카드가 없습니다.");
         }
+        else
+        {
+            ShowCardDescription(firstCard, firstCardObject);
+        }
 
         if (cardListScroll != null)
         {
             cardListScroll.verticalNormalizedPosition = 1f;
         }
+    }
+
+    private void RefreshCardTypeNavigation()
+    {
+        if (cardTypeSlider != null)
+        {
+            syncingCardTypeSlider = true;
+            cardTypeSlider.minValue = 0f;
+            cardTypeSlider.maxValue = Mathf.Max(0, visibleCardTypes.Count - 1);
+            cardTypeSlider.SetValueWithoutNotify(selectedCardTypeIndex);
+            cardTypeSlider.interactable = visibleCardTypes.Count > 1;
+            syncingCardTypeSlider = false;
+        }
+
+        if (cardTypeNavLabels.Count == 0)
+        {
+            return;
+        }
+
+        int startIndex = Mathf.Clamp(selectedCardTypeIndex - 2, 0, Mathf.Max(0, visibleCardTypes.Count - 5));
+        for (int i = 0; i < cardTypeNavLabels.Count; i++)
+        {
+            TextMeshProUGUI label = cardTypeNavLabels[i];
+            int typeIndex = startIndex + i;
+            if (label == null)
+            {
+                continue;
+            }
+
+            if (typeIndex >= visibleCardTypes.Count)
+            {
+                label.text = "";
+                continue;
+            }
+
+            bool selected = typeIndex == selectedCardTypeIndex;
+            label.text = GetCardTypeDisplayName(visibleCardTypes[typeIndex]);
+            label.fontSize = selected ? 36f : 27f;
+            label.fontStyle = selected ? FontStyles.Bold : FontStyles.Normal;
+            label.color = selected ? TextColor : TextMuted;
+        }
+    }
+
+    private void OnCardTypeSliderChanged(float value)
+    {
+        if (syncingCardTypeSlider)
+        {
+            return;
+        }
+
+        int nextIndex = Mathf.RoundToInt(value);
+        if (nextIndex == selectedCardTypeIndex)
+        {
+            return;
+        }
+
+        selectedCardTypeIndex = nextIndex;
+        RefreshCardBrowser();
     }
 
     private void RefreshVisibleCardTypes()
@@ -1345,7 +1592,7 @@ public class InventoryPanelController : MonoBehaviour
             rt.anchorMin = new Vector2(0f, 1f);
             rt.anchorMax = new Vector2(0f, 1f);
             rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.sizeDelta = new Vector2(180f, 242f);
+            rt.sizeDelta = new Vector2(170f, 226f);
         }
 
         LayoutElement layoutElement = cardObject.GetComponent<LayoutElement>();
@@ -1353,8 +1600,8 @@ public class InventoryPanelController : MonoBehaviour
         {
             layoutElement = cardObject.AddComponent<LayoutElement>();
         }
-        layoutElement.preferredWidth = 180f;
-        layoutElement.preferredHeight = 242f;
+        layoutElement.preferredWidth = 170f;
+        layoutElement.preferredHeight = 226f;
 
         CardButton cardButton = cardObject.GetComponent<CardButton>();
         if (cardButton != null)
@@ -1372,6 +1619,12 @@ public class InventoryPanelController : MonoBehaviour
         if (button != null)
         {
             button.onClick.RemoveAllListeners();
+            button.onClick.AddListener(() =>
+            {
+                PlayInventoryClickSfx();
+                PlayInventoryCardBoing(cardObject);
+                ShowCardDescription(cardData, cardObject);
+            });
         }
 
         AddInventoryCardHover(cardObject, cardData);
@@ -1393,12 +1646,11 @@ public class InventoryPanelController : MonoBehaviour
         AddPointerEvent(trigger, EventTriggerType.PointerEnter, () =>
         {
             if (bg != null) bg.color = Color.Lerp(normalColor, Pink, 0.22f);
-            ShowCardDescription(cardData);
+            ShowCardDescription(cardData, cardObject);
         });
         AddPointerEvent(trigger, EventTriggerType.PointerExit, () =>
         {
             if (bg != null) bg.color = normalColor;
-            ClearCardDescription();
         });
     }
 
@@ -1415,8 +1667,71 @@ public class InventoryPanelController : MonoBehaviour
             $"{cardData.description}";
     }
 
+    private void ShowCardDescription(CardData cardData, GameObject cardObject)
+    {
+        if (cardDescriptionText == null || cardData == null)
+        {
+            return;
+        }
+
+        if (cardDetailImage != null)
+        {
+            Sprite sprite = null;
+            Image sourceImage = cardObject != null ? cardObject.GetComponent<Image>() : null;
+            if (sourceImage != null)
+            {
+                sprite = sourceImage.sprite;
+            }
+
+            if (sprite == null)
+            {
+                sprite = cardData.cardImage;
+            }
+
+            cardDetailImage.sprite = sprite;
+            cardDetailImage.enabled = sprite != null;
+        }
+
+        if (cardDetailNameText != null)
+        {
+            cardDetailNameText.text = cardData.cardName;
+        }
+
+        if (cardDetailCostText != null)
+        {
+            cardDetailCostText.text = $"LUX 비용: {cardData.luxCost}";
+        }
+
+        if (cardDetailTypeText != null)
+        {
+            cardDetailTypeText.text = GetCardTypeDisplayName(cardData.cardType);
+        }
+
+        cardDescriptionText.text = cardData.description;
+    }
+
     private void ClearCardDescription()
     {
+        if (cardDetailImage != null)
+        {
+            cardDetailImage.enabled = false;
+        }
+
+        if (cardDetailNameText != null)
+        {
+            cardDetailNameText.text = "";
+        }
+
+        if (cardDetailCostText != null)
+        {
+            cardDetailCostText.text = "";
+        }
+
+        if (cardDetailTypeText != null)
+        {
+            cardDetailTypeText.text = "";
+        }
+
         if (cardDescriptionText != null)
         {
             cardDescriptionText.text = "카드에 마우스를 올리면 설명이 표시됩니다.";
@@ -3396,7 +3711,7 @@ public class InventoryPanelController : MonoBehaviour
 #if UNITY_EDITOR
         if (cardPrefab == null)
         {
-            cardPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/CardPrefab.prefab");
+            cardPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(CardPrefabEditorAssetPath);
         }
 
         if (cardLibrary == null || cardLibrary.Length == 0)
@@ -3417,6 +3732,11 @@ public class InventoryPanelController : MonoBehaviour
             cardLibrary = cards.ToArray();
         }
 #else
+        if (cardPrefab == null)
+        {
+            cardPrefab = Resources.Load<GameObject>(CardPrefabResourcePath);
+        }
+
         if (cardLibrary == null || cardLibrary.Length == 0)
         {
             cardLibrary = Resources.LoadAll<CardData>("Cards");
@@ -3508,7 +3828,7 @@ public class InventoryPanelController : MonoBehaviour
             {
                 Image image = pointerRaycastResults[i].gameObject.GetComponent<Image>();
 
-                if (IsTrackedInventoryHoverImage(image))
+                if (IsTrackedInventoryHoverImage(image) && IsPointerInsideImage(image, eventCamera))
                 {
                     return image;
                 }
@@ -3540,7 +3860,63 @@ public class InventoryPanelController : MonoBehaviour
             return false;
         }
 
-        return image.IsRaycastLocationValid(Input.mousePosition, eventCamera);
+        return IsPointerOverOpaqueImagePixel(image, eventCamera);
+    }
+
+    private void ApplySpriteAlphaHitTest(Image image)
+    {
+        if (image == null)
+        {
+            return;
+        }
+
+        image.raycastTarget = true;
+        image.alphaHitTestMinimumThreshold = CanSampleSpriteAlpha(image) ? InventoryAlphaHitThreshold : 0f;
+    }
+
+    private bool IsPointerOverOpaqueImagePixel(Image image, Camera eventCamera)
+    {
+        if (image == null)
+        {
+            return false;
+        }
+
+        if (!CanSampleSpriteAlpha(image))
+        {
+            return image.IsRaycastLocationValid(Input.mousePosition, eventCamera);
+        }
+
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            image.rectTransform,
+            Input.mousePosition,
+            eventCamera,
+            out Vector2 localPoint))
+        {
+            return false;
+        }
+
+        Rect rect = image.rectTransform.rect;
+        float normalizedX = Mathf.InverseLerp(rect.xMin, rect.xMax, localPoint.x);
+        float normalizedY = Mathf.InverseLerp(rect.yMin, rect.yMax, localPoint.y);
+
+        if (normalizedX < 0f || normalizedX > 1f || normalizedY < 0f || normalizedY > 1f)
+        {
+            return false;
+        }
+
+        Sprite sprite = image.sprite;
+        Rect spriteRect = sprite.textureRect;
+        int pixelX = Mathf.Clamp(Mathf.FloorToInt(spriteRect.x + normalizedX * spriteRect.width), 0, sprite.texture.width - 1);
+        int pixelY = Mathf.Clamp(Mathf.FloorToInt(spriteRect.y + normalizedY * spriteRect.height), 0, sprite.texture.height - 1);
+        return sprite.texture.GetPixel(pixelX, pixelY).a >= InventoryAlphaHitThreshold;
+    }
+
+    private bool CanSampleSpriteAlpha(Image image)
+    {
+        return image != null
+            && image.sprite != null
+            && image.sprite.texture != null
+            && image.sprite.texture.isReadable;
     }
 
     private bool IsInventoryHoverImage(Image image)
@@ -3623,7 +3999,7 @@ public class InventoryPanelController : MonoBehaviour
 
     private void AddClickEvent(Image image, UnityEngine.Events.UnityAction callback)
     {
-        image.raycastTarget = true;
+        ApplySpriteAlphaHitTest(image);
         EventTrigger trigger = image.GetComponent<EventTrigger>();
 
         if (trigger == null)

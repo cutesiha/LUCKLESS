@@ -275,7 +275,7 @@ GameObject:
   - component: {fileID: 840897792}
   - component: {fileID: 840897791}
   m_Layer: 0
-  m_Name: Canvas1
+  m_Name: Canvas1_IdapenVictory
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1242,15 +1242,55 @@ MonoBehaviour:
   voiceVolume: 1.29
   lines:
   - speakerName: "17\uAD6C\uC5ED \uACBD\uBE44"
-    dialogue: "\u3147"
-    characterSprite: {fileID: 21300000, guid: 1a0a4b2c72811a945b126e1d9c0d8e07, type: 3}
-    voiceClip: {fileID: 8300000, guid: 3df8654ea1ae2bd45a8ff06e46d0b5d7, type: 3}
+    dialogue: "\uC73C\uC73D... \uC8C4\uC1A1\uD574\uC694, \uD560\uBA38\uB2C8..."
+    characterSprite: {fileID: 21300000, guid: 9e94e888d606757439c41bda532d7014, type: 3}
+    voiceClip: {fileID: 8300000, guid: de535e524533db14d98066a4744ac7a9, type: 3}
     hasChoices: 0
     choices: []
+  - speakerName: "\uC774\uB2E4 \uD39C"
+    dialogue: "\uAD1C\uCC2E\uC544\uC694, \uACBD\uBE44 \uC544\uAC00\uC528. "
+    characterSprite: {fileID: 21300000, guid: 1a0a4b2c72811a945b126e1d9c0d8e07, type: 3}
+    voiceClip: {fileID: 8300000, guid: 87179ebd5eb6d3549895b1c8726ed059, type: 3}
+    hasChoices: 0
+    choices: []
+  - speakerName: "\uC774\uB2E4 \uD39C"
+    dialogue: "\uC774\uC81C \uAC00\uC694."
+    characterSprite: {fileID: 21300000, guid: 1a0a4b2c72811a945b126e1d9c0d8e07, type: 3}
+    voiceClip: {fileID: 8300000, guid: 34c817f35993c0446a30c974a11d2c41, type: 3}
+    hasChoices: 0
+    choices: []
+  - speakerName: 
+    dialogue: "\uB098\uB294 \uC774\uB2E4 \uD39C\uC758 \uD3EC\uB974\uD22C\uB098 \uCF54\uC5B4\uB97C
+      \uD68C\uC218\uD55C\uB2E4."
+    characterSprite: {fileID: 21300000, guid: 1a0a4b2c72811a945b126e1d9c0d8e07, type: 3}
+    voiceClip: {fileID: 0}
+    hasChoices: 0
+    choices: []
+  - speakerName: "\uC774\uB2E4 \uD39C"
+    dialogue: "...\uB9C8\uC9C0\uB9C9\uC73C\uB85C.\n\uC190\uB140\uD55C\uD14C, \uC798
+      \uC0B4\uB77C\uACE0 \uC804\uD574\uC904 \uC218 \uC788\uC5B4\uC694?"
+    characterSprite: {fileID: 21300000, guid: 1a0a4b2c72811a945b126e1d9c0d8e07, type: 3}
+    voiceClip: {fileID: 8300000, guid: 9bc2292f4c0e62c4f92f776dd1cf2c52, type: 3}
+    hasChoices: 1
+    choices:
+    - choiceText: "(\uC544\uBB34 \uB9D0 \uD558\uC9C0 \uC54A\uB294\uB2E4.)"
+      responseLines:
+      - speakerName: "\uC774\uB2E4 \uD39C"
+        dialogue: "\uB2F9\uC2E0\uC740... \uC778\uAC04\uC758 \uB9C8\uC74C\uC774\uB77C\uB294
+          \uAC8C \uC5C6\uB294 \uAC81\uB2C8\uAE4C."
+        characterSprite: {fileID: 21300000, guid: 1a0a4b2c72811a945b126e1d9c0d8e07, type: 3}
+        voiceClip: {fileID: 8300000, guid: 7f449445baff94b4489179f17defc85b, type: 3}
+    - choiceText: "\uADF8 \uC815\uB3C4\uB294 \uD574\uB4DC\uB9AC\uC8E0."
+      responseLines:
+      - speakerName: "\uC774\uB2E4 \uD39C"
+        dialogue: "\uADF8\uB798\uC694, \uACE0\uB9C8\uC6CC\uC694..."
+        characterSprite: {fileID: 21300000, guid: 1a0a4b2c72811a945b126e1d9c0d8e07, type: 3}
+        voiceClip: {fileID: 8300000, guid: a832205512671e24097e103dd7bd6219, type: 3}
   guardSpeakerName: "17\uAD6C\uC5ED \uACBD\uBE44"
   shakeSpeakerName: ???
   shakeDialogueText: "\uBA48\uCDB0\uC694!"
   battleSceneName: BattleScene
+  battleMissionId: Mission1
   typingSpeed: 0.035
   lineEndDelay: 0.08
   shakeDuration: 0.28

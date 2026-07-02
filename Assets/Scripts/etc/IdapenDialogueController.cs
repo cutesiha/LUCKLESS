@@ -61,6 +61,7 @@ public class IdapenDialogueController : MonoBehaviour
     [SerializeField] private string shakeSpeakerName = "???";
     [SerializeField] private string shakeDialogueText = "멈춰요!";
     [SerializeField] private string battleSceneName = "BattleScene";
+    [SerializeField] private string battleMissionId = BattleScoreStore.DefaultMissionId;
 
     [Header("Timing")]
     [SerializeField] private float typingSpeed = 0.035f;
@@ -930,8 +931,27 @@ public class IdapenDialogueController : MonoBehaviour
 
         if (!string.IsNullOrWhiteSpace(battleSceneName))
         {
+            PlayerPrefs.SetString(BattleScoreStore.ActiveBattleMissionKey, ResolveBattleMissionId());
+            PlayerPrefs.Save();
             SceneManager.LoadScene(battleSceneName);
         }
+    }
+
+    private string ResolveBattleMissionId()
+    {
+        if (!string.IsNullOrWhiteSpace(battleMissionId)
+            && battleMissionId != BattleScoreStore.DefaultMissionId)
+        {
+            return battleMissionId;
+        }
+
+        string sceneName = SceneManager.GetActiveScene().name;
+        if (!string.IsNullOrEmpty(sceneName) && sceneName.ToLowerInvariant().Contains("karim"))
+        {
+            return BattleScoreStore.KarimHasanMissionId;
+        }
+
+        return BattleScoreStore.DefaultMissionId;
     }
 
     private Image CreateFadeImage()

@@ -359,6 +359,7 @@ RectTransform:
   - {fileID: 1350517850}
   - {fileID: 1017525476}
   - {fileID: 263993060}
+  - {fileID: 2000668971}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -1240,6 +1241,13 @@ MonoBehaviour:
   voiceSource: {fileID: 1822192645}
   voiceVolume: 1.29
   lines:
+  - speakerName: 
+    dialogue: "\uC758\uB8B0 \uB300\uC0C1: \uC774\uB2E4 \uD39C. 71\uC138.\nLUX \uACC4\uC57D
+      \uBD88\uC774\uD589 3\uAC1C\uC6D4\uC9F8. \uCF54\uC5B4 \uD68C\uC218."
+    characterSprite: {fileID: 0}
+    voiceClip: {fileID: 0}
+    hasChoices: 0
+    choices: []
   - speakerName: "\uC774\uB2E4 \uD39C"
     dialogue: "\uC654\uAD70\uC694."
     characterSprite: {fileID: 21300000, guid: 1a0a4b2c72811a945b126e1d9c0d8e07, type: 3}
@@ -1330,6 +1338,7 @@ MonoBehaviour:
   shakeSpeakerName: ???
   shakeDialogueText: "\uBA48\uCDB0\uC694!"
   battleSceneName: BattleScene
+  battleMissionId: Mission1
   typingSpeed: 0.035
   lineEndDelay: 0.08
   shakeDuration: 0.28

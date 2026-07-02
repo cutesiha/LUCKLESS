@@ -5,7 +5,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 [ExecuteAlways]
-public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IBeginDragHandler, IDragHandler, IEndDragHandler
 {
     public CardData cardData;
     public BattleManager battleManager;
@@ -28,6 +28,7 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     [SerializeField] private Vector2 cardOutlineDistance = new Vector2(4f, -4f);
     [SerializeField] [Range(0f, 1f)] private float hoverDarkenAmount = 0.28f;
     [SerializeField] private float hoverScale = 1.025f;
+    [SerializeField] private float hoverLift = 15f;
     [SerializeField] private float hoverTweenDuration = 0.12f;
 
     private static readonly Vector2[] NameOutlineOffsets =
@@ -45,14 +46,29 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     private readonly TextMeshProUGUI[] nameOutlineTexts = new TextMeshProUGUI[NameOutlineOffsets.Length];
     private Coroutine clickFeedbackRoutine;
     private Coroutine hoverFeedbackRoutine;
+    private Coroutine returnDragRoutine;
     private Vector3 clickFeedbackBaseScale = Vector3.one;
     private Vector2 clickFeedbackBasePosition;
     private Color clickFeedbackBaseColor = Color.white;
     private Vector3 hoverBaseScale = Vector3.one;
     private Color hoverBaseColor = Color.white;
     private Vector3 visualBaseScale = Vector3.one;
+    private Vector2 visualBasePosition;
     private Color visualBaseColor = Color.white;
     private bool hovering;
+    private bool dragging;
+    private bool dragAllowed;
+    private bool suppressNextClick;
+    private Transform dragOriginalParent;
+    private int dragOriginalSiblingIndex;
+    private Vector2 dragOriginalAnchoredPosition;
+    private Vector3 dragOriginalScale;
+    private Canvas dragCanvas;
+    private RectTransform dragCanvasRect;
+    private LayoutElement dragLayoutElement;
+    private Vector2 dragOriginalAnchorMin;
+    private Vector2 dragOriginalAnchorMax;
+    private Vector2 dragOriginalPivot;
 #if UNITY_EDITOR
     private bool nameOutlineRefreshQueued;
 #endif
@@ -271,6 +287,11 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     private void CaptureVisualBaseState()
     {
         visualBaseScale = transform.localScale == Vector3.zero ? Vector3.one : transform.localScale;
+        RectTransform rectTransform = transform as RectTransform;
+        if (rectTransform != null)
+        {
+            visualBasePosition = rectTransform.anchoredPosition;
+        }
 
         Image image = GetComponent<Image>();
         if (image != null)
@@ -330,7 +351,7 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
         }
     }
 
-    public void OnClickCard()
+public void OnClickCard()
 {
     if (battleManager == null)
     {
@@ -344,28 +365,237 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
         return;
     }
 
-    battleManager.PlayCardSelectSound();
-
-    if (!battleManager.CanAcceptCardClick(cardData, out bool insufficientLux))
+    if (suppressNextClick)
     {
-        if (insufficientLux)
-        {
-            PlayInsufficientLuxFeedback();
-        }
-        else
-        {
-            PlayClickBoing();
-        }
+        suppressNextClick = false;
         return;
     }
 
+    battleManager.PlayCardSelectSound();
     PlayClickBoing();
-    battleManager.UseCard(cardData);
 }
 
     private void PlayClickBoing()
     {
         StartClickFeedback(ClickBoingRoutine());
+    }
+
+    public void OnBeginDrag(PointerEventData eventData)
+    {
+        if (!Application.isPlaying || battleManager == null || cardData == null)
+        {
+            return;
+        }
+
+        suppressNextClick = true;
+        if (!battleManager.CanAcceptCardClick(cardData, out bool insufficientLux))
+        {
+            if (insufficientLux)
+            {
+                battleManager.PlayCardSelectSound();
+                PlayInsufficientLuxFeedback();
+            }
+            else
+            {
+                PlayClickBoing();
+            }
+            return;
+        }
+
+        RectTransform rectTransform = transform as RectTransform;
+        if (rectTransform == null)
+        {
+            return;
+        }
+
+        dragCanvas = GetComponentInParent<Canvas>();
+        if (dragCanvas == null)
+        {
+            return;
+        }
+
+        dragCanvasRect = dragCanvas.transform as RectTransform;
+        if (dragCanvasRect == null)
+        {
+            return;
+        }
+
+        if (hoverFeedbackRoutine != null)
+        {
+            StopCoroutine(hoverFeedbackRoutine);
+            hoverFeedbackRoutine = null;
+        }
+
+        if (returnDragRoutine != null)
+        {
+            StopCoroutine(returnDragRoutine);
+            returnDragRoutine = null;
+        }
+
+        dragAllowed = true;
+        dragging = true;
+        hovering = false;
+        dragOriginalParent = transform.parent;
+        dragOriginalSiblingIndex = transform.GetSiblingIndex();
+        dragOriginalAnchoredPosition = visualBasePosition;
+        dragOriginalScale = visualBaseScale;
+        dragOriginalAnchorMin = rectTransform.anchorMin;
+        dragOriginalAnchorMax = rectTransform.anchorMax;
+        dragOriginalPivot = rectTransform.pivot;
+        dragLayoutElement = GetComponent<LayoutElement>();
+        if (dragLayoutElement != null)
+        {
+            dragLayoutElement.ignoreLayout = true;
+        }
+
+        transform.localScale = visualBaseScale;
+        Image image = GetComponent<Image>();
+        if (image != null)
+        {
+            image.color = visualBaseColor;
+        }
+
+        battleManager.HideCardTooltip();
+        transform.SetParent(dragCanvas.transform, true);
+        transform.SetAsLastSibling();
+        rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+        rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+        rectTransform.pivot = dragOriginalPivot;
+        SetDraggedCardScreenPosition(eventData);
+        battleManager.UpdateDraggedCardTargetPreview(cardData, eventData.position);
+    }
+
+    public void OnDrag(PointerEventData eventData)
+    {
+        if (!dragAllowed || !dragging)
+        {
+            return;
+        }
+
+        SetDraggedCardScreenPosition(eventData);
+        if (battleManager != null && cardData != null)
+        {
+            battleManager.UpdateDraggedCardTargetPreview(cardData, eventData.position);
+        }
+    }
+
+    public void OnEndDrag(PointerEventData eventData)
+    {
+        if (!dragAllowed)
+        {
+            return;
+        }
+
+        dragAllowed = false;
+        dragging = false;
+        suppressNextClick = true;
+
+        bool used = battleManager != null
+            && cardData != null
+            && battleManager.TryUseDraggedCardOnEnemy(cardData, eventData.position);
+
+        if (used)
+        {
+            if (dragLayoutElement != null)
+            {
+                dragLayoutElement.ignoreLayout = false;
+            }
+            Destroy(gameObject);
+            return;
+        }
+
+        if (battleManager != null)
+        {
+            battleManager.ClearDraggedCardPreview();
+        }
+
+        ReturnDraggedCardToHand();
+    }
+
+    private void SetDraggedCardScreenPosition(PointerEventData eventData)
+    {
+        RectTransform rectTransform = transform as RectTransform;
+        if (rectTransform == null || dragCanvasRect == null)
+        {
+            return;
+        }
+
+        Camera camera = dragCanvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : eventData.pressEventCamera;
+        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(dragCanvasRect, eventData.position, camera, out Vector2 localPoint))
+        {
+            rectTransform.anchoredPosition = localPoint;
+        }
+    }
+
+    private void ReturnDraggedCardToHand()
+    {
+        RectTransform rectTransform = transform as RectTransform;
+        if (rectTransform == null)
+        {
+            return;
+        }
+
+        if (dragOriginalParent != null)
+        {
+            transform.SetParent(dragOriginalParent, false);
+            transform.SetSiblingIndex(Mathf.Clamp(dragOriginalSiblingIndex, 0, dragOriginalParent.childCount - 1));
+        }
+
+        rectTransform.anchorMin = dragOriginalAnchorMin;
+        rectTransform.anchorMax = dragOriginalAnchorMax;
+        rectTransform.pivot = dragOriginalPivot;
+        rectTransform.anchoredPosition = rectTransform.anchoredPosition;
+        transform.localScale = dragOriginalScale;
+        if (clickFeedbackRoutine != null)
+        {
+            StopCoroutine(clickFeedbackRoutine);
+            clickFeedbackRoutine = null;
+        }
+
+        if (returnDragRoutine != null)
+        {
+            StopCoroutine(returnDragRoutine);
+        }
+
+        returnDragRoutine = StartCoroutine(ReturnDraggedCardRoutine(rectTransform));
+    }
+
+    private IEnumerator ReturnDraggedCardRoutine(RectTransform rectTransform)
+    {
+        Vector2 from = rectTransform != null ? rectTransform.anchoredPosition : Vector2.zero;
+        Vector3 fromScale = transform.localScale;
+        float startTime = Time.realtimeSinceStartup;
+        const float duration = 0.16f;
+
+        while (true)
+        {
+            if (rectTransform == null)
+            {
+                yield break;
+            }
+
+            float elapsed = Time.realtimeSinceStartup - startTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+            float eased = 1f - Mathf.Pow(1f - t, 3f);
+            rectTransform.anchoredPosition = Vector2.LerpUnclamped(from, dragOriginalAnchoredPosition, eased);
+            transform.localScale = Vector3.LerpUnclamped(fromScale, dragOriginalScale, eased);
+
+            if (t >= 1f)
+            {
+                break;
+            }
+
+            yield return null;
+        }
+
+        rectTransform.anchoredPosition = dragOriginalAnchoredPosition;
+        transform.localScale = dragOriginalScale;
+        if (dragLayoutElement != null)
+        {
+            dragLayoutElement.ignoreLayout = false;
+        }
+        CaptureVisualBaseState();
+        returnDragRoutine = null;
     }
 
     private void PlayInsufficientLuxFeedback()
@@ -408,15 +638,12 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
         clickFeedbackBasePosition = rectTransform != null ? rectTransform.anchoredPosition : Vector2.zero;
         clickFeedbackBaseColor = visualBaseColor;
 
-        yield return ScaleOver(transform.localScale, clickFeedbackBaseScale * 1.03f, 0.045f);
-        yield return ScaleOver(clickFeedbackBaseScale * 1.03f, clickFeedbackBaseScale, 0.065f);
-
         Color restColor = GetRestColor();
         Color darkColor = Color.Lerp(visualBaseColor, Color.black, 0.38f);
         darkColor.a = visualBaseColor.a;
         if (image != null)
         {
-            yield return LerpImageColor(image, image.color, darkColor, 0.04f);
+            image.color = darkColor;
         }
 
         float startTime = Time.realtimeSinceStartup;
@@ -434,6 +661,9 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
                 rectTransform.anchoredPosition = clickFeedbackBasePosition + new Vector2(offset, 0f);
             }
 
+            float scalePulse = Mathf.Sin(t * Mathf.PI) * 0.035f;
+            transform.localScale = clickFeedbackBaseScale * (1f + scalePulse);
+
             if (t >= 1f)
             {
                 break;
@@ -445,7 +675,7 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
         if (image != null)
         {
             restColor = GetRestColor();
-            yield return LerpImageColor(image, darkColor, restColor, 0.08f);
+            yield return LerpImageColor(image, image.color, restColor, 0.08f);
         }
 
         RestoreClickFeedbackState();
@@ -515,17 +745,27 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
 
     public void OnPointerEnter(PointerEventData eventData)
     {
+        if (dragging)
+        {
+            return;
+        }
+
         hovering = true;
         StartHoverFeedback(true);
 
         if (battleManager != null && cardData != null)
         {
-            battleManager.ShowCardTooltip(cardData);
+            battleManager.ShowCardTooltip(cardData, transform as RectTransform);
         }
     }
 
     public void OnPointerExit(PointerEventData eventData)
     {
+        if (dragging)
+        {
+            return;
+        }
+
         hovering = false;
         StartHoverFeedback(false);
 
@@ -558,6 +798,9 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
 
         Vector3 fromScale = transform.localScale;
         Vector3 toScale = enter ? GetHoverScale() : visualBaseScale;
+        RectTransform rectTransform = transform as RectTransform;
+        Vector2 fromPosition = rectTransform != null ? rectTransform.anchoredPosition : Vector2.zero;
+        Vector2 toPosition = enter ? visualBasePosition + new Vector2(0f, hoverLift) : visualBasePosition;
         Color fromColor = image != null ? image.color : Color.white;
         Color toColor = enter ? GetHoverColor(visualBaseColor) : visualBaseColor;
 
@@ -569,6 +812,10 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
             float eased = t * t * (3f - 2f * t);
 
             transform.localScale = Vector3.LerpUnclamped(fromScale, toScale, eased);
+            if (rectTransform != null)
+            {
+                rectTransform.anchoredPosition = Vector2.LerpUnclamped(fromPosition, toPosition, eased);
+            }
             if (image != null)
             {
                 image.color = Color.Lerp(fromColor, toColor, eased);
@@ -583,6 +830,10 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
         }
 
         transform.localScale = toScale;
+        if (rectTransform != null)
+        {
+            rectTransform.anchoredPosition = toPosition;
+        }
         if (image != null)
         {
             image.color = toColor;

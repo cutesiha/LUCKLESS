@@ -39,8 +39,9 @@ public class BattleManager : MonoBehaviour
     [Header("Player Hit Effect")]
     public Image playerHitFlashImage;
     public RectTransform playerHitShakeTarget;
-    public float playerHitEffectDuration = 0.35f;
-    public float playerHitShakeStrength = 10f;
+    public float playerHitEffectDuration = 0.22f;
+    public float playerHitShakeStrength = 14f;
+    public float playerHitHorizontalShakeFrequency = 85f;
     public Color playerHitFlashColor = new Color(1f, 0f, 0f, 0.45f);
 
     [Header("Hit Voice")]
@@ -181,11 +182,18 @@ public class BattleManager : MonoBehaviour
     public GameObject tooltipPanel;
     public TMP_Text tooltipDescriptionText;
     public TMP_Text tooltipNameText;
+    private TMP_Text tooltipCostText;
+    private Image tooltipTailImage;
+    private Image playerHPPreviewOverlay;
+    private Image luxPreviewOverlay;
+    private Image enemyHPPreviewOverlay;
+    private Image emotionPreviewOverlay;
 
     public bool reflectNextDamage = false;
     private bool zeroDamageThisTurn = false;
     private bool grantDoubleDamageNextTurn = false;
     private float currentTurnDamageMultiplier = 1f;
+    private bool heartbeatAttackBonusActive = false;
     private int luxDrainTurnsRemaining = 0;
     private bool reduceEnemyDamageNextTurn = false;
     private readonly HashSet<CardData> forcedGambleCards = new HashSet<CardData>();
@@ -217,11 +225,31 @@ public class BattleManager : MonoBehaviour
     private int _prevEnemyHP;
     private int _prevEnemyEmotion;
     private int _prevShield;
+    private Coroutine playerHPUiRoutine;
+    private Coroutine luxUiRoutine;
+    private Coroutine enemyHPUiRoutine;
+    private Coroutine emotionUiRoutine;
+
+    private static readonly Color CyberBg = new Color(0.051f, 0.051f, 0.051f, 1f);
+    private static readonly Color CyberPanel = new Color(0.102f, 0.102f, 0.102f, 1f);
+    private static readonly Color CyberPanelLight = new Color(0.165f, 0.165f, 0.165f, 1f);
+    private static readonly Color CyberPink = new Color(1f, 0.431f, 0.78f, 1f);
+    private static readonly Color CyberRed = new Color(1f, 0.267f, 0.267f, 1f);
+    private static readonly Color CyberText = new Color(0.94f, 0.94f, 0.94f, 1f);
+    private static readonly Color CyberMuted = new Color(0.62f, 0.62f, 0.62f, 1f);
 
     private struct FailedGambleRecord
     {
         public int chance;
         public int successDamage;
+    }
+
+    private struct CardUsePreview
+    {
+        public int enemyDamage;
+        public int enemyEmotionDelta;
+        public int playerHpDelta;
+        public int luxDelta;
     }
 
     private enum LuxState
@@ -242,13 +270,31 @@ public class BattleManager : MonoBehaviour
 
     public void ShowCardTooltip(CardData card)
     {
+        ShowCardTooltip(card, null);
+    }
+
+    public void ShowCardTooltip(CardData card, RectTransform cardTransform)
+    {
         if (card == null) return;
 
+        EnsureBattleTooltip();
+        if (tooltipPanel == null) return;
+
         tooltipPanel.SetActive(true);
+        tooltipPanel.transform.SetAsLastSibling();
+        if (tooltipTailImage != null)
+        {
+            tooltipTailImage.gameObject.SetActive(true);
+        }
 
         if (tooltipNameText != null)
         {
             tooltipNameText.text = card.cardName;
+        }
+
+        if (tooltipCostText != null)
+        {
+            tooltipCostText.text = $"Lux Cost: {GetEffectiveLuxCost(card)}";
         }
 
         if (tooltipDescriptionText != null)
@@ -256,11 +302,414 @@ public class BattleManager : MonoBehaviour
             tooltipDescriptionText.richText = true;
             tooltipDescriptionText.text = FormatCardDescription(card.description);
         }
+
+        PositionTooltipAboveCard(cardTransform);
     }
 
     public void HideCardTooltip()
     {
-        tooltipPanel.SetActive(false);
+        if (tooltipPanel != null)
+        {
+            tooltipPanel.SetActive(false);
+        }
+
+        if (tooltipTailImage != null)
+        {
+            tooltipTailImage.gameObject.SetActive(false);
+        }
+    }
+
+    public void UpdateDraggedCardTargetPreview(CardData card, Vector2 screenPosition)
+    {
+        if (card == null || !IsScreenPointOverEnemy(screenPosition) || !CanUseCardSilently(card))
+        {
+            ClearDraggedCardPreview();
+            return;
+        }
+
+        CardUsePreview preview = BuildCardUsePreview(card);
+        int previewEnemyHP = Mathf.Clamp(enemyHP - preview.enemyDamage, 0, enemyMaxHP);
+        int previewEmotion = Mathf.Clamp(enemyEmotion + preview.enemyEmotionDelta, 0, maxEmotion);
+        int previewPlayerHP = Mathf.Clamp(playerHP + preview.playerHpDelta, 0, playerMaxHP);
+        int previewLux = Mathf.Clamp(lux + preview.luxDelta, 0, 100);
+
+        ShowSliderPreview(enemyHPBar, enemyMaxHP <= 0 ? 0f : (float)enemyHP / enemyMaxHP, enemyMaxHP <= 0 ? 0f : (float)previewEnemyHP / enemyMaxHP, CyberRed, ref enemyHPPreviewOverlay, "EnemyHPPreview");
+        ShowSliderPreview(emotionBar, maxEmotion <= 0 ? 0f : (float)enemyEmotion / maxEmotion, maxEmotion <= 0 ? 0f : (float)previewEmotion / maxEmotion, CyberRed, ref emotionPreviewOverlay, "EnemyRagePreview");
+        ShowSliderPreview(playerHPBar, playerMaxHP <= 0 ? 0f : (float)playerHP / playerMaxHP, playerMaxHP <= 0 ? 0f : (float)previewPlayerHP / playerMaxHP, preview.playerHpDelta < 0 ? CyberRed : CyberPink, ref playerHPPreviewOverlay, "PlayerHPPreview");
+        ShowSliderPreview(luxBar, lux / 100f, previewLux / 100f, preview.luxDelta < 0 ? CyberRed : CyberPink, ref luxPreviewOverlay, "LuxPreview");
+    }
+
+    public void ClearDraggedCardPreview()
+    {
+        HideSliderPreview(playerHPPreviewOverlay);
+        HideSliderPreview(luxPreviewOverlay);
+        HideSliderPreview(enemyHPPreviewOverlay);
+        HideSliderPreview(emotionPreviewOverlay);
+    }
+
+    public bool TryUseDraggedCardOnEnemy(CardData card, Vector2 screenPosition)
+    {
+        ClearDraggedCardPreview();
+
+        if (card == null || !IsScreenPointOverEnemy(screenPosition))
+        {
+            return false;
+        }
+
+        if (!CanUseCard(card))
+        {
+            return false;
+        }
+
+        PlayCardSelectSound();
+        UseCard(card);
+        return true;
+    }
+
+    private bool IsScreenPointOverEnemy(Vector2 screenPosition)
+    {
+        RectTransform target = null;
+        if (enemyCharacterImage != null && enemyCharacterImage.gameObject.activeInHierarchy)
+        {
+            target = enemyCharacterImage.rectTransform;
+        }
+        else if (enemyHPBar != null)
+        {
+            target = enemyHPBar.transform as RectTransform;
+        }
+
+        if (target == null)
+        {
+            return false;
+        }
+
+        Canvas canvas = target.GetComponentInParent<Canvas>();
+        Camera camera = canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay ? canvas.worldCamera : null;
+        return RectTransformUtility.RectangleContainsScreenPoint(target, screenPosition, camera);
+    }
+
+    private bool CanUseCardSilently(CardData card)
+    {
+        if (card == null || !battleStarted || battleEnded || isCardResolving || playerStunned)
+        {
+            return false;
+        }
+
+        if (lux < GetEffectiveLuxCost(card))
+        {
+            return false;
+        }
+
+        CardType effectiveType = GetEffectiveCardType(card);
+        LuxState state = GetLuxState();
+        if (effectiveType == CardType.House && state != LuxState.Lucky && state != LuxState.Overflow)
+        {
+            return false;
+        }
+
+        if (effectiveType == CardType.Poverty && state != LuxState.Poverty)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private CardUsePreview BuildCardUsePreview(CardData card)
+    {
+        CardUsePreview preview = new CardUsePreview();
+        int effectiveCost = GetEffectiveLuxCost(card);
+        preview.luxDelta = -effectiveCost + CalculateLuxGain(card);
+        preview.enemyEmotionDelta = card.emotionGain;
+        preview.enemyDamage = EstimateCardDamagePreview(card);
+
+        if (!IsCardTreatedAsGamble(card) && card.selfDamage > 0)
+        {
+            preview.playerHpDelta -= ModifyIncomingDamage(card.selfDamage);
+        }
+
+        if (card.healAmount > 0)
+        {
+            preview.playerHpDelta += card.healAmount;
+        }
+
+        switch (card.specialEffect)
+        {
+            case SpecialCardEffect.BeastHeart:
+                preview.playerHpDelta -= Mathf.Max(0, playerHP - 1);
+                break;
+            case SpecialCardEffect.ReverseOdds:
+                preview.enemyDamage += failedGambleCountThisTurn * 10;
+                break;
+            case SpecialCardEffect.FakeLuck:
+                preview.enemyEmotionDelta += 20;
+                break;
+            case SpecialCardEffect.BankruptcyDeclaration:
+                preview.luxDelta = -lux;
+                break;
+        }
+
+        return preview;
+    }
+
+    private int EstimateCardDamagePreview(CardData card)
+    {
+        if (card == null)
+        {
+            return 0;
+        }
+
+        int damage;
+        switch (card.specialEffect)
+        {
+            case SpecialCardEffect.BeastHeart:
+                return 0;
+            case SpecialCardEffect.CoinTriple:
+                damage = 40;
+                break;
+            case SpecialCardEffect.DoubleDice:
+                damage = 25;
+                break;
+            case SpecialCardEffect.BankruptcyDeclaration:
+                damage = Mathf.RoundToInt(Mathf.Clamp(lux, 0, 100) * 2f);
+                break;
+            case SpecialCardEffect.Lucky7777:
+                damage = 14;
+                break;
+            default:
+                damage = card.damage;
+                break;
+        }
+
+        if (card.specialEffect == SpecialCardEffect.LightBilling)
+        {
+            damage = 0;
+        }
+
+        if (!card.canOnlyUseInPoverty)
+        {
+            LuxState state = GetLuxState();
+            if (damage > 0 && state == LuxState.Lucky)
+            {
+                damage += 4;
+            }
+            else if (damage > 0 && state == LuxState.Overflow)
+            {
+                damage *= 2;
+            }
+        }
+
+        if (heartbeatAttackBonusActive && playerHP <= Mathf.FloorToInt(playerMaxHP * 0.5f) && damage > 0)
+        {
+            damage += 5;
+        }
+
+        if (zeroDamageThisTurn)
+        {
+            damage = 0;
+        }
+        else if (currentTurnDamageMultiplier > 1f && damage > 0)
+        {
+            damage = Mathf.RoundToInt(damage * currentTurnDamageMultiplier);
+        }
+
+        if (enemyRaged && damage > 0 && GetEffectiveCardType(card) != CardType.Deal)
+        {
+            damage = Mathf.Max(0, damage - rageAttackReduction);
+        }
+
+        return Mathf.Max(0, damage);
+    }
+
+    private void ShowSliderPreview(Slider slider, float currentValue, float previewValue, Color color, ref Image overlay, string overlayName)
+    {
+        if (slider == null)
+        {
+            return;
+        }
+
+        currentValue = Mathf.Clamp01(currentValue);
+        previewValue = Mathf.Clamp01(previewValue);
+        if (Mathf.Approximately(currentValue, previewValue))
+        {
+            HideSliderPreview(overlay);
+            return;
+        }
+
+        if (overlay == null)
+        {
+            GameObject overlayObject = new GameObject(overlayName, typeof(RectTransform), typeof(Image));
+            overlayObject.transform.SetParent(slider.transform, false);
+            overlay = overlayObject.GetComponent<Image>();
+            overlay.raycastTarget = false;
+        }
+
+        overlay.gameObject.SetActive(true);
+        overlay.transform.SetAsLastSibling();
+        Color overlayColor = color;
+        overlayColor.a = 0.62f;
+        overlay.color = overlayColor;
+
+        RectTransform rectTransform = overlay.rectTransform;
+        rectTransform.anchorMin = new Vector2(Mathf.Min(currentValue, previewValue), 0f);
+        rectTransform.anchorMax = new Vector2(Mathf.Max(currentValue, previewValue), 1f);
+        rectTransform.offsetMin = Vector2.zero;
+        rectTransform.offsetMax = Vector2.zero;
+    }
+
+    private void HideSliderPreview(Image overlay)
+    {
+        if (overlay != null)
+        {
+            overlay.gameObject.SetActive(false);
+        }
+    }
+
+    private void EnsureBattleTooltip()
+    {
+        Transform parent = battlePanel != null ? battlePanel.transform : transform;
+
+        if (tooltipPanel == null)
+        {
+            tooltipPanel = new GameObject("CardTooltip", typeof(RectTransform), typeof(Image), typeof(Outline), typeof(VerticalLayoutGroup));
+            tooltipPanel.transform.SetParent(parent, false);
+        }
+
+        RectTransform tooltipRect = tooltipPanel.GetComponent<RectTransform>();
+        if (tooltipRect != null)
+        {
+            tooltipRect.anchorMin = new Vector2(0.5f, 0.5f);
+            tooltipRect.anchorMax = new Vector2(0.5f, 0.5f);
+            tooltipRect.pivot = new Vector2(0.5f, 0f);
+            tooltipRect.sizeDelta = new Vector2(210f, 132f);
+        }
+
+        Image bg = tooltipPanel.GetComponent<Image>();
+        if (bg == null)
+        {
+            bg = tooltipPanel.AddComponent<Image>();
+        }
+        bg.color = new Color(0.067f, 0.067f, 0.067f, 1f);
+        bg.raycastTarget = false;
+
+        Outline outline = tooltipPanel.GetComponent<Outline>();
+        if (outline == null)
+        {
+            outline = tooltipPanel.AddComponent<Outline>();
+        }
+        outline.effectColor = CyberPink;
+        outline.effectDistance = new Vector2(1f, -1f);
+
+        VerticalLayoutGroup layout = tooltipPanel.GetComponent<VerticalLayoutGroup>();
+        if (layout == null)
+        {
+            layout = tooltipPanel.AddComponent<VerticalLayoutGroup>();
+        }
+        layout.padding = new RectOffset(12, 12, 10, 10);
+        layout.spacing = 4f;
+        layout.childControlWidth = true;
+        layout.childControlHeight = false;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = false;
+
+        tooltipNameText = EnsureTooltipText("TooltipName", tooltipNameText, 14f, Color.white, FontStyles.Bold);
+        tooltipCostText = EnsureTooltipText("TooltipCost", tooltipCostText, 12f, CyberPink, FontStyles.Normal);
+        tooltipDescriptionText = EnsureTooltipText("TooltipDescription", tooltipDescriptionText, 12f, new Color(0.8f, 0.8f, 0.8f, 1f), FontStyles.Normal);
+
+        if (tooltipTailImage == null)
+        {
+            Transform oldTail = tooltipPanel.transform.Find("TooltipTail");
+            if (oldTail != null)
+            {
+                tooltipTailImage = oldTail.GetComponent<Image>();
+            }
+        }
+
+        if (tooltipTailImage == null)
+        {
+            GameObject tail = new GameObject("TooltipTail", typeof(RectTransform), typeof(Image));
+            tail.transform.SetParent(parent, false);
+            tooltipTailImage = tail.GetComponent<Image>();
+        }
+
+        tooltipTailImage.color = CyberPink;
+        tooltipTailImage.raycastTarget = false;
+        RectTransform tailRect = tooltipTailImage.rectTransform;
+        tailRect.sizeDelta = new Vector2(14f, 14f);
+        tailRect.localRotation = Quaternion.Euler(0f, 0f, 45f);
+    }
+
+    private TMP_Text EnsureTooltipText(string objectName, TMP_Text current, float fontSize, Color color, FontStyles style)
+    {
+        if (current == null && tooltipPanel != null)
+        {
+            Transform existing = tooltipPanel.transform.Find(objectName);
+            if (existing != null)
+            {
+                current = existing.GetComponent<TMP_Text>();
+            }
+        }
+
+        if (current == null && tooltipPanel != null)
+        {
+            GameObject textObject = new GameObject(objectName, typeof(RectTransform), typeof(TextMeshProUGUI), typeof(LayoutElement));
+            textObject.transform.SetParent(tooltipPanel.transform, false);
+            current = textObject.GetComponent<TMP_Text>();
+        }
+
+        if (current != null)
+        {
+            current.fontSize = fontSize;
+            current.color = color;
+            current.fontStyle = style;
+            current.alignment = TextAlignmentOptions.Left;
+            current.textWrappingMode = TextWrappingModes.Normal;
+            current.overflowMode = TextOverflowModes.Ellipsis;
+            current.raycastTarget = false;
+
+            LayoutElement layoutElement = current.GetComponent<LayoutElement>();
+            if (layoutElement != null)
+            {
+                layoutElement.preferredHeight = objectName == "TooltipDescription" ? 66f : 20f;
+            }
+        }
+
+        return current;
+    }
+
+    private void PositionTooltipAboveCard(RectTransform cardTransform)
+    {
+        if (tooltipPanel == null || cardTransform == null)
+        {
+            return;
+        }
+
+        RectTransform tooltipRect = tooltipPanel.GetComponent<RectTransform>();
+        RectTransform parentRect = tooltipPanel.transform.parent as RectTransform;
+        if (tooltipRect == null || parentRect == null)
+        {
+            return;
+        }
+
+        Canvas canvas = tooltipPanel.GetComponentInParent<Canvas>();
+        Camera camera = canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay ? canvas.worldCamera : null;
+        Vector3 worldPoint = cardTransform.TransformPoint(new Vector3(0f, cardTransform.rect.yMax + 18f, 0f));
+        Vector2 screenPoint = RectTransformUtility.WorldToScreenPoint(camera, worldPoint);
+
+        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(parentRect, screenPoint, camera, out Vector2 localPoint))
+        {
+            tooltipRect.anchoredPosition = localPoint;
+            if (tooltipTailImage != null)
+            {
+                tooltipTailImage.transform.SetParent(parentRect, false);
+                tooltipTailImage.transform.SetAsLastSibling();
+                RectTransform tailRect = tooltipTailImage.rectTransform;
+                tailRect.anchorMin = new Vector2(0.5f, 0.5f);
+                tailRect.anchorMax = new Vector2(0.5f, 0.5f);
+                tailRect.pivot = new Vector2(0.5f, 0.5f);
+                tailRect.anchoredPosition = localPoint + new Vector2(0f, -2f);
+            }
+        }
     }
 
     private void Start()
@@ -269,6 +718,13 @@ public class BattleManager : MonoBehaviour
         battleStarted = true;
         selectedBet = 0;
         rewardLux = 0;
+        heartbeatAttackBonusActive = false;
+        missionScoreId = PlayerPrefs.GetString(BattleScoreStore.ActiveBattleMissionKey, missionScoreId);
+        PlayerPrefs.DeleteKey(BattleScoreStore.ActiveBattleMissionKey);
+        if (string.IsNullOrWhiteSpace(missionScoreId))
+        {
+            missionScoreId = BattleScoreStore.DefaultMissionId;
+        }
 
         if (bettingPanel != null) bettingPanel.SetActive(false);
         if (battlePanel != null) battlePanel.SetActive(true);
@@ -284,6 +740,7 @@ public class BattleManager : MonoBehaviour
         InitializePlayerHitEffect();
         InitializeDiceRollEffect();
         InitializeCoinTossEffect();
+        ApplyBattleCyberLayout();
         EnsureEndTurnButtonHoverEffect();
         EnsureHandPanel();
         _prevPlayerHP = playerHP;
@@ -318,6 +775,272 @@ public class BattleManager : MonoBehaviour
         {
             endTurnButtonObject.AddComponent<BattleHoverEffect>();
         }
+    }
+
+    private void ApplyBattleCyberLayout()
+    {
+        if (battlePanel == null)
+        {
+            return;
+        }
+
+        Image rootImage = battlePanel.GetComponent<Image>();
+        if (rootImage == null)
+        {
+            rootImage = battlePanel.AddComponent<Image>();
+        }
+        rootImage.color = CyberBg;
+        rootImage.raycastTarget = false;
+
+        StyleBattleText(battleLogText, 15f, CyberText, TextAlignmentOptions.TopLeft);
+        SetRect(battleLogText, new Vector2(0f, 1f), new Vector2(0.52f, 1f), new Vector2(0f, 1f), new Vector2(22f, -118f), new Vector2(-16f, -18f));
+        StyleTextParentPanel(battleLogText, CyberPanel);
+
+        StyleBattleText(enemyNameText, 22f, CyberText, TextAlignmentOptions.Right);
+        SetRect(enemyNameText, new Vector2(0.58f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(0f, -48f), new Vector2(-24f, -18f));
+
+        StyleBattleText(turnText, 14f, CyberMuted, TextAlignmentOptions.Right);
+        SetRect(turnText, new Vector2(0.58f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(0f, -72f), new Vector2(-24f, -50f));
+
+        StyleBattleText(enemyHPText, 13f, CyberMuted, TextAlignmentOptions.Right);
+        SetRect(enemyHPText, new Vector2(0.68f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(0f, -98f), new Vector2(-24f, -78f));
+        StyleSlider(enemyHPBar, CyberPink);
+        SetRect(enemyHPBar, new Vector2(0.74f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(0f, -112f), new Vector2(-24f, -104f));
+
+        StyleBattleText(emotionText, 13f, CyberMuted, TextAlignmentOptions.Right);
+        SetRect(emotionText, new Vector2(0.68f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(0f, -136f), new Vector2(-24f, -116f));
+        StyleSlider(emotionBar, CyberRed);
+        SetRect(emotionBar, new Vector2(0.74f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(0f, -150f), new Vector2(-24f, -142f));
+
+        if (enemyCharacterImage != null)
+        {
+            enemyCharacterImage.color = Color.white;
+            enemyCharacterImage.preserveAspect = true;
+            RectTransform enemyRt = enemyCharacterImage.rectTransform;
+            enemyRt.anchorMin = new Vector2(0.5f, 0.5f);
+            enemyRt.anchorMax = new Vector2(0.5f, 0.5f);
+            enemyRt.pivot = new Vector2(0.5f, 0.5f);
+            enemyRt.anchoredPosition = new Vector2(0f, 92f);
+            enemyRt.sizeDelta = new Vector2(360f, 360f);
+        }
+
+        StyleBattleText(enemyDialogueText, 18f, Color.black, TextAlignmentOptions.Center);
+        SetRect(enemyDialogueText, new Vector2(0.62f, 0.48f), new Vector2(0.88f, 0.68f), new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+        StyleTextParentPanel(enemyDialogueText, Color.white);
+
+        EnsureCyberPlayerPortrait();
+        StyleBattleText(playerNameText, 15f, CyberMuted, TextAlignmentOptions.Left);
+        SetRect(playerNameText, new Vector2(0f, 0f), new Vector2(0.28f, 0f), new Vector2(0f, 0f), new Vector2(120f, 244f), new Vector2(0f, 270f));
+
+        StyleBattleText(playerHPText, 14f, CyberText, TextAlignmentOptions.Left);
+        SetRect(playerHPText, new Vector2(0f, 0f), new Vector2(0.44f, 0f), new Vector2(0f, 0f), new Vector2(120f, 206f), new Vector2(0f, 228f));
+        StyleSlider(playerHPBar, CyberPink);
+        SetRect(playerHPBar, new Vector2(0f, 0f), new Vector2(0.44f, 0f), new Vector2(0f, 0f), new Vector2(120f, 188f), new Vector2(0f, 198f));
+
+        StyleBattleText(luxText, 14f, CyberText, TextAlignmentOptions.Left);
+        SetRect(luxText, new Vector2(0f, 0f), new Vector2(0.44f, 0f), new Vector2(0f, 0f), new Vector2(120f, 158f), new Vector2(0f, 180f));
+        StyleSlider(luxBar, CyberPink);
+        SetRect(luxBar, new Vector2(0f, 0f), new Vector2(0.44f, 0f), new Vector2(0f, 0f), new Vector2(120f, 140f), new Vector2(0f, 150f));
+
+        StyleBattleText(luxStateText, 13f, CyberMuted, TextAlignmentOptions.Left);
+        SetRect(luxStateText, new Vector2(0f, 0f), new Vector2(0.44f, 0f), new Vector2(0f, 0f), new Vector2(120f, 112f), new Vector2(0f, 134f));
+
+        EnsureHandPanel();
+        ConfigureHandPanelForCyberLayout();
+        ConfigureEndTurnButtonForCyberLayout();
+        EnsureBattleTooltip();
+        HideCardTooltip();
+    }
+
+    private void EnsureCyberPlayerPortrait()
+    {
+        Transform existing = battlePanel.transform.Find("CyberPlayerPortrait");
+        GameObject portrait = existing != null ? existing.gameObject : new GameObject("CyberPlayerPortrait", typeof(RectTransform), typeof(Image), typeof(Outline));
+        portrait.transform.SetParent(battlePanel.transform, false);
+
+        RectTransform rt = portrait.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0f, 0f);
+        rt.anchorMax = new Vector2(0f, 0f);
+        rt.pivot = new Vector2(0f, 0f);
+        rt.anchoredPosition = new Vector2(24f, 146f);
+        rt.sizeDelta = new Vector2(82f, 96f);
+
+        Image image = portrait.GetComponent<Image>();
+        image.color = CyberPanel;
+        image.raycastTarget = false;
+        portrait.GetComponent<Outline>().effectColor = new Color(0.2f, 0.2f, 0.2f, 1f);
+
+        Transform labelTransform = portrait.transform.Find("Name");
+        TMP_Text label = labelTransform != null ? labelTransform.GetComponent<TMP_Text>() : null;
+        if (label == null)
+        {
+            GameObject labelObject = new GameObject("Name", typeof(RectTransform), typeof(TextMeshProUGUI));
+            labelObject.transform.SetParent(portrait.transform, false);
+            label = labelObject.GetComponent<TMP_Text>();
+        }
+
+        label.text = "ZERO";
+        label.fontSize = 12f;
+        label.color = CyberMuted;
+        label.alignment = TextAlignmentOptions.Center;
+        label.raycastTarget = false;
+        SetStretch(label.rectTransform, new Vector2(4f, 4f), new Vector2(-4f, -62f));
+    }
+
+    private void ConfigureHandPanelForCyberLayout()
+    {
+        if (handPanel == null)
+        {
+            return;
+        }
+
+        RectTransform rt = handPanel as RectTransform;
+        if (rt != null)
+        {
+            rt.anchorMin = new Vector2(0f, 0f);
+            rt.anchorMax = new Vector2(0.78f, 0f);
+            rt.pivot = new Vector2(0f, 0f);
+            rt.anchoredPosition = new Vector2(120f, 22f);
+            rt.sizeDelta = new Vector2(0f, 160f);
+        }
+
+        HorizontalLayoutGroup layout = handPanel.GetComponent<HorizontalLayoutGroup>();
+        if (layout != null)
+        {
+            layout.spacing = 12f;
+            layout.childAlignment = TextAnchor.LowerLeft;
+            layout.childControlWidth = false;
+            layout.childControlHeight = false;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+        }
+    }
+
+    private void ConfigureEndTurnButtonForCyberLayout()
+    {
+        GameObject endTurnButtonObject = GameObject.Find("EndTurnButton");
+        if (endTurnButtonObject == null)
+        {
+            return;
+        }
+
+        RectTransform rt = endTurnButtonObject.GetComponent<RectTransform>();
+        if (rt != null)
+        {
+            rt.anchorMin = new Vector2(1f, 0f);
+            rt.anchorMax = new Vector2(1f, 0f);
+            rt.pivot = new Vector2(1f, 0f);
+            rt.anchoredPosition = new Vector2(-28f, 28f);
+            rt.sizeDelta = new Vector2(170f, 54f);
+        }
+
+        Image image = endTurnButtonObject.GetComponent<Image>();
+        if (image != null)
+        {
+            image.color = CyberPanel;
+        }
+
+        TMP_Text text = endTurnButtonObject.GetComponentInChildren<TMP_Text>(true);
+        if (text != null)
+        {
+            text.text = "턴 종료";
+            text.fontSize = 20f;
+            text.color = CyberText;
+            text.alignment = TextAlignmentOptions.Center;
+        }
+    }
+
+    private void StyleBattleText(TMP_Text text, float fontSize, Color color, TextAlignmentOptions alignment)
+    {
+        if (text == null)
+        {
+            return;
+        }
+
+        text.fontSize = fontSize;
+        text.color = color;
+        text.alignment = alignment;
+        text.textWrappingMode = TextWrappingModes.Normal;
+        text.overflowMode = TextOverflowModes.Ellipsis;
+        text.raycastTarget = false;
+    }
+
+    private void StyleTextParentPanel(TMP_Text text, Color color)
+    {
+        if (text == null || text.transform.parent == null)
+        {
+            return;
+        }
+
+        Image image = text.transform.parent.GetComponent<Image>();
+        if (image != null)
+        {
+            image.color = color;
+            image.raycastTarget = false;
+        }
+    }
+
+    private void StyleSlider(Slider slider, Color fillColor)
+    {
+        if (slider == null)
+        {
+            return;
+        }
+
+        if (slider.fillRect != null)
+        {
+            Image fill = slider.fillRect.GetComponent<Image>();
+            if (fill != null)
+            {
+                fill.color = fillColor;
+            }
+        }
+
+        Image[] images = slider.GetComponentsInChildren<Image>(true);
+        for (int i = 0; i < images.Length; i++)
+        {
+            if (slider.fillRect != null && images[i].transform == slider.fillRect)
+            {
+                continue;
+            }
+
+            images[i].color = CyberPanelLight;
+        }
+
+        slider.transition = Selectable.Transition.None;
+    }
+
+    private void SetRect(Component component, Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot, Vector2 offsetMin, Vector2 offsetMax)
+    {
+        if (component == null)
+        {
+            return;
+        }
+
+        RectTransform rt = component.GetComponent<RectTransform>();
+        if (rt == null)
+        {
+            return;
+        }
+
+        rt.anchorMin = anchorMin;
+        rt.anchorMax = anchorMax;
+        rt.pivot = pivot;
+        rt.offsetMin = offsetMin;
+        rt.offsetMax = offsetMax;
+    }
+
+    private void SetStretch(RectTransform rectTransform, Vector2 offsetMin, Vector2 offsetMax)
+    {
+        if (rectTransform == null)
+        {
+            return;
+        }
+
+        rectTransform.anchorMin = Vector2.zero;
+        rectTransform.anchorMax = Vector2.one;
+        rectTransform.offsetMin = offsetMin;
+        rectTransform.offsetMax = offsetMax;
     }
 
     private Sprite GetEnemyCurrentSprite()
@@ -476,9 +1199,18 @@ public class BattleManager : MonoBehaviour
         if (actualDamage > 0)
         {
             PlayPlayerHitEffect();
+            CheckPlayerDefeat();
         }
 
         return actualDamage;
+    }
+
+    private void CheckPlayerDefeat()
+    {
+        if (!battleEnded && playerHP <= 1)
+        {
+            LoseBattle();
+        }
     }
 
     private void PlayHitClip(AudioClip clip)
@@ -534,7 +1266,8 @@ public class BattleManager : MonoBehaviour
 
             if (playerHitShakeTarget != null)
             {
-                playerHitShakeTarget.anchoredPosition = playerHitOriginalPosition + Random.insideUnitCircle * shake;
+                float xShake = Mathf.Sin(elapsed * playerHitHorizontalShakeFrequency) * shake;
+                playerHitShakeTarget.anchoredPosition = playerHitOriginalPosition + new Vector2(xShake, 0f);
             }
 
             if (playerHitFlashImage != null)
@@ -1496,6 +2229,10 @@ private int CalculateRewardLux(int bet)
 
         int enemyHPBeforeCard = enemyHP;
         ApplySpecialCardEffect(card);
+        if (battleEnded)
+        {
+            return;
+        }
 
         // 체력 회복
         if (card.healAmount > 0)
@@ -1730,21 +2467,21 @@ private int CalculateRewardLux(int bet)
         formatted = Regex.Replace(
             formatted,
             @"(Lux\s*cost\s*:\s*\d+)",
-            "<color=#ffd63d>$1</color>",
+            "<color=#ff6ec7>$1</color>",
             RegexOptions.IgnoreCase);
         formatted = Regex.Replace(
             formatted,
             @"(Lux\s*[+-]\s*\d+)",
-            "<color=#ffd63d>$1</color>",
+            "<color=#ff6ec7>$1</color>",
             RegexOptions.IgnoreCase);
         formatted = Regex.Replace(
             formatted,
             @"(피해\s*\d+)",
-            "<color=red>$1</color>");
+            "<color=#ff4444>$1</color>");
         formatted = Regex.Replace(
             formatted,
             @"(\d+\s*피해)",
-            "<color=red>$1</color>");
+            "<color=#ff4444>$1</color>");
 
         return formatted;
     }
@@ -1981,7 +2718,8 @@ private int CalculateRewardLux(int bet)
                 WriteLog("<color=#8fd3ff>과부하:</color> 2턴 동안 모든 카드 코스트 -3, 분노 +20.");
                 break;
             case SpecialCardEffect.Heartbeat:
-                WriteLog("<color=#8fd3ff>심장 박동:</color> 현재 효과가 없습니다.");
+                heartbeatAttackBonusActive = true;
+                WriteLog("<color=#8fd3ff>심장 박동:</color> HP가 50% 이하일 때 공격력 +5.");
                 break;
             case SpecialCardEffect.ReverseOdds:
             {
@@ -2167,6 +2905,11 @@ private int CalculateRewardLux(int bet)
             return 0;
         }
 
+        if (heartbeatAttackBonusActive && playerHP <= Mathf.FloorToInt(playerMaxHP * 0.5f))
+        {
+            damage += 5;
+        }
+
         if (currentTurnDamageMultiplier > 1f)
         {
             damage = Mathf.RoundToInt(damage * currentTurnDamageMultiplier);
@@ -2311,7 +3054,7 @@ private int CalculateRewardLux(int bet)
         DrawCards(drawCount);
         StartCoroutine(RefreshHandUIRoutine());
 
-        if (playerHP <= 0)
+        if (playerHP <= 1)
         {
             LoseBattle();
             return;
@@ -2385,17 +3128,36 @@ private void WinBattle()
 
         UpdateUI();
 
+        bool idapenFirstVictory = missionScoreId == BattleScoreStore.DefaultMissionId
+            && BattleScoreStore.GetBestScore(BattleScoreStore.DefaultMissionId) <= 0
+            && BattleScoreStore.GetCurrentScore(BattleScoreStore.DefaultMissionId) <= 0;
+        bool karimFirstVictory = missionScoreId == BattleScoreStore.KarimHasanMissionId
+            && BattleScoreStore.GetBestScore(BattleScoreStore.KarimHasanMissionId) <= 0
+            && BattleScoreStore.GetCurrentScore(BattleScoreStore.KarimHasanMissionId) <= 0;
         int score = BattleScoreStore.CalculateScore(turn);
         BattleScoreStore.SaveScore(missionScoreId, score);
         PlayerPrefs.SetInt("BattleVictory", 1);
         PlayerPrefs.DeleteKey("BattleDefeat");
         PlayerPrefs.SetString("LastVictoryMission", missionScoreId);
+        if (idapenFirstVictory)
+        {
+            PlayerPrefs.SetInt(BattleScoreStore.IdapenFirstVictoryJustWonKey, 1);
+        }
+        if (karimFirstVictory)
+        {
+            PlayerPrefs.SetInt(BattleScoreStore.KarimFirstVictoryJustWonKey, 1);
+        }
         PlayerPrefs.Save();
         StartCoroutine(WinBattleSequence(score));
     }
 
 private void LoseBattle()
     {
+        if (battleEnded)
+        {
+            return;
+        }
+
         battleEnded = true;
 
         int extraLoss = selectedBet;
@@ -2810,14 +3572,14 @@ private IEnumerator ResultTransitionRoutine(string message, string sceneName, in
         text.text = delta > 0 ? $"+{delta}" : $"{delta}";
         if (TMP_Settings.defaultFontAsset != null)
             text.font = TMP_Settings.defaultFontAsset;
-        text.fontSize = Mathf.Max(anchor.fontSize * 0.9f, 26f);
-        Color baseColor = delta > 0 ? new Color(0.35f, 0.65f, 1f) : new Color(1f, 0.3f, 0.3f);
+        text.fontSize = Mathf.Max(anchor.fontSize * 1.55f, 42f);
+        Color baseColor = delta > 0 ? new Color(1f, 0.78f, 0.94f, 1f) : CyberRed;
         text.color = baseColor;
         text.alignment = TextAlignmentOptions.Left;
         text.raycastTarget = false;
 
         RectTransform rt = obj.GetComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(120f, 60f);
+        rt.sizeDelta = new Vector2(180f, 76f);
         rt.anchorMin = new Vector2(0.5f, 0.5f);
         rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(0f, 0.5f);
@@ -2829,19 +3591,26 @@ private IEnumerator ResultTransitionRoutine(string message, string sceneName, in
         localPos += extraOffset;
         rt.anchoredPosition = localPos;
 
-        float holdDelay = 1.0f;
-        float fadeDuration = 0.9f;
+        float fadeDuration = 0.78f;
         Vector2 startPos = rt.anchoredPosition;
-
-        yield return new WaitForSecondsRealtime(holdDelay);
+        Vector2 endPos = startPos + new Vector2(0f, 58f);
+        Vector3 startScale = Vector3.one * 0.82f;
+        Vector3 popScale = Vector3.one * 1.18f;
+        Vector3 endScale = Vector3.one * 1.02f;
+        rt.localScale = startScale;
 
         float startTime = Time.realtimeSinceStartup;
         while (true)
         {
             if (obj == null) yield break;
             float t = Mathf.Clamp01((Time.realtimeSinceStartup - startTime) / fadeDuration);
-            rt.anchoredPosition = startPos;
-            text.color = new Color(baseColor.r, baseColor.g, baseColor.b, Mathf.Lerp(1f, 0f, t));
+            float moveT = 1f - Mathf.Pow(1f - t, 2f);
+            rt.anchoredPosition = Vector2.LerpUnclamped(startPos, endPos, moveT);
+            rt.localScale = t < 0.22f
+                ? Vector3.LerpUnclamped(startScale, popScale, t / 0.22f)
+                : Vector3.LerpUnclamped(popScale, endScale, (t - 0.22f) / 0.78f);
+            float alpha = t < 0.20f ? 1f : Mathf.Lerp(1f, 0f, (t - 0.20f) / 0.80f);
+            text.color = new Color(baseColor.r, baseColor.g, baseColor.b, alpha);
             if (t >= 1f) break;
             yield return null;
         }
@@ -3172,6 +3941,120 @@ private void CheckEnemyRage()
     UpdateEnemySprite();
 }
 
+    private void StartStatAnimation(
+        ref Coroutine routine,
+        TMP_Text text,
+        Slider slider,
+        int from,
+        int to,
+        int max,
+        string label,
+        bool sliderUsesNormalizedValue,
+        Color flashColor,
+        Vector2 floatingOffset)
+    {
+        if (routine != null)
+        {
+            StopCoroutine(routine);
+        }
+
+        if (to != from)
+        {
+            SpawnFloatingDelta(text, to - from, floatingOffset);
+        }
+
+        routine = StartCoroutine(AnimateStatChangeRoutine(text, slider, from, to, max, label, sliderUsesNormalizedValue, flashColor));
+    }
+
+    private IEnumerator AnimateStatChangeRoutine(
+        TMP_Text text,
+        Slider slider,
+        int from,
+        int to,
+        int max,
+        string label,
+        bool sliderUsesNormalizedValue,
+        Color flashColor)
+    {
+        const float duration = 0.58f;
+        Color normalColor = text != null ? text.color : Color.white;
+        if (slider != null)
+        {
+            EnsureSliderFillVisible(slider);
+            if (sliderUsesNormalizedValue)
+            {
+                slider.minValue = 0f;
+                slider.maxValue = 1f;
+            }
+            else
+            {
+                slider.minValue = 0f;
+                slider.maxValue = Mathf.Max(1, max);
+            }
+        }
+
+        float startTime = Time.realtimeSinceStartup;
+        while (true)
+        {
+            float elapsed = Time.realtimeSinceStartup - startTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+            float eased = t * t * (3f - 2f * t);
+            int shown = Mathf.RoundToInt(Mathf.Lerp(from, to, eased));
+            ApplyDisplayedStat(text, slider, shown, max, label, sliderUsesNormalizedValue);
+
+            if (text != null)
+            {
+                float pulse = Mathf.Sin(t * Mathf.PI);
+                text.color = Color.Lerp(normalColor, flashColor, pulse);
+            }
+
+            if (t >= 1f)
+            {
+                break;
+            }
+
+            yield return null;
+        }
+
+        ApplyDisplayedStat(text, slider, to, max, label, sliderUsesNormalizedValue);
+        if (text != null)
+        {
+            text.color = normalColor;
+        }
+    }
+
+    private void ApplyDisplayedStat(TMP_Text text, Slider slider, int value, int max, string label, bool sliderUsesNormalizedValue)
+    {
+        value = Mathf.Clamp(value, 0, Mathf.Max(1, max));
+
+        if (text != null)
+        {
+            text.text = FormatStatText(label, value, max);
+        }
+
+        if (slider != null)
+        {
+            if (sliderUsesNormalizedValue)
+            {
+                slider.SetValueWithoutNotify(max <= 0 ? 0f : (float)value / max);
+            }
+            else
+            {
+                slider.SetValueWithoutNotify(value);
+            }
+        }
+    }
+
+    private string FormatStatText(string label, int value, int max)
+    {
+        if (label == "분노")
+        {
+            return value >= rageThreshold ? $"분노 {value}/{max} - 분노 상태" : $"분노 {value}/{max}";
+        }
+
+        return $"{label} {value}/{max}";
+    }
+
     private void UpdateUI()
     {
         int dPlayerHP = playerHP - _prevPlayerHP;
@@ -3187,8 +4070,14 @@ private void CheckEnemyRage()
 
         if (playerHPText != null)
         {
-            playerHPText.text = $"HP {playerHP}/{playerMaxHP}";
-            if (dPlayerHP != 0) SpawnFloatingDelta(playerHPText, dPlayerHP);
+            if (dPlayerHP != 0)
+            {
+                StartStatAnimation(ref playerHPUiRoutine, playerHPText, playerHPBar, playerHP - dPlayerHP, playerHP, playerMaxHP, "HP", false, dPlayerHP < 0 ? CyberRed : CyberPink, Vector2.zero);
+            }
+            else
+            {
+                ApplyDisplayedStat(playerHPText, playerHPBar, playerHP, playerMaxHP, "HP", false);
+            }
         }
 
         if (shieldText != null)
@@ -3209,14 +4098,23 @@ private void CheckEnemyRage()
         {
             EnsureSliderFillVisible(playerHPBar);
             playerHPBar.maxValue = playerMaxHP;
-            playerHPBar.value = playerHP;
+            if (dPlayerHP == 0 && playerHPUiRoutine == null)
+            {
+                playerHPBar.value = playerHP;
+            }
         }
 
 
         if (luxText != null)
         {
-            luxText.text = $"LUX {lux}/100";
-            if (dLux != 0) SpawnFloatingDelta(luxText, dLux, luxFloatingDeltaOffset);
+            if (dLux != 0)
+            {
+                StartStatAnimation(ref luxUiRoutine, luxText, luxBar, lux - dLux, lux, 100, "LUX", false, dLux < 0 ? CyberRed : CyberPink, luxFloatingDeltaOffset);
+            }
+            else
+            {
+                ApplyDisplayedStat(luxText, luxBar, lux, 100, "LUX", false);
+            }
         }
 
         if (luxBar != null)
@@ -3224,7 +4122,10 @@ private void CheckEnemyRage()
             EnsureSliderFillVisible(luxBar);
             luxBar.minValue = 0f;
             luxBar.maxValue = 100f;
-            luxBar.SetValueWithoutNotify(lux);
+            if (dLux == 0 && luxUiRoutine == null)
+            {
+                luxBar.SetValueWithoutNotify(lux);
+            }
             UpdateLuxBarColor();
         }
 
@@ -3235,26 +4136,44 @@ private void CheckEnemyRage()
 
         if (enemyHPText != null)
         {
-            enemyHPText.text = $"HP {enemyHP}/{enemyMaxHP}";
-            if (dEnemyHP != 0) SpawnFloatingDelta(enemyHPText, dEnemyHP);
+            if (dEnemyHP != 0)
+            {
+                StartStatAnimation(ref enemyHPUiRoutine, enemyHPText, enemyHPBar, enemyHP - dEnemyHP, enemyHP, enemyMaxHP, "HP", true, dEnemyHP < 0 ? CyberRed : CyberPink, Vector2.zero);
+            }
+            else
+            {
+                ApplyDisplayedStat(enemyHPText, enemyHPBar, enemyHP, enemyMaxHP, "HP", true);
+            }
         }
 
         if (enemyHPBar != null)
         {
             EnsureSliderFillVisible(enemyHPBar);
-            enemyHPBar.value = (float)enemyHP / enemyMaxHP;
+            if (dEnemyHP == 0 && enemyHPUiRoutine == null)
+            {
+                enemyHPBar.value = (float)enemyHP / enemyMaxHP;
+            }
         }
 
         if (emotionText != null)
         {
-            emotionText.text = enemyRaged ? $"분노 {enemyEmotion}/{maxEmotion} - 분노 상태" : $"분노 {enemyEmotion}/{maxEmotion}";
-            if (dEmotion != 0) SpawnFloatingDelta(emotionText, dEmotion);
+            if (dEmotion != 0)
+            {
+                StartStatAnimation(ref emotionUiRoutine, emotionText, emotionBar, enemyEmotion - dEmotion, enemyEmotion, maxEmotion, "분노", true, dEmotion < 0 ? CyberRed : CyberPink, Vector2.zero);
+            }
+            else
+            {
+                ApplyDisplayedStat(emotionText, emotionBar, enemyEmotion, maxEmotion, "분노", true);
+            }
         }
 
         if (emotionBar != null)
         {
             EnsureSliderFillVisible(emotionBar);
-            emotionBar.value = (float)enemyEmotion / maxEmotion;
+            if (dEmotion == 0 && emotionUiRoutine == null)
+            {
+                emotionBar.value = (float)enemyEmotion / maxEmotion;
+            }
         }
 
         if (turnText != null)
@@ -3299,21 +4218,7 @@ private void CheckEnemyRage()
         Image fillImage = luxBar.fillRect.GetComponent<Image>();
         if (fillImage == null) return;
 
-        switch (GetLuxState())
-        {
-            case LuxState.Poverty:
-                fillImage.color = povertyLuxBarColor;
-                break;
-            case LuxState.Normal:
-                fillImage.color = normalLuxBarColor;
-                break;
-            case LuxState.Lucky:
-                fillImage.color = luckyLuxBarColor;
-                break;
-            case LuxState.Overflow:
-                fillImage.color = overflowLuxBarColor;
-                break;
-        }
+        fillImage.color = CyberPink;
     }
 
     private void EnsureSliderFillVisible(Slider slider)

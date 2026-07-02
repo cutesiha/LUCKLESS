@@ -19,6 +19,9 @@ public class MissionPanelHoverController : MonoBehaviour
     [SerializeField] private float lockedShakeDistance = 16f;
     [SerializeField] [Range(0f, 1f)] private float lockedClickDarkenBlend = 0.38f;
     [SerializeField] private string firstMissionSceneName = "Idapen";
+    [SerializeField] private string secondMissionSceneName = "KarimHasan";
+    [SerializeField] private AudioSource missionClickSfxSource;
+    [SerializeField] private AudioClip missionClickClip;
     [SerializeField] private float sceneFadeDuration = 0.8f;
     [SerializeField] private float sceneLoadHoldSeconds = 1f;
     [SerializeField] private Vector2 missionScoreLabelOffset = new Vector2(18f, 0f);
@@ -55,6 +58,7 @@ public class MissionPanelHoverController : MonoBehaviour
             ApplyBattleReturnDPanelText();
         }
 
+        RefreshMissionStateTexts();
         Image[] images = GetComponentsInChildren<Image>(true);
 
         for (int i = 0; i < images.Length; i++)
@@ -66,17 +70,22 @@ public class MissionPanelHoverController : MonoBehaviour
 
             SetupGrayHover(images[i]);
 
-            if (IsMissionButton(images[i].name) && !IsLockedButton(images[i].name))
+            if (IsMissionButton(images[i].name) && !IsLockedAtCurrentProgress(images[i].name))
             {
                 SetupClickFlash(images[i]);
             }
 
             if (IsFirstMissionButton(images[i].name))
             {
-                SetupFirstMissionClick(images[i]);
+                SetupMissionClick(images[i], firstMissionSceneName);
             }
 
-            if (IsLockedButton(images[i].name))
+            if (IsSecondMissionButton(images[i].name) && IsSecondMissionUnlocked())
+            {
+                SetupMissionClick(images[i], secondMissionSceneName);
+            }
+
+            if (IsLockedAtCurrentProgress(images[i].name))
             {
                 SetupLockedClick(images[i]);
             }
@@ -97,10 +106,12 @@ public class MissionPanelHoverController : MonoBehaviour
         }
 
         EnsureLockedMessage();
+        PostVictoryMainDialogueController.PlayPendingIfAny(transform.root);
     }
 
 private void OnEnable()
     {
+        RefreshMissionStateTexts();
         EnsureMissionScoreLabels();
     }
 
@@ -261,7 +272,7 @@ private void OnEnable()
         }
     }
 
-    private void SetupFirstMissionClick(Image image)
+    private void SetupMissionClick(Image image, string sceneName)
     {
         EventTrigger trigger = image.GetComponent<EventTrigger>();
         if (trigger == null)
@@ -269,12 +280,17 @@ private void OnEnable()
             trigger = image.gameObject.AddComponent<EventTrigger>();
         }
 
-        AddPointerEvent(trigger, EventTriggerType.PointerClick, StartFirstMissionTransition);
+        AddPointerEvent(trigger, EventTriggerType.PointerClick, () => StartMissionTransition(sceneName));
     }
 
     private bool IsFirstMissionButton(string objectName)
     {
         return objectName == "MButton" || objectName == "MButton1";
+    }
+
+    private bool IsSecondMissionButton(string objectName)
+    {
+        return objectName == "MButton2" || objectName == "MButton (1)";
     }
 
     private bool IsLockedButton(string objectName)
@@ -283,6 +299,16 @@ private void OnEnable()
             || objectName == "MButton3"
             || objectName == "MButton (1)"
             || objectName == "MButton (2)";
+    }
+
+    private bool IsLockedAtCurrentProgress(string objectName)
+    {
+        if (IsSecondMissionButton(objectName))
+        {
+            return !IsSecondMissionUnlocked();
+        }
+
+        return IsLockedButton(objectName);
     }
 
     private bool IsMissionButton(string objectName)
@@ -448,7 +474,7 @@ private void OnEnable()
         lockedMessageRoutine = StartCoroutine(ShowLockedMessageRoutine());
     }
 
-    private void StartFirstMissionTransition()
+    private void StartMissionTransition(string sceneName)
     {
         if (sceneTransitionStarted)
         {
@@ -456,19 +482,25 @@ private void OnEnable()
         }
 
         sceneTransitionStarted = true;
-        StartCoroutine(LoadFirstMissionScene());
+        PlayMissionClickSfx();
+        StartCoroutine(LoadMissionScene(sceneName));
     }
 
-    private IEnumerator LoadFirstMissionScene()
+    private IEnumerator LoadMissionScene(string sceneName)
     {
         Image fadeImage = CreateSceneFadeImage();
         yield return FadeImage(fadeImage, 0f, 1f, sceneFadeDuration);
         yield return new WaitForSecondsRealtime(sceneLoadHoldSeconds);
 
-        if (!string.IsNullOrWhiteSpace(firstMissionSceneName))
+        if (!string.IsNullOrWhiteSpace(sceneName))
         {
-            SceneManager.LoadScene(firstMissionSceneName);
+            SceneManager.LoadScene(sceneName);
         }
+    }
+
+    private void PlayMissionClickSfx()
+    {
+        UIClickSoundPlayer.Play(gameObject, ref missionClickSfxSource, missionClickClip != null ? missionClickClip : lockedClickClip);
     }
 
     private Image CreateSceneFadeImage()
@@ -566,6 +598,84 @@ private void EnsureMissionScoreLabels()
             label.text = $"현재 점수: {currentScore} / 최고 점수: {bestScore}";
             FitMissionScoreBackground(label);
         }
+    }
+
+    private void RefreshMissionStateTexts()
+    {
+        Image[] images = GetComponentsInChildren<Image>(true);
+        for (int i = 0; i < images.Length; i++)
+        {
+            Image image = images[i];
+            if (image == null || !IsMissionButton(image.name))
+            {
+                continue;
+            }
+
+            TextMeshProUGUI title = GetMissionTitleText(image.transform);
+            if (title == null)
+            {
+                continue;
+            }
+
+            title.richText = true;
+            string missionId = GetMissionId(image.name);
+            bool completed = IsMissionCompleted(missionId);
+
+            if (IsFirstMissionButton(image.name))
+            {
+                title.text = completed
+                    ? "\u2460 \uC774\uB2E4 \uD39C .................. [\uCC98\uB9AC \uC644\uB8CC]"
+                    : "\u2460 \uC774\uB2E4 \uD39C .................. <color=#ffd6e8>[\uCC98\uB9AC \uAC00\uB2A5]</color>";
+                continue;
+            }
+
+            if (IsSecondMissionButton(image.name))
+            {
+                if (completed)
+                {
+                    title.text = "\u2461 \uCE74\uB9BC \uD558\uC0B0 ............... [\uCC98\uB9AC \uC644\uB8CC]";
+                }
+                else if (IsSecondMissionUnlocked())
+                {
+                    title.text = "\u2461 \uCE74\uB9BC \uD558\uC0B0 ............... <color=#ffd6e8>[\uCC98\uB9AC \uAC00\uB2A5]</color>";
+                }
+                else
+                {
+                    title.text = "\u2461 \uCE74\uB9BC \uD558\uC0B0 ............... [\uC7A0\uAE08]";
+                }
+            }
+        }
+    }
+
+    private TextMeshProUGUI GetMissionTitleText(Transform missionButton)
+    {
+        if (missionButton == null)
+        {
+            return null;
+        }
+
+        TextMeshProUGUI[] texts = missionButton.GetComponentsInChildren<TextMeshProUGUI>(true);
+        for (int i = 0; i < texts.Length; i++)
+        {
+            TextMeshProUGUI text = texts[i];
+            if (text != null && text.gameObject.name != "MissionScoreText")
+            {
+                return text;
+            }
+        }
+
+        return null;
+    }
+
+    private bool IsMissionCompleted(string missionId)
+    {
+        return BattleScoreStore.GetBestScore(missionId) > 0
+            || BattleScoreStore.GetCurrentScore(missionId) > 0;
+    }
+
+    private bool IsSecondMissionUnlocked()
+    {
+        return IsMissionCompleted(BattleScoreStore.DefaultMissionId);
     }
 
     private TextMeshProUGUI GetOrCreateMissionScoreLabel(RectTransform buttonTransform)

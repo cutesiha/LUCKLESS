@@ -3355,7 +3355,7 @@ MonoBehaviour:
   victorySceneName: Victory2Scene
   resultFadeDuration: 0.8
   resultHoldDuration: 2
-  missionScoreId: Mission1
+  missionScoreId: Mission2
   bettingPanel: {fileID: 800626297}
   battlePanel: {fileID: 1347279365}
   endPanel: {fileID: 1987163353}
