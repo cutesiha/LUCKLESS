@@ -53,6 +53,8 @@ public class IdapenDialogueController : MonoBehaviour
     [SerializeField] private TMP_Text alternateDialogueText;
     [SerializeField] private Image alternateCharacterImage;
     [SerializeField] private AudioSource voiceSource;
+    [SerializeField] private AudioSource clickSfxSource;
+    [SerializeField] private AudioClip clickClip;
     [SerializeField] [Range(0f, 5f)] private float voiceVolume = 1f;
 
     [Header("Dialogue")]
@@ -62,6 +64,13 @@ public class IdapenDialogueController : MonoBehaviour
     [SerializeField] private string shakeDialogueText = "멈춰요!";
     [SerializeField] private string battleSceneName = "BattleScene";
     [SerializeField] private string battleMissionId = BattleScoreStore.DefaultMissionId;
+    [SerializeField] private string victory2ReturnSceneName = "MainScene";
+    [SerializeField] private float victory2GuardFadeDuration = 0.85f;
+    [SerializeField] private int victory2GuardDustCount = 24;
+    [SerializeField] private int victory2Element3LineIndex = 2;
+    [SerializeField] private float victory2Element3ShakeDuration = 0.32f;
+    [SerializeField] private float victory2Element3ShakeDistance = 18f;
+    [SerializeField] private Color victory2Element3TintColor = new Color(0.58f, 0.58f, 0.58f, 1f);
 
     [Header("Timing")]
     [SerializeField] private float typingSpeed = 0.035f;
@@ -89,6 +98,7 @@ public class IdapenDialogueController : MonoBehaviour
     private Image currentCharacterImage;
     private GameObject currentDialogueCanvasRoot;
     private Coroutine shakeRoutine;
+    private Coroutine victory2Element3Routine;
     private RectTransform[] activeShakeTargets;
     private Vector2[] activeShakeStartPositions;
     private Transform activeShakeCameraTransform;
@@ -96,6 +106,9 @@ public class IdapenDialogueController : MonoBehaviour
     private bool autoModeEnabled;
     private bool currentLineHasVoice;
     private bool sceneTransitionStarted;
+    private bool victory2GuardExitEffectPlayed;
+    private bool victory2Element3EffectPlayed;
+    private int lastClickSfxFrame = -1;
     private const float ChoiceButtonHeight = 58f;
     private const float ChoiceFontSize = 41f;
     private const float ChoicePanelWidth = 680f;
@@ -142,7 +155,7 @@ public class IdapenDialogueController : MonoBehaviour
         }
     }
 
-    private IEnumerator PlayDialogue()
+private IEnumerator PlayDialogue()
     {
         if (lines == null || lines.Length == 0)
         {
@@ -162,18 +175,19 @@ public class IdapenDialogueController : MonoBehaviour
             yield return typingRoutine;
             typingRoutine = null;
 
+            yield return PlayVictory2GuardExitEffectIfNeeded(line);
+
             bool showedChoices = ShouldShowChoices(line);
             if (showedChoices)
             {
                 yield return ShowChoices(line);
+                yield return PlayChoiceResponse(line, selectedChoice);
 
                 if (IsLastDialogueLine(lineIndex))
                 {
                     yield return FadeToBattleScene();
                     yield break;
                 }
-
-                yield return PlayChoiceResponse(line, selectedChoice);
             }
 
             yield return new WaitForSecondsRealtime(lineEndDelay);
@@ -221,6 +235,8 @@ public class IdapenDialogueController : MonoBehaviour
         {
             StartShake();
         }
+
+        PlayVictory2Element3EffectIfNeeded();
     }
 
     private void ShowLine(IdapenChoiceResponseLine line, IdapenDialogueLine fallbackLine)
@@ -505,6 +521,7 @@ public class IdapenDialogueController : MonoBehaviour
         Button button = buttonObject.GetComponent<Button>();
         button.targetGraphic = image;
         button.transition = Selectable.Transition.None;
+        button.onClick.AddListener(PlayClickSfx);
         button.onClick.AddListener(onClick);
 
         LayoutElement layoutElement = buttonObject.GetComponent<LayoutElement>();
@@ -587,6 +604,7 @@ public class IdapenDialogueController : MonoBehaviour
 
     private void ToggleAutoMode()
     {
+        PlayClickSfx();
         autoModeEnabled = !autoModeEnabled;
 
         if (autoButtonText != null)
@@ -929,6 +947,16 @@ public class IdapenDialogueController : MonoBehaviour
         Image fadeImage = CreateFadeImage();
         yield return FadeImage(fadeImage, 0f, 1f, battleSceneFadeDuration);
 
+        if (ShouldReturnToMainFromVictory2())
+        {
+            if (!string.IsNullOrWhiteSpace(victory2ReturnSceneName))
+            {
+                QueuePostVictoryDialogueIfNeeded();
+                SceneManager.LoadScene(victory2ReturnSceneName);
+            }
+            yield break;
+        }
+
         if (!string.IsNullOrWhiteSpace(battleSceneName))
         {
             PlayerPrefs.SetString(BattleScoreStore.ActiveBattleMissionKey, ResolveBattleMissionId());
@@ -1165,6 +1193,213 @@ public class IdapenDialogueController : MonoBehaviour
         if (rectTransform != null && !targets.Contains(rectTransform))
         {
             targets.Add(rectTransform);
+        }
+    }
+
+
+private bool ShouldReturnToMainFromVictory2()
+    {
+        return SceneManager.GetActiveScene().name == "Victory2Scene";
+    }
+
+    private void QueuePostVictoryDialogueIfNeeded()
+    {
+        string missionId = PlayerPrefs.GetString("LastVictoryMission", BattleScoreStore.DefaultMissionId);
+
+        if (missionId == BattleScoreStore.DefaultMissionId
+            && PlayerPrefs.GetInt(BattleScoreStore.IdapenFirstVictoryJustWonKey, 0) == 1
+            && PlayerPrefs.GetInt(BattleScoreStore.IdapenFirstVictoryDialogueShownKey, 0) == 0)
+        {
+            PlayerPrefs.SetString(BattleScoreStore.PendingPostVictoryDialogueKey, missionId);
+        }
+        else if (missionId == BattleScoreStore.KarimHasanMissionId
+            && PlayerPrefs.GetInt(BattleScoreStore.KarimFirstVictoryJustWonKey, 0) == 1
+            && PlayerPrefs.GetInt(BattleScoreStore.KarimFirstVictoryDialogueShownKey, 0) == 0)
+        {
+            PlayerPrefs.SetString(BattleScoreStore.PendingPostVictoryDialogueKey, missionId);
+        }
+
+        PlayerPrefs.DeleteKey(BattleScoreStore.IdapenFirstVictoryJustWonKey);
+        PlayerPrefs.DeleteKey(BattleScoreStore.KarimFirstVictoryJustWonKey);
+        PlayerPrefs.Save();
+    }
+
+    private void PlayClickSfx()
+    {
+        if (lastClickSfxFrame == Time.frameCount)
+        {
+            return;
+        }
+
+        lastClickSfxFrame = Time.frameCount;
+        UIClickSoundPlayer.Play(gameObject, ref clickSfxSource, clickClip);
+    }
+
+    private void PlayVictory2Element3EffectIfNeeded()
+    {
+        if (!ShouldReturnToMainFromVictory2()
+            || victory2Element3EffectPlayed
+            || lineIndex != victory2Element3LineIndex
+            || currentCharacterImage == null
+            || !currentCharacterImage.enabled)
+        {
+            return;
+        }
+
+        victory2Element3EffectPlayed = true;
+        if (victory2Element3Routine != null)
+        {
+            StopCoroutine(victory2Element3Routine);
+        }
+
+        victory2Element3Routine = StartCoroutine(Victory2Element3CharacterEffect(currentCharacterImage));
+    }
+
+    private IEnumerator Victory2Element3CharacterEffect(Image targetImage)
+    {
+        if (targetImage == null)
+        {
+            yield break;
+        }
+
+        RectTransform rectTransform = targetImage.rectTransform;
+        Vector2 startPosition = rectTransform != null ? rectTransform.anchoredPosition : Vector2.zero;
+        Color startColor = targetImage.color;
+        float duration = Mathf.Max(0.05f, victory2Element3ShakeDuration);
+        float startTime = Time.realtimeSinceStartup;
+
+        while (true)
+        {
+            float t = Mathf.Clamp01((Time.realtimeSinceStartup - startTime) / duration);
+            float shake = Mathf.Sin(t * Mathf.PI * 10f) * victory2Element3ShakeDistance * (1f - t);
+            float tintT = Mathf.Sin(t * Mathf.PI);
+
+            if (rectTransform != null)
+            {
+                rectTransform.anchoredPosition = startPosition + new Vector2(shake, 0f);
+            }
+
+            targetImage.color = Color.Lerp(startColor, victory2Element3TintColor, tintT * 0.55f);
+
+            if (t >= 1f)
+            {
+                break;
+            }
+
+            yield return null;
+        }
+
+        if (rectTransform != null)
+        {
+            rectTransform.anchoredPosition = startPosition;
+        }
+
+        targetImage.color = startColor;
+        victory2Element3Routine = null;
+    }
+
+    private IEnumerator PlayVictory2GuardExitEffectIfNeeded(IdapenDialogueLine line)
+    {
+        if (!ShouldReturnToMainFromVictory2()
+            || victory2GuardExitEffectPlayed
+            || line == null
+            || !ShouldUseGuardCanvas(line.speakerName)
+            || currentCharacterImage == null
+            || !currentCharacterImage.enabled)
+        {
+            yield break;
+        }
+
+        victory2GuardExitEffectPlayed = true;
+        yield return FadeCharacterImageWithDust(currentCharacterImage);
+    }
+
+    private IEnumerator FadeCharacterImageWithDust(Image targetImage)
+    {
+        if (targetImage == null)
+        {
+            yield break;
+        }
+
+        RectTransform imageRect = targetImage.rectTransform;
+        Transform dustParent = targetImage.transform.parent != null ? targetImage.transform.parent : targetImage.transform;
+        int dustCount = Mathf.Max(0, victory2GuardDustCount);
+        RectTransform[] dustRects = new RectTransform[dustCount];
+        Image[] dustImages = new Image[dustCount];
+        Vector2[] dustStarts = new Vector2[dustCount];
+        Vector2[] dustEnds = new Vector2[dustCount];
+
+        Vector2 rectSize = imageRect.rect.size;
+        if (rectSize.x <= 1f || rectSize.y <= 1f)
+        {
+            rectSize = imageRect.sizeDelta;
+        }
+
+        for (int i = 0; i < dustCount; i++)
+        {
+            GameObject dust = new GameObject("GuardDust", typeof(RectTransform), typeof(Image));
+            dust.transform.SetParent(dustParent, false);
+            RectTransform dustRect = dust.GetComponent<RectTransform>();
+            dustRect.anchorMin = imageRect.anchorMin;
+            dustRect.anchorMax = imageRect.anchorMax;
+            dustRect.pivot = imageRect.pivot;
+            float size = Random.Range(5f, 13f);
+            dustRect.sizeDelta = new Vector2(size, size);
+
+            Vector2 start = imageRect.anchoredPosition + new Vector2(
+                Random.Range(-rectSize.x * 0.24f, rectSize.x * 0.24f),
+                Random.Range(rectSize.y * 0.02f, rectSize.y * 0.32f));
+            Vector2 end = start + new Vector2(Random.Range(-90f, 90f), Random.Range(38f, 150f));
+            dustRect.anchoredPosition = start;
+
+            Image dustImage = dust.GetComponent<Image>();
+            dustImage.color = new Color(0.74f, 0.70f, 0.66f, Random.Range(0.24f, 0.46f));
+            dustImage.raycastTarget = false;
+
+            dustRects[i] = dustRect;
+            dustImages[i] = dustImage;
+            dustStarts[i] = start;
+            dustEnds[i] = end;
+        }
+
+        Color startColor = targetImage.color;
+        float duration = Mathf.Max(0.05f, victory2GuardFadeDuration);
+        float startTime = Time.realtimeSinceStartup;
+        while (true)
+        {
+            float t = Mathf.Clamp01((Time.realtimeSinceStartup - startTime) / duration);
+            float eased = 1f - Mathf.Pow(1f - t, 2f);
+            targetImage.color = new Color(startColor.r, startColor.g, startColor.b, Mathf.Lerp(startColor.a, 0f, eased));
+
+            for (int i = 0; i < dustCount; i++)
+            {
+                if (dustRects[i] == null || dustImages[i] == null)
+                {
+                    continue;
+                }
+
+                dustRects[i].anchoredPosition = Vector2.LerpUnclamped(dustStarts[i], dustEnds[i], eased);
+                Color dustColor = dustImages[i].color;
+                dustImages[i].color = new Color(dustColor.r, dustColor.g, dustColor.b, Mathf.Lerp(dustColor.a, 0f, t));
+            }
+
+            if (t >= 1f)
+            {
+                break;
+            }
+
+            yield return null;
+        }
+
+        targetImage.color = new Color(startColor.r, startColor.g, startColor.b, 0f);
+        targetImage.enabled = false;
+
+        for (int i = 0; i < dustCount; i++)
+        {
+            if (dustRects[i] != null)
+            {
+                Destroy(dustRects[i].gameObject);
+            }
         }
     }
 }

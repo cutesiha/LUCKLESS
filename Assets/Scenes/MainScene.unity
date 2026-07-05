@@ -1278,6 +1278,8 @@ MonoBehaviour:
   titleFadeAfterCanvas2Delay: 1
   eyeOpenDuration: 1.15
   voiceSource: {fileID: 337525892}
+  clickSfxSource: {fileID: 0}
+  clickClip: {fileID: 8300000, guid: 090c8958655eb574390259056d65a58c, type: 3}
   voiceVolume: 2.78
   voiceMixerGroup: {fileID: 0}
   titleMusicSource: {fileID: 337525894}
@@ -2442,7 +2444,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 0}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2
@@ -2654,7 +2656,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 0}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2
@@ -3387,6 +3389,7 @@ MonoBehaviour:
   clickSfxSource: {fileID: 0}
   clickClip: {fileID: 8300000, guid: 090c8958655eb574390259056d65a58c, type: 3}
   textFont: {fileID: 11400000, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
+  closeButtonFont: {fileID: 11400000, guid: d51fe56a0969fd3458ce069c83189659, type: 2}
   worldInfoPanelSize: {x: 1440, y: 830}
   worldInfoPanelAlpha: 0.94
   codexEntries:
@@ -4687,6 +4690,9 @@ MonoBehaviour:
   lockedShakeDistance: 16
   lockedClickDarkenBlend: 0.38
   firstMissionSceneName: Idapen
+  secondMissionSceneName: KarimHasan
+  missionClickSfxSource: {fileID: 0}
+  missionClickClip: {fileID: 0}
   sceneFadeDuration: 0.8
   sceneLoadHoldSeconds: 1
   missionScoreLabelOffset: {x: 18, y: 0}
@@ -5201,6 +5207,7 @@ MonoBehaviour:
   typingSpeed: 0.028
   lineEndDelay: 0.08
   fadeDuration: 0.16
+  rewardToastDuration: 1.65
 --- !u!4 &1663670363
 Transform:
   m_ObjectHideFlags: 0
@@ -5622,7 +5629,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 251, y: 326}
+  m_AnchoredPosition: {x: 155, y: 326}
   m_SizeDelta: {x: 200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1886958291

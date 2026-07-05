@@ -6,6 +6,7 @@ public class StartButton : MonoBehaviour
 {
     public void StartGame()
     {
+        NewGameReset.ResetProgressForNewGame();
         SceneManager.LoadScene("Prologue");
     }
 }

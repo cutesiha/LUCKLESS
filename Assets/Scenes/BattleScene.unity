@@ -2979,7 +2979,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 799, y: -210}
+  m_AnchoredPosition: {x: 795, y: -457}
   m_SizeDelta: {x: 260.39, y: 76.85}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &551761939
@@ -3307,6 +3307,16 @@ MonoBehaviour:
   hitSoundVolume: 1.86
   cardSelectClip: {fileID: 8300000, guid: edfe396b0face7547863b20ed79f8d89, type: 3}
   cardSelectSoundVolume: 0
+  cardDragClip: {fileID: 8300000, guid: 406ab0bdd8da62a46bbd0310321e5383, type: 3}
+  cardDragSoundVolume: 1
+  endTurnClip: {fileID: 0}
+  endTurnSoundVolume: 1
+  noDamageCardClip: {fileID: 8300000, guid: 090c8958655eb574390259056d65a58c, type: 3}
+  noDamageCardSoundVolume: 1
+  noDamageCardShakeCamera: {fileID: 0}
+  noDamageCardShakeTarget: {fileID: 0}
+  noDamageCardShakeDuration: 0.22
+  noDamageCardShakeDistance: 10
   diceRollPanel: {fileID: 2027719764}
   diceLeftImage: {fileID: 2043805182}
   diceRightImage: {fileID: 1196546159}
@@ -6797,6 +6807,7 @@ MonoBehaviour:
   clickSfxSource: {fileID: 0}
   clickClip: {fileID: 8300000, guid: 090c8958655eb574390259056d65a58c, type: 3}
   textFont: {fileID: 11400000, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
+  closeButtonFont: {fileID: 11400000, guid: d51fe56a0969fd3458ce069c83189659, type: 2}
   worldInfoPanelSize: {x: 1440, y: 830}
   worldInfoPanelAlpha: 0.94
   codexEntries:

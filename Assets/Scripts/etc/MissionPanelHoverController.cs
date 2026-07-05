@@ -7,10 +7,13 @@ using TMPro;
 
 public class MissionPanelHoverController : MonoBehaviour
 {
+    private const string AvailableStateColor = "#b61959";
+
     [SerializeField] private GameObject dPanel;
     [SerializeField] private Image dPanelTriggerImage;
     [SerializeField] [Range(0f, 1f)] private float dPanelAlphaHitTestMinimumThreshold = 0.1f;
     [SerializeField] [Range(0f, 1f)] private float grayBlend = 0.24f;
+    [SerializeField] [Range(0f, 1f)] private float missionButtonHoverDarkenBlend = 0.42f;
     [SerializeField] private float flashDuration = 0.16f;
     [SerializeField] private string lockedMessage = "다음 버전을 기대해주세요!";
     [SerializeField] private AudioSource lockedClickSfxSource;
@@ -127,7 +130,11 @@ private void OnEnable()
 
         Color originalColor = image.color;
         RemovePointerEvents(trigger, false);
-        AddPointerEvent(trigger, EventTriggerType.PointerEnter, () => image.color = Color.Lerp(originalColor, Color.gray, grayBlend));
+        AddPointerEvent(trigger, EventTriggerType.PointerEnter, () =>
+        {
+            float blend = IsMissionButton(image.name) ? missionButtonHoverDarkenBlend : grayBlend;
+            image.color = Color.Lerp(originalColor, Color.black, blend);
+        });
         AddPointerEvent(trigger, EventTriggerType.PointerExit, () => image.color = originalColor);
     }
 
@@ -625,7 +632,7 @@ private void EnsureMissionScoreLabels()
             {
                 title.text = completed
                     ? "\u2460 \uC774\uB2E4 \uD39C .................. [\uCC98\uB9AC \uC644\uB8CC]"
-                    : "\u2460 \uC774\uB2E4 \uD39C .................. <color=#ffd6e8>[\uCC98\uB9AC \uAC00\uB2A5]</color>";
+                    : $"\u2460 \uC774\uB2E4 \uD39C .................. <color={AvailableStateColor}>[\uCC98\uB9AC \uAC00\uB2A5]</color>";
                 continue;
             }
 
@@ -637,7 +644,7 @@ private void EnsureMissionScoreLabels()
                 }
                 else if (IsSecondMissionUnlocked())
                 {
-                    title.text = "\u2461 \uCE74\uB9BC \uD558\uC0B0 ............... <color=#ffd6e8>[\uCC98\uB9AC \uAC00\uB2A5]</color>";
+                    title.text = $"\u2461 \uCE74\uB9BC \uD558\uC0B0 ............... <color={AvailableStateColor}>[\uCC98\uB9AC \uAC00\uB2A5]</color>";
                 }
                 else
                 {

@@ -167,7 +167,7 @@ public class UIImageButton : MonoBehaviour, IPointerClickHandler, IPointerEnterH
             TextMeshProUGUI text = hoverGraphic as TextMeshProUGUI;
             if (text != null && IsCloseButton())
             {
-                text.fontSize = Mathf.Max(text.fontSize, 46f);
+                text.fontSize = Mathf.Min(text.fontSize, 38f);
                 RectTransform rect = text.rectTransform;
                 rect.sizeDelta = new Vector2(Mathf.Max(rect.sizeDelta.x, 78f), Mathf.Max(rect.sizeDelta.y, 72f));
             }

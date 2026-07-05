@@ -38,6 +38,7 @@ public class StartMenu : MonoBehaviour
 
     public void OnClickStart()
     {
+        NewGameReset.ResetProgressForNewGame();
         SceneManager.LoadScene("Prologue");
     }
 

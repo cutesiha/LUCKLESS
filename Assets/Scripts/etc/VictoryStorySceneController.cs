@@ -14,6 +14,8 @@ public class VictoryStorySceneController : MonoBehaviour
     [SerializeField] private float fadeToMainDuration = 0.65f;
     [SerializeField] private Sprite idapenBackgroundSprite;
     [SerializeField] private Sprite idapenCharacterSprite;
+    [SerializeField] private AudioSource clickSfxSource;
+    [SerializeField] private AudioClip clickClip;
 
     private const string Canvas1Name = "Canvas1_IdapenVictory";
     private const string Canvas2Name = "Canvas2_KarimHasanVictory";
@@ -22,6 +24,7 @@ public class VictoryStorySceneController : MonoBehaviour
     private GameObject activeVictoryCanvas;
     private Coroutine returnRoutine;
     private bool returnStarted;
+    private int lastClickSfxFrame = -1;
 
     private void Awake()
     {
@@ -312,14 +315,12 @@ public class VictoryStorySceneController : MonoBehaviour
                 && PlayerPrefs.GetInt(BattleScoreStore.IdapenFirstVictoryDialogueShownKey, 0) == 0)
             {
                 PlayerPrefs.SetString(BattleScoreStore.PendingPostVictoryDialogueKey, missionId);
-                PlayerPrefs.SetInt(BattleScoreStore.IdapenFirstVictoryDialogueShownKey, 1);
             }
             else if (missionId == BattleScoreStore.KarimHasanMissionId
                 && PlayerPrefs.GetInt(BattleScoreStore.KarimFirstVictoryJustWonKey, 0) == 1
                 && PlayerPrefs.GetInt(BattleScoreStore.KarimFirstVictoryDialogueShownKey, 0) == 0)
             {
                 PlayerPrefs.SetString(BattleScoreStore.PendingPostVictoryDialogueKey, missionId);
-                PlayerPrefs.SetInt(BattleScoreStore.KarimFirstVictoryDialogueShownKey, 1);
             }
 
             PlayerPrefs.DeleteKey(BattleScoreStore.IdapenFirstVictoryJustWonKey);
@@ -445,6 +446,24 @@ public class VictoryStorySceneController : MonoBehaviour
         TextMeshProUGUI text = CreateText("Label", buttonObject.transform, label, 30f, Vector2.zero, rectTransform.sizeDelta);
         Stretch(text.rectTransform);
         text.color = new Color(0.26f, 0.26f, 0.26f, 1f);
+
+        Button button = buttonObject.GetComponent<Button>();
+        button.onClick.AddListener(PlayClickSfx);
+        if (label == "Skip")
+        {
+            button.onClick.AddListener(BeginFadeToMain);
+        }
+    }
+
+    private void PlayClickSfx()
+    {
+        if (lastClickSfxFrame == Time.frameCount)
+        {
+            return;
+        }
+
+        lastClickSfxFrame = Time.frameCount;
+        UIClickSoundPlayer.Play(gameObject, ref clickSfxSource, clickClip);
     }
 
     private void Stretch(RectTransform rectTransform)

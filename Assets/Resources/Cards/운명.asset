@@ -13,12 +13,13 @@ MonoBehaviour:
   m_Name: "\uC6B4\uBA85"
   m_EditorClassIdentifier: Assembly-CSharp::CardData
   cardName: "\uC6B4\uBA85 "
-  description: "Lux Cost: 9. 50% \uD655\uB960\uB85C \uC801\uC5D0\uAC8C \uD53C\uD574
-    20. \uC2E4\uD328 \uC2DC \uC81C\uB85C\uAC00 \uD53C\uD574 10."
+  description: "50% \uD655\uB960\uB85C \uC801\uC5D0\uAC8C \uD53C\uD574 20. \uC2E4\uD328
+    \uC2DC \uC81C\uB85C\uAC00 \uD53C\uD574 10."
   damage: 20
   luxCost: 9
   luxGain: 0
   emotionGain: 0
+  cardImage: {fileID: 0}
   selfDamage: 10
   gambleSuccessChance: 50
   canOnlyUseInPoverty: 0

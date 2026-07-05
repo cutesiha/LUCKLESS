@@ -85,6 +85,8 @@ public class PrologueSequenceController : MonoBehaviour
 
     [Header("Audio")]
     [SerializeField] private AudioSource voiceSource;
+    [SerializeField] private AudioSource clickSfxSource;
+    [SerializeField] private AudioClip clickClip;
     [SerializeField] [Range(0f, 5f)] private float voiceVolume = 1f;
     [SerializeField] private AudioMixerGroup voiceMixerGroup;
     [SerializeField] private AudioSource titleMusicSource;
@@ -135,6 +137,7 @@ public class PrologueSequenceController : MonoBehaviour
     private TextMeshProUGUI autoButtonText;
     private bool mainSceneTransitionStarted;
     private bool currentLineHasVoice;
+    private int lastClickSfxFrame = -1;
     private const float ChoiceButtonHeight = 58f;
     private const float ChoiceFontSize = 41f;
     private const float ChoicePanelWidth = 680f;
@@ -463,6 +466,7 @@ public class PrologueSequenceController : MonoBehaviour
         Button button = buttonObject.GetComponent<Button>();
         button.targetGraphic = image;
         button.transition = Selectable.Transition.None;
+        button.onClick.AddListener(PlayClickSfx);
         button.onClick.AddListener(onClick);
 
         LayoutElement layoutElement = buttonObject.GetComponent<LayoutElement>();
@@ -520,7 +524,12 @@ public class PrologueSequenceController : MonoBehaviour
 
     private void OnSkipClicked()
     {
-        SceneManager.LoadScene(mainSceneName);
+        if (mainSceneTransitionStarted)
+        {
+            return;
+        }
+
+        StartCoroutine(FadeToMainScene());
     }
 
     private void OnInventoryPanelClosed()
@@ -535,6 +544,7 @@ public class PrologueSequenceController : MonoBehaviour
 
     private void ToggleAutoMode()
     {
+        PlayClickSfx();
         autoModeEnabled = !autoModeEnabled;
 
         if (autoButtonText != null)
@@ -1536,6 +1546,17 @@ public class PrologueSequenceController : MonoBehaviour
 
         float volume = GameAudioSettings.SfxVolume * handbookRewardSfxVolume;
         handbookRewardSfxSource.PlayOneShot(handbookRewardSfxClip, volume);
+    }
+
+    private void PlayClickSfx()
+    {
+        if (lastClickSfxFrame == Time.frameCount)
+        {
+            return;
+        }
+
+        lastClickSfxFrame = Time.frameCount;
+        UIClickSoundPlayer.Play(gameObject, ref clickSfxSource, clickClip);
     }
 
     private void EnsureHandbookRewardSfxSource()

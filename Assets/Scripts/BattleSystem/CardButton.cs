@@ -13,7 +13,9 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     public TMP_Text cardNameText;
 
     [Header("Card Image")]
-    [SerializeField] private Image cardImage;
+    
+    [SerializeField] [Range(0f, 1f)] private float alphaHitTestMinimumThreshold = 0.1f;
+[SerializeField] private Image cardImage;
     [SerializeField] private Sprite dealImage;
     [SerializeField] private Sprite houseImage;
     [SerializeField] private Sprite gambleImage;
@@ -22,12 +24,12 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     [SerializeField] private Sprite manipulationImage;
     [SerializeField] private Sprite fluxImage;
     [SerializeField] private Sprite barrierImage;
-    [SerializeField] private Color nameOutlineColor = new Color(0.16f, 0.16f, 0.16f, 0.50f);
-    [SerializeField] private float nameOutlineDistance = 1.7f;
+    [SerializeField] private Color nameOutlineColor = new Color(0f, 0f, 0f, 1f);
+    [SerializeField] private float nameOutlineDistance = 3.15f;
     [SerializeField] private Color cardOutlineColor = new Color(0.08f, 0.03f, 0.07f, 0.82f);
     [SerializeField] private Vector2 cardOutlineDistance = new Vector2(4f, -4f);
     [SerializeField] [Range(0f, 1f)] private float hoverDarkenAmount = 0.28f;
-    [SerializeField] private float hoverScale = 1.025f;
+    [SerializeField] private float hoverScale = 1.085f;
     [SerializeField] private float hoverLift = 15f;
     [SerializeField] private float hoverTweenDuration = 0.12f;
 
@@ -69,6 +71,9 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     private Vector2 dragOriginalAnchorMin;
     private Vector2 dragOriginalAnchorMax;
     private Vector2 dragOriginalPivot;
+    private Vector2 dragOriginalSize;
+    private GameObject dragPlaceholder;
+    private SmoothHandLayoutAnimator handLayoutAnimator;
 #if UNITY_EDITOR
     private bool nameOutlineRefreshQueued;
 #endif
@@ -113,7 +118,7 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
         cardNameText.richText = true;
         cardNameText.text = battleManager != null
             ? battleManager.GetCardButtonLabel(cardData)
-            : $"{cardData.cardName}\n<LUX {cardData.luxCost}>";
+            : cardData.cardName;
 
         ApplyNameTextOutline();
         ApplyCardImage();
@@ -306,6 +311,19 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
         {
             cardImage = GetComponent<Image>();
         }
+
+        if (cardImage != null)
+        {
+            cardImage.raycastTarget = true;
+            try
+            {
+                cardImage.alphaHitTestMinimumThreshold = alphaHitTestMinimumThreshold;
+            }
+            catch (System.InvalidOperationException)
+            {
+                // The sprite texture import settings are fixed separately; avoid repeated editor exceptions meanwhile.
+            }
+        }
     }
 
     private void EnsureCardOutline()
@@ -352,35 +370,47 @@ public class CardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     }
 
 public void OnClickCard()
-{
-    if (battleManager == null)
     {
-        Debug.LogWarning("BattleManager가 연결되지 않았습니다.", gameObject);
-        return;
-    }
+        if (battleManager == null)
+        {
+            return;
+        }
 
-    if (cardData == null)
-    {
-        Debug.LogWarning("CardData가 연결되지 않았습니다.", gameObject);
-        return;
-    }
+        if (cardData == null)
+        {
+            Debug.LogWarning("CardData is not connected.", gameObject);
+            return;
+        }
 
-    if (suppressNextClick)
-    {
-        suppressNextClick = false;
-        return;
-    }
+        if (suppressNextClick)
+        {
+            suppressNextClick = false;
+            return;
+        }
 
-    battleManager.PlayCardSelectSound();
-    PlayClickBoing();
-}
+        if (!battleManager.CanAcceptCardClick(cardData, out bool insufficientLux))
+        {
+            if (insufficientLux)
+            {
+                PlayInsufficientLuxFeedback();
+            }
+            else
+            {
+                PlayClickBoing();
+            }
+            return;
+        }
+
+        battleManager.PlayCardSelectSound();
+        PlayClickBoing();
+    }
 
     private void PlayClickBoing()
     {
         StartClickFeedback(ClickBoingRoutine());
     }
 
-    public void OnBeginDrag(PointerEventData eventData)
+public void OnBeginDrag(PointerEventData eventData)
     {
         if (!Application.isPlaying || battleManager == null || cardData == null)
         {
@@ -392,7 +422,6 @@ public void OnClickCard()
         {
             if (insufficientLux)
             {
-                battleManager.PlayCardSelectSound();
                 PlayInsufficientLuxFeedback();
             }
             else
@@ -442,6 +471,13 @@ public void OnClickCard()
         dragOriginalAnchorMin = rectTransform.anchorMin;
         dragOriginalAnchorMax = rectTransform.anchorMax;
         dragOriginalPivot = rectTransform.pivot;
+        dragOriginalSize = rectTransform.rect.size;
+        handLayoutAnimator = dragOriginalParent != null ? dragOriginalParent.GetComponent<SmoothHandLayoutAnimator>() : null;
+        if (handLayoutAnimator != null)
+        {
+            handLayoutAnimator.CaptureLayout();
+        }
+
         dragLayoutElement = GetComponent<LayoutElement>();
         if (dragLayoutElement != null)
         {
@@ -456,16 +492,21 @@ public void OnClickCard()
         }
 
         battleManager.HideCardTooltip();
+        battleManager.PlayCardDragSound();
         transform.SetParent(dragCanvas.transform, true);
         transform.SetAsLastSibling();
         rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
         rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
         rectTransform.pivot = dragOriginalPivot;
         SetDraggedCardScreenPosition(eventData);
+        if (handLayoutAnimator != null)
+        {
+            handLayoutAnimator.AnimateLayoutShift();
+        }
         battleManager.UpdateDraggedCardTargetPreview(cardData, eventData.position);
     }
 
-    public void OnDrag(PointerEventData eventData)
+public void OnDrag(PointerEventData eventData)
     {
         if (!dragAllowed || !dragging)
         {
@@ -473,13 +514,23 @@ public void OnClickCard()
         }
 
         SetDraggedCardScreenPosition(eventData);
+        bool overHand = battleManager != null && battleManager.IsScreenPointOverHand(eventData.position);
+        UpdateDragPlaceholder(overHand, eventData.position);
+
         if (battleManager != null && cardData != null)
         {
-            battleManager.UpdateDraggedCardTargetPreview(cardData, eventData.position);
+            if (overHand)
+            {
+                battleManager.ClearDraggedCardPreview();
+            }
+            else
+            {
+                battleManager.UpdateDraggedCardTargetPreview(cardData, eventData.position);
+            }
         }
     }
 
-    public void OnEndDrag(PointerEventData eventData)
+public void OnEndDrag(PointerEventData eventData)
     {
         if (!dragAllowed)
         {
@@ -490,12 +541,15 @@ public void OnClickCard()
         dragging = false;
         suppressNextClick = true;
 
-        bool used = battleManager != null
+        bool overHand = battleManager != null && battleManager.IsScreenPointOverHand(eventData.position);
+        bool used = !overHand
+            && battleManager != null
             && cardData != null
             && battleManager.TryUseDraggedCardOnEnemy(cardData, eventData.position);
 
         if (used)
         {
+            RemoveDragPlaceholder(true);
             if (dragLayoutElement != null)
             {
                 dragLayoutElement.ignoreLayout = false;
@@ -527,7 +581,7 @@ public void OnClickCard()
         }
     }
 
-    private void ReturnDraggedCardToHand()
+private void ReturnDraggedCardToHand()
     {
         RectTransform rectTransform = transform as RectTransform;
         if (rectTransform == null)
@@ -535,17 +589,6 @@ public void OnClickCard()
             return;
         }
 
-        if (dragOriginalParent != null)
-        {
-            transform.SetParent(dragOriginalParent, false);
-            transform.SetSiblingIndex(Mathf.Clamp(dragOriginalSiblingIndex, 0, dragOriginalParent.childCount - 1));
-        }
-
-        rectTransform.anchorMin = dragOriginalAnchorMin;
-        rectTransform.anchorMax = dragOriginalAnchorMax;
-        rectTransform.pivot = dragOriginalPivot;
-        rectTransform.anchoredPosition = rectTransform.anchoredPosition;
-        transform.localScale = dragOriginalScale;
         if (clickFeedbackRoutine != null)
         {
             StopCoroutine(clickFeedbackRoutine);
@@ -555,9 +598,57 @@ public void OnClickCard()
         if (returnDragRoutine != null)
         {
             StopCoroutine(returnDragRoutine);
+            returnDragRoutine = null;
         }
 
-        returnDragRoutine = StartCoroutine(ReturnDraggedCardRoutine(rectTransform));
+        int targetSiblingIndex = dragPlaceholder != null && dragPlaceholder.transform.parent == dragOriginalParent
+            ? dragPlaceholder.transform.GetSiblingIndex()
+            : dragOriginalSiblingIndex;
+
+        if (handLayoutAnimator != null)
+        {
+            handLayoutAnimator.CaptureLayout();
+        }
+
+        if (dragPlaceholder != null)
+        {
+            Destroy(dragPlaceholder);
+            dragPlaceholder = null;
+        }
+
+        if (dragOriginalParent != null)
+        {
+            transform.SetParent(dragOriginalParent, false);
+            transform.SetSiblingIndex(Mathf.Clamp(targetSiblingIndex, 0, dragOriginalParent.childCount - 1));
+        }
+
+        rectTransform.anchorMin = dragOriginalAnchorMin;
+        rectTransform.anchorMax = dragOriginalAnchorMax;
+        rectTransform.pivot = dragOriginalPivot;
+        rectTransform.anchoredPosition = dragOriginalAnchoredPosition;
+        transform.localScale = dragOriginalScale;
+
+        Image image = GetComponent<Image>();
+        if (image != null)
+        {
+            image.color = visualBaseColor;
+        }
+
+        if (dragLayoutElement != null)
+        {
+            dragLayoutElement.ignoreLayout = false;
+        }
+
+        if (handLayoutAnimator != null)
+        {
+            handLayoutAnimator.AnimateLayoutShift();
+        }
+        else if (dragOriginalParent is RectTransform parentRect)
+        {
+            LayoutRebuilder.ForceRebuildLayoutImmediate(parentRect);
+        }
+
+        CaptureVisualBaseState();
     }
 
     private IEnumerator ReturnDraggedCardRoutine(RectTransform rectTransform)
@@ -629,7 +720,7 @@ public void OnClickCard()
         clickFeedbackRoutine = null;
     }
 
-    private IEnumerator InsufficientLuxFeedbackRoutine()
+private IEnumerator InsufficientLuxFeedbackRoutine()
     {
         RectTransform rectTransform = transform as RectTransform;
         Image image = GetComponent<Image>();
@@ -639,16 +730,16 @@ public void OnClickCard()
         clickFeedbackBaseColor = visualBaseColor;
 
         Color restColor = GetRestColor();
-        Color darkColor = Color.Lerp(visualBaseColor, Color.black, 0.38f);
-        darkColor.a = visualBaseColor.a;
+        Color warningColor = Color.Lerp(visualBaseColor, new Color(1f, 0.08f, 0.12f, visualBaseColor.a), 0.42f);
+        warningColor.a = visualBaseColor.a;
         if (image != null)
         {
-            image.color = darkColor;
+            image.color = warningColor;
         }
 
         float startTime = Time.realtimeSinceStartup;
         const float duration = 0.24f;
-        const float distance = 16f;
+        const float distance = 18f;
 
         while (true)
         {
@@ -661,8 +752,10 @@ public void OnClickCard()
                 rectTransform.anchoredPosition = clickFeedbackBasePosition + new Vector2(offset, 0f);
             }
 
-            float scalePulse = Mathf.Sin(t * Mathf.PI) * 0.035f;
-            transform.localScale = clickFeedbackBaseScale * (1f + scalePulse);
+            if (image != null)
+            {
+                image.color = Color.Lerp(warningColor, restColor, t);
+            }
 
             if (t >= 1f)
             {
@@ -670,12 +763,6 @@ public void OnClickCard()
             }
 
             yield return null;
-        }
-
-        if (image != null)
-        {
-            restColor = GetRestColor();
-            yield return LerpImageColor(image, image.color, restColor, 0.08f);
         }
 
         RestoreClickFeedbackState();
@@ -759,7 +846,7 @@ public void OnClickCard()
         }
     }
 
-    public void OnPointerExit(PointerEventData eventData)
+public void OnPointerExit(PointerEventData eventData)
     {
         if (dragging)
         {
@@ -798,9 +885,6 @@ public void OnClickCard()
 
         Vector3 fromScale = transform.localScale;
         Vector3 toScale = enter ? GetHoverScale() : visualBaseScale;
-        RectTransform rectTransform = transform as RectTransform;
-        Vector2 fromPosition = rectTransform != null ? rectTransform.anchoredPosition : Vector2.zero;
-        Vector2 toPosition = enter ? visualBasePosition + new Vector2(0f, hoverLift) : visualBasePosition;
         Color fromColor = image != null ? image.color : Color.white;
         Color toColor = enter ? GetHoverColor(visualBaseColor) : visualBaseColor;
 
@@ -812,10 +896,6 @@ public void OnClickCard()
             float eased = t * t * (3f - 2f * t);
 
             transform.localScale = Vector3.LerpUnclamped(fromScale, toScale, eased);
-            if (rectTransform != null)
-            {
-                rectTransform.anchoredPosition = Vector2.LerpUnclamped(fromPosition, toPosition, eased);
-            }
             if (image != null)
             {
                 image.color = Color.Lerp(fromColor, toColor, eased);
@@ -830,10 +910,6 @@ public void OnClickCard()
         }
 
         transform.localScale = toScale;
-        if (rectTransform != null)
-        {
-            rectTransform.anchoredPosition = toPosition;
-        }
         if (image != null)
         {
             image.color = toColor;
@@ -862,5 +938,134 @@ public void OnClickCard()
     private Color GetRestColor()
     {
         return hovering ? GetHoverColor(visualBaseColor) : visualBaseColor;
+    }
+
+
+private void UpdateDragPlaceholder(bool shouldShow, Vector2 screenPosition)
+    {
+        if (dragOriginalParent == null)
+        {
+            return;
+        }
+
+        if (!shouldShow)
+        {
+            RemoveDragPlaceholder(true);
+            return;
+        }
+
+        int targetIndex = GetPlaceholderSiblingIndex(screenPosition);
+        if (dragPlaceholder == null)
+        {
+            if (handLayoutAnimator != null)
+            {
+                handLayoutAnimator.CaptureLayout();
+            }
+
+            dragPlaceholder = new GameObject("CardReturnPlaceholder", typeof(RectTransform), typeof(LayoutElement), typeof(CanvasGroup));
+            dragPlaceholder.transform.SetParent(dragOriginalParent, false);
+            ConfigureDragPlaceholder(dragPlaceholder.GetComponent<LayoutElement>());
+            CanvasGroup group = dragPlaceholder.GetComponent<CanvasGroup>();
+            group.alpha = 0f;
+            group.blocksRaycasts = false;
+            group.interactable = false;
+            dragPlaceholder.transform.SetSiblingIndex(Mathf.Clamp(targetIndex, 0, dragOriginalParent.childCount - 1));
+
+            if (handLayoutAnimator != null)
+            {
+                handLayoutAnimator.AnimateLayoutShift();
+            }
+            return;
+        }
+
+        int clampedIndex = Mathf.Clamp(targetIndex, 0, dragOriginalParent.childCount - 1);
+        if (dragPlaceholder.transform.GetSiblingIndex() != clampedIndex)
+        {
+            if (handLayoutAnimator != null)
+            {
+                handLayoutAnimator.CaptureLayout();
+            }
+
+            dragPlaceholder.transform.SetSiblingIndex(clampedIndex);
+
+            if (handLayoutAnimator != null)
+            {
+                handLayoutAnimator.AnimateLayoutShift();
+            }
+        }
+    }
+
+    private void RemoveDragPlaceholder(bool animate)
+    {
+        if (dragPlaceholder == null)
+        {
+            return;
+        }
+
+        if (animate && handLayoutAnimator != null)
+        {
+            handLayoutAnimator.CaptureLayout();
+        }
+
+        Destroy(dragPlaceholder);
+        dragPlaceholder = null;
+
+        if (animate && handLayoutAnimator != null)
+        {
+            handLayoutAnimator.AnimateLayoutShift();
+        }
+    }
+
+    private void ConfigureDragPlaceholder(LayoutElement layoutElement)
+    {
+        if (layoutElement == null)
+        {
+            return;
+        }
+
+        float width = dragLayoutElement != null && dragLayoutElement.preferredWidth > 0f ? dragLayoutElement.preferredWidth : dragOriginalSize.x;
+        float height = dragLayoutElement != null && dragLayoutElement.preferredHeight > 0f ? dragLayoutElement.preferredHeight : dragOriginalSize.y;
+        layoutElement.preferredWidth = Mathf.Max(1f, width);
+        layoutElement.minWidth = Mathf.Max(1f, width);
+        layoutElement.preferredHeight = Mathf.Max(1f, height);
+        layoutElement.minHeight = Mathf.Max(1f, height);
+        layoutElement.flexibleWidth = 0f;
+        layoutElement.flexibleHeight = 0f;
+    }
+
+    private int GetPlaceholderSiblingIndex(Vector2 screenPosition)
+    {
+        if (dragOriginalParent == null)
+        {
+            return dragOriginalSiblingIndex;
+        }
+
+        Canvas parentCanvas = dragOriginalParent.GetComponentInParent<Canvas>();
+        Camera camera = parentCanvas != null && parentCanvas.renderMode != RenderMode.ScreenSpaceOverlay ? parentCanvas.worldCamera : null;
+        int fallbackIndex = Mathf.Clamp(dragOriginalSiblingIndex, 0, dragOriginalParent.childCount);
+        int targetIndex = fallbackIndex;
+
+        for (int i = 0; i < dragOriginalParent.childCount; i++)
+        {
+            Transform child = dragOriginalParent.GetChild(i);
+            if (child == null || child.gameObject == dragPlaceholder)
+            {
+                continue;
+            }
+
+            RectTransform childRect = child as RectTransform;
+            if (childRect == null)
+            {
+                continue;
+            }
+
+            Vector2 childScreen = RectTransformUtility.WorldToScreenPoint(camera, childRect.position);
+            if (screenPosition.x > childScreen.x)
+            {
+                targetIndex = child.GetSiblingIndex() + 1;
+            }
+        }
+
+        return Mathf.Clamp(targetIndex, 0, dragOriginalParent.childCount);
     }
 }

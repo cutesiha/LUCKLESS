@@ -61,6 +61,7 @@ public class PostVictoryMainDialogueController : MonoBehaviour
         }
 
         PlayerPrefs.DeleteKey(BattleScoreStore.PendingPostVictoryDialogueKey);
+        MarkDialogueAsShown(missionId);
         PlayerPrefs.Save();
 
         PostVictoryMainDialogueController controller = FindSceneController();
@@ -151,11 +152,31 @@ public class PostVictoryMainDialogueController : MonoBehaviour
         EnsureDialogueHierarchy();
     }
 
+    private void Start()
+    {
+        if (Application.isPlaying)
+        {
+            PlayPendingIfAny(transform.root);
+        }
+    }
+
     private void OnEnable()
     {
         if (!Application.isPlaying)
         {
             EnsureDialogueHierarchy();
+        }
+    }
+
+    private static void MarkDialogueAsShown(string missionId)
+    {
+        if (missionId == BattleScoreStore.DefaultMissionId)
+        {
+            PlayerPrefs.SetInt(BattleScoreStore.IdapenFirstVictoryDialogueShownKey, 1);
+        }
+        else if (missionId == BattleScoreStore.KarimHasanMissionId)
+        {
+            PlayerPrefs.SetInt(BattleScoreStore.KarimFirstVictoryDialogueShownKey, 1);
         }
     }
 

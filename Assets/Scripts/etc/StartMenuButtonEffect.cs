@@ -284,6 +284,7 @@ public class StartMenuButtonEffect : MonoBehaviour, IPointerEnterHandler, IPoint
 
         if (resolvedAction == ClickAction.LoadPrologue)
         {
+            NewGameReset.ResetProgressForNewGame();
             yield return new WaitForSecondsRealtime(sceneLoadDelayAfterFade);
             SceneManager.LoadScene(prologueSceneName);
             yield break;

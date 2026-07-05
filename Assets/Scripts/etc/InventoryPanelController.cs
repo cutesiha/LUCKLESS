@@ -88,6 +88,7 @@ public class InventoryPanelController : MonoBehaviour
 
     [Header("World Info Panel")]
     [SerializeField] private TMP_FontAsset textFont;
+    [SerializeField] private TMP_FontAsset closeButtonFont;
     [SerializeField] private Vector2 worldInfoPanelSize = new Vector2(1440f, 830f);
     [Range(0.1f, 1f)]
     [SerializeField] private float worldInfoPanelAlpha = 0.94f;
@@ -162,6 +163,7 @@ public class InventoryPanelController : MonoBehaviour
     private Slider cardTypeSlider;
     private bool syncingCardTypeSlider;
     private int selectedCardTypeIndex;
+    private GameObject selectedInventoryCardObject;
     private readonly List<CardType> visibleCardTypes = new List<CardType>();
     private readonly List<TextMeshProUGUI> cardTypeNavLabels = new List<TextMeshProUGUI>();
 
@@ -232,6 +234,12 @@ public class InventoryPanelController : MonoBehaviour
     private void OnValidate()
     {
         EnsureDefaultCodexEntries();
+#if UNITY_EDITOR
+        if (closeButtonFont == null)
+        {
+            closeButtonFont = UnityEditor.AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/TextMesh Pro/Fonts/PF스타더스트 3.0 SDF.asset");
+        }
+#endif
     }
 
     private void OnEnable()
@@ -405,11 +413,11 @@ public class InventoryPanelController : MonoBehaviour
         if (closeText != null)
         {
             closeText.text = "X";
-            closeText.fontSize = 64f;
+            closeText.fontSize = 52f;
             closeText.color = Color.white;
             closeText.alignment = TextAlignmentOptions.Center;
             closeText.raycastTarget = true;
-            ApplyTextFont(closeText);
+            ApplyCloseButtonFont(closeText);
             SetupTextHover(closeText, Color.white, new Color(0.62f, 0.62f, 0.62f, 1f));
         }
 
@@ -1311,8 +1319,8 @@ public class InventoryPanelController : MonoBehaviour
         cardListRoot.sizeDelta = new Vector2(-36f, 0f);
 
         GridLayoutGroup grid = contentObj.GetComponent<GridLayoutGroup>();
-        grid.cellSize = new Vector2(170f, 226f);
-        grid.spacing = new Vector2(18f, 20f);
+        grid.cellSize = new Vector2(170f, 272f);
+        grid.spacing = new Vector2(18f, 24f);
         grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
         grid.constraintCount = 3;
         grid.childAlignment = TextAnchor.UpperLeft;
@@ -1325,6 +1333,9 @@ public class InventoryPanelController : MonoBehaviour
         cardListScroll.horizontal = false;
         cardListScroll.vertical = true;
         cardListScroll.movementType = ScrollRect.MovementType.Clamped;
+        cardListScroll.scrollSensitivity = 42f;
+        cardListScroll.inertia = true;
+        cardListScroll.decelerationRate = 0.18f;
     }
 
     private void CreateCardDescriptionArea(Transform parent)
@@ -1348,7 +1359,7 @@ public class InventoryPanelController : MonoBehaviour
         imageRt.anchorMax = new Vector2(0.5f, 1f);
         imageRt.pivot = new Vector2(0.5f, 1f);
         imageRt.anchoredPosition = new Vector2(0f, -26f);
-        imageRt.sizeDelta = new Vector2(180f, 230f);
+        imageRt.sizeDelta = new Vector2(180f, 220f);
         cardDetailImage = imageObj.GetComponent<Image>();
         cardDetailImage.color = Color.white;
         cardDetailImage.preserveAspect = true;
@@ -1359,8 +1370,8 @@ public class InventoryPanelController : MonoBehaviour
         nameRt.anchorMin = new Vector2(0f, 1f);
         nameRt.anchorMax = new Vector2(1f, 1f);
         nameRt.pivot = new Vector2(0.5f, 1f);
-        nameRt.offsetMin = new Vector2(28f, 0f);
-        nameRt.offsetMax = new Vector2(-28f, -286f);
+        nameRt.offsetMin = new Vector2(28f, -254f);
+        nameRt.offsetMax = new Vector2(-28f, -312f);
         cardDetailNameText.textWrappingMode = TextWrappingModes.Normal;
         cardDetailNameText.overflowMode = TextOverflowModes.Ellipsis;
 
@@ -1369,16 +1380,16 @@ public class InventoryPanelController : MonoBehaviour
         costRt.anchorMin = new Vector2(0f, 1f);
         costRt.anchorMax = new Vector2(1f, 1f);
         costRt.pivot = new Vector2(0.5f, 1f);
-        costRt.offsetMin = new Vector2(28f, 0f);
-        costRt.offsetMax = new Vector2(-28f, -334f);
+        costRt.offsetMin = new Vector2(28f, -318f);
+        costRt.offsetMax = new Vector2(-28f, -354f);
 
         cardDetailTypeText = CreateText("CardDetailType", descObj.transform, "", 18f, TextMuted, TextAlignmentOptions.Center);
         RectTransform typeRt = cardDetailTypeText.rectTransform;
         typeRt.anchorMin = new Vector2(0f, 1f);
         typeRt.anchorMax = new Vector2(1f, 1f);
         typeRt.pivot = new Vector2(0.5f, 1f);
-        typeRt.offsetMin = new Vector2(28f, 0f);
-        typeRt.offsetMax = new Vector2(-28f, -364f);
+        typeRt.offsetMin = new Vector2(28f, -356f);
+        typeRt.offsetMax = new Vector2(-28f, -386f);
 
         GameObject detailBox = CreateRectObject("CardDetailDescriptionBox", descObj.transform, typeof(Image), typeof(Outline));
         RectTransform detailRt = detailBox.GetComponent<RectTransform>();
@@ -1422,6 +1433,7 @@ public class InventoryPanelController : MonoBehaviour
 
         ClearChildren(cardListRoot);
         ClearCardDescription();
+        selectedInventoryCardObject = null;
 
         if (visibleCardTypes.Count == 0)
         {
@@ -1437,8 +1449,6 @@ public class InventoryPanelController : MonoBehaviour
         }
 
         int count = 0;
-        CardData firstCard = null;
-        GameObject firstCardObject = null;
         if (cardLibrary != null)
         {
             for (int i = 0; i < cardLibrary.Length; i++)
@@ -1454,11 +1464,6 @@ public class InventoryPanelController : MonoBehaviour
                     : CreateSimpleInventoryCard(cardData, cardListRoot);
 
                 ConfigureInventoryCardInstance(cardObject, cardData);
-                if (firstCard == null)
-                {
-                    firstCard = cardData;
-                    firstCardObject = cardObject;
-                }
                 count++;
             }
         }
@@ -1467,11 +1472,6 @@ public class InventoryPanelController : MonoBehaviour
         {
             CreateEmptyCardMessage("이 타입에 표시할 카드가 없습니다.");
         }
-        else
-        {
-            ShowCardDescription(firstCard, firstCardObject);
-        }
-
         if (cardListScroll != null)
         {
             cardListScroll.verticalNormalizedPosition = 1f;
@@ -1585,13 +1585,26 @@ public class InventoryPanelController : MonoBehaviour
 
         cardObject.name = "Card_" + cardData.name;
         cardObject.transform.localScale = Vector3.one;
+        Transform originalParent = cardObject.transform.parent;
+        GameObject slotObject = null;
+        if (originalParent == cardListRoot)
+        {
+            slotObject = new GameObject("CardSlot_" + cardData.name, typeof(RectTransform), typeof(LayoutElement));
+            slotObject.transform.SetParent(cardListRoot, false);
+            cardObject.transform.SetParent(slotObject.transform, false);
+
+            LayoutElement slotLayout = slotObject.GetComponent<LayoutElement>();
+            slotLayout.preferredWidth = 170f;
+            slotLayout.preferredHeight = 272f;
+        }
 
         RectTransform rt = cardObject.GetComponent<RectTransform>();
         if (rt != null)
         {
-            rt.anchorMin = new Vector2(0f, 1f);
-            rt.anchorMax = new Vector2(0f, 1f);
-            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchorMin = new Vector2(0.5f, 1f);
+            rt.anchorMax = new Vector2(0.5f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.anchoredPosition = Vector2.zero;
             rt.sizeDelta = new Vector2(170f, 226f);
         }
 
@@ -1600,8 +1613,7 @@ public class InventoryPanelController : MonoBehaviour
         {
             layoutElement = cardObject.AddComponent<LayoutElement>();
         }
-        layoutElement.preferredWidth = 170f;
-        layoutElement.preferredHeight = 226f;
+        layoutElement.ignoreLayout = true;
 
         CardButton cardButton = cardObject.GetComponent<CardButton>();
         if (cardButton != null)
@@ -1613,6 +1625,7 @@ public class InventoryPanelController : MonoBehaviour
                 cardButton.cardNameText = cardObject.GetComponentInChildren<TMP_Text>(true);
             }
             cardButton.RefreshCardUI();
+            cardButton.enabled = false;
         }
 
         Button button = cardObject.GetComponent<Button>();
@@ -1623,14 +1636,28 @@ public class InventoryPanelController : MonoBehaviour
             {
                 PlayInventoryClickSfx();
                 PlayInventoryCardBoing(cardObject);
+                SelectInventoryCard(cardObject);
                 ShowCardDescription(cardData, cardObject);
             });
         }
 
-        AddInventoryCardHover(cardObject, cardData);
+        if (slotObject != null)
+        {
+            TextMeshProUGUI costLabel = CreateText("CardCostText", slotObject.transform, $"LUX {cardData.luxCost}", 20f, PinkLight, TextAlignmentOptions.Center);
+            RectTransform costRt = costLabel.rectTransform;
+            costRt.anchorMin = new Vector2(0f, 0f);
+            costRt.anchorMax = new Vector2(1f, 0f);
+            costRt.pivot = new Vector2(0.5f, 0f);
+            costRt.offsetMin = new Vector2(0f, 2f);
+            costRt.offsetMax = new Vector2(0f, 38f);
+            costLabel.raycastTarget = false;
+            costLabel.fontStyle = FontStyles.Bold;
+        }
+
+        AddInventoryCardHover(cardObject);
     }
 
-    private void AddInventoryCardHover(GameObject cardObject, CardData cardData)
+    private void AddInventoryCardHover(GameObject cardObject)
     {
         EventTrigger trigger = cardObject.GetComponent<EventTrigger>();
         if (trigger == null)
@@ -1645,13 +1672,55 @@ public class InventoryPanelController : MonoBehaviour
         Color normalColor = bg != null ? bg.color : Color.white;
         AddPointerEvent(trigger, EventTriggerType.PointerEnter, () =>
         {
-            if (bg != null) bg.color = Color.Lerp(normalColor, Pink, 0.22f);
-            ShowCardDescription(cardData, cardObject);
+            if (bg != null && selectedInventoryCardObject != cardObject)
+            {
+                bg.color = Color.Lerp(normalColor, Color.black, 0.18f);
+            }
         });
         AddPointerEvent(trigger, EventTriggerType.PointerExit, () =>
         {
-            if (bg != null) bg.color = normalColor;
+            if (bg != null && selectedInventoryCardObject != cardObject)
+            {
+                bg.color = normalColor;
+            }
         });
+    }
+
+    private void SelectInventoryCard(GameObject cardObject)
+    {
+        if (selectedInventoryCardObject != null)
+        {
+            RestoreInventoryCardVisual(selectedInventoryCardObject);
+        }
+
+        selectedInventoryCardObject = cardObject;
+
+        Image image = cardObject != null ? cardObject.GetComponent<Image>() : null;
+        if (image != null)
+        {
+            image.color = Color.Lerp(image.color, Color.black, 0.52f);
+        }
+    }
+
+    private void RestoreInventoryCardVisual(GameObject cardObject)
+    {
+        if (cardObject == null)
+        {
+            return;
+        }
+
+        CardButton cardButton = cardObject.GetComponent<CardButton>();
+        if (cardButton != null)
+        {
+            cardButton.RefreshCardUI();
+            return;
+        }
+
+        Image image = cardObject.GetComponent<Image>();
+        if (image != null)
+        {
+            image.color = Rgba(18, 18, 24, 0.94f);
+        }
     }
 
     private void ShowCardDescription(CardData cardData)
@@ -1695,6 +1764,8 @@ public class InventoryPanelController : MonoBehaviour
         if (cardDetailNameText != null)
         {
             cardDetailNameText.text = cardData.cardName;
+            cardDetailNameText.fontSize = 46f;
+            cardDetailNameText.fontStyle = FontStyles.Bold;
         }
 
         if (cardDetailCostText != null)
@@ -1734,7 +1805,7 @@ public class InventoryPanelController : MonoBehaviour
 
         if (cardDescriptionText != null)
         {
-            cardDescriptionText.text = "카드에 마우스를 올리면 설명이 표시됩니다.";
+            cardDescriptionText.text = "카드를 클릭하면 설명이 표시됩니다.";
         }
     }
 
@@ -3565,11 +3636,11 @@ public class InventoryPanelController : MonoBehaviour
 
         TextMeshProUGUI closeText = closeObject.GetComponent<TextMeshProUGUI>();
         closeText.text = "X";
-        closeText.fontSize = 54f;
+        closeText.fontSize = 46f;
         closeText.color = Color.white;
         closeText.alignment = TextAlignmentOptions.Center;
         closeText.raycastTarget = true;
-        ApplyTextFont(closeText);
+        ApplyCloseButtonFont(closeText);
         SetupTextHover(closeText, Color.white, new Color(0.62f, 0.62f, 0.62f, 1f));
 
         Button closeButton = closeObject.GetComponent<Button>();
@@ -3997,6 +4068,20 @@ public class InventoryPanelController : MonoBehaviour
         text.font = textFont;
     }
 
+    private void ApplyCloseButtonFont(TextMeshProUGUI text)
+    {
+        if (text == null)
+        {
+            return;
+        }
+
+        TMP_FontAsset font = closeButtonFont != null ? closeButtonFont : textFont;
+        if (font != null)
+        {
+            text.font = font;
+        }
+    }
+
     private void AddClickEvent(Image image, UnityEngine.Events.UnityAction callback)
     {
         ApplySpriteAlphaHitTest(image);
@@ -4008,7 +4093,22 @@ public class InventoryPanelController : MonoBehaviour
         }
 
         trigger.triggers.RemoveAll(entry => entry.eventID == EventTriggerType.PointerClick);
-        AddPointerEvent(trigger, EventTriggerType.PointerClick, callback);
+        AddPointerEvent(trigger, EventTriggerType.PointerClick, () =>
+        {
+            Camera eventCamera = GetEventCamera(image);
+            if (!IsPointerOverOpaqueImagePixel(image, eventCamera))
+            {
+                return;
+            }
+
+            callback();
+        });
+    }
+
+    private Camera GetEventCamera(Image image)
+    {
+        Canvas canvas = image != null ? image.canvas : null;
+        return canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay ? canvas.worldCamera : null;
     }
 
     private void AddPointerEvent(EventTrigger trigger, EventTriggerType eventType, UnityEngine.Events.UnityAction callback)

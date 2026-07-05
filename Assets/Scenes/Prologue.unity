@@ -1764,6 +1764,7 @@ MonoBehaviour:
   clickSfxSource: {fileID: 0}
   clickClip: {fileID: 8300000, guid: 090c8958655eb574390259056d65a58c, type: 3}
   textFont: {fileID: 11400000, guid: a9148d7cee33d67489411cc6c644a809, type: 2}
+  closeButtonFont: {fileID: 11400000, guid: d51fe56a0969fd3458ce069c83189659, type: 2}
   worldInfoPanelSize: {x: 1440, y: 830}
   worldInfoPanelAlpha: 0.94
   codexEntries:
