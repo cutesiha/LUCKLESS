@@ -38,7 +38,7 @@ public class VictoryStorySceneController : MonoBehaviour
 
     private void Start()
     {
-        if (Application.isPlaying)
+        if (Application.isPlaying && !IsIdapenMission())
         {
             BeginReturnSequence();
         }
@@ -58,11 +58,27 @@ public class VictoryStorySceneController : MonoBehaviour
         }
     }
 
+    private bool IsIdapenMission()
+    {
+        string missionId = PlayerPrefs.GetString(lastVictoryMissionKey, BattleScoreStore.DefaultMissionId);
+        return missionId == BattleScoreStore.DefaultMissionId;
+    }
+
     private void BuildScene()
     {
         HideLegacyWinCanvas();
         EnsureEventSystem();
         EnsureVictoryCanvases();
+
+        if (IsIdapenMission())
+        {
+            SetCanvasActive(Canvas1Name, false);
+            SetCanvasActive(Canvas2Name, false);
+            SetCanvasActive(Canvas3Name, false);
+            activeVictoryCanvas = null;
+            return;
+        }
+
         activeVictoryCanvas = ShowCanvasForLastMission();
     }
 

@@ -1239,6 +1239,8 @@ MonoBehaviour:
   alternateDialogueText: {fileID: 1660004669}
   alternateCharacterImage: {fileID: 1660004670}
   voiceSource: {fileID: 1822192645}
+  clickSfxSource: {fileID: 0}
+  clickClip: {fileID: 0}
   voiceVolume: 1.29
   lines:
   - speakerName: 
@@ -1307,8 +1309,15 @@ MonoBehaviour:
   guardSpeakerName: "17\uAD6C\uC5ED \uACBD\uBE44"
   shakeSpeakerName: ???
   shakeDialogueText: "\uBA48\uCDB0\uC694!"
-  battleSceneName: BattleScene
+  battleSceneName: BattleScene2
   battleMissionId: Mission2
+  victory2ReturnSceneName: MainScene
+  victory2GuardFadeDuration: 0.85
+  victory2GuardDustCount: 24
+  victory2Element3LineIndex: 2
+  victory2Element3ShakeDuration: 0.32
+  victory2Element3ShakeDistance: 18
+  victory2Element3TintColor: {r: 0.58, g: 0.58, b: 0.58, a: 1}
   typingSpeed: 0.035
   lineEndDelay: 0.08
   shakeDuration: 0.28

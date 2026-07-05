@@ -432,6 +432,9 @@ private void OnEnable()
         for (int i = 0; i < texts.Length; i++)
         {
             texts[i].text = message;
+            texts[i].overflowMode = TMPro.TextOverflowModes.Truncate;
+            texts[i].textWrappingMode = TMPro.TextWrappingModes.Normal;
+            texts[i].enableAutoSizing = false;
         }
     }
 

@@ -107,6 +107,17 @@ public class BattleManager : MonoBehaviour
     public int enemyHP = 100;
     public int enemyDamage = 8;
 
+    [Header("Enemy Speech Lines")]
+    [SerializeField] private string speechIdle = "";
+    [SerializeField] private string speech80 = "";
+    [SerializeField] private string speech60 = "";
+    [SerializeField] private string speech45 = "";
+    [SerializeField] private string speech30 = "";
+    [SerializeField] private string speech15 = "";
+    [SerializeField] private string speechDead = "";
+    [SerializeField] private string speechDefeat = "";
+    [SerializeField] private string speechVictory = "";
+
     [Header("Emotion")]
     public int enemyEmotion = 0;
     public int maxEmotion = 100;
@@ -3588,7 +3599,7 @@ private void LoseBattle()
 
         if (enemyDialogueText != null)
         {
-            enemyDialogueText.text = "다신 이곳에 발도 들이지 마세요.";
+            enemyDialogueText.text = GetSpeech(speechDefeat, "다신 이곳에 발도 들이지 마세요.");
         }
 
         PlayerPrefs.SetInt("BattleDefeat", 1);
@@ -3602,7 +3613,7 @@ private void LoseBattle()
     {
         if (enemyDialogueText != null)
         {
-            enemyDialogueText.text = "크윽... 지켜주지 못해 미안해요..";
+            enemyDialogueText.text = GetSpeech(speechVictory, "크윽... 지켜주지 못해 미안해요..");
         }
 
         yield return new WaitForSecondsRealtime(0.55f);
@@ -4666,6 +4677,11 @@ private IEnumerator AnimateStatChangeRoutine(
         }
     }*/
 
+    private string GetSpeech(string field, string fallback)
+    {
+        return !string.IsNullOrWhiteSpace(field) ? field : fallback;
+    }
+
     private void UpdateEnemyDialogue()
     {
         if (enemyDialogueText == null) return;
@@ -4674,31 +4690,31 @@ private IEnumerator AnimateStatChangeRoutine(
 
         if (enemyHP <= 0)
         {
-            enemyDialogueText.text = "...";
+            enemyDialogueText.text = GetSpeech(speechDead, "...");
         }
         else if (hpRate <= 0.15f)
         {
-            enemyDialogueText.text = "하하.. 하하하... 악마같은 사람.";
+            enemyDialogueText.text = GetSpeech(speech15, "하하.. 하하하... 악마같은 사람.");
         }
         else if (hpRate <= 0.30f)
         {
-            enemyDialogueText.text = "“...절 죽일 셈이군요.”";
+            enemyDialogueText.text = GetSpeech(speech30, "“...절 죽일 셈이군요.”");
         }
         else if (hpRate <= 0.45f)
         {
-            enemyDialogueText.text = "“안타깝게도 전 물러서지 않을 겁니다.”";
+            enemyDialogueText.text = GetSpeech(speech45, "“안타깝게도 전 물러서지 않을 겁니다.”");
         }
         else if (hpRate <= 0.60f)
         {
-            enemyDialogueText.text = "“할머니가 무슨 죄를 지었다고 이러는 겁니까.”";
+            enemyDialogueText.text = GetSpeech(speech60, "“할머니가 무슨 죄를 지었다고 이러는 겁니까.”");
         }
         else if (hpRate <= 0.80f)
         {
-            enemyDialogueText.text = "“당신들 때문에 지하 구역 시민들은 죽어나가고 있습니다.”";
+            enemyDialogueText.text = GetSpeech(speech80, "“당신들 때문에 지하 구역 시민들은 죽어나가고 있습니다.”");
         }
         else
         {
-            enemyDialogueText.text = "“전 이미 각오했습니다.\n덤벼요.”";
+            enemyDialogueText.text = GetSpeech(speechIdle, "“전 이미 각오했습니다.\n덤벼요.”");
         }
     }
 

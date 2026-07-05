@@ -123,7 +123,19 @@ public class IdapenDialogueController : MonoBehaviour
 
     private void Start()
     {
+        if (ShouldReturnToMainFromVictory2() && !IsIdapenMission())
+        {
+            SetActiveDialogueCanvas(false);
+            return;
+        }
+
         StartCoroutine(PlayDialogue());
+    }
+
+    private bool IsIdapenMission()
+    {
+        string missionId = PlayerPrefs.GetString("LastVictoryMission", BattleScoreStore.DefaultMissionId);
+        return missionId == BattleScoreStore.DefaultMissionId;
     }
 
     private void OnDisable()
