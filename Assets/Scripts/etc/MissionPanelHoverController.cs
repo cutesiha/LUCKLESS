@@ -122,6 +122,7 @@ private void OnEnable()
     private void SetupGrayHover(Image image)
     {
         image.raycastTarget = true;
+        ConfigureAlphaHitTest(image);
         EventTrigger trigger = image.GetComponent<EventTrigger>();
         if (trigger == null)
         {
