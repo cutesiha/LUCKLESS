@@ -171,6 +171,11 @@ private IEnumerator PlayDialogue()
     {
         if (lines == null || lines.Length == 0)
         {
+            if (ShouldReturnToMainFromVictory2())
+            {
+                yield return FadeToBattleScene();
+            }
+
             yield break;
         }
 
@@ -209,6 +214,11 @@ private IEnumerator PlayDialogue()
                 yield return WaitForAdvanceOrAuto();
                 advanceRequested = false;
             }
+        }
+
+        if (ShouldReturnToMainFromVictory2())
+        {
+            yield return FadeToBattleScene();
         }
     }
 
@@ -608,6 +618,20 @@ private IEnumerator PlayDialogue()
     {
         if (sceneTransitionStarted)
         {
+            return;
+        }
+
+        if (ShouldReturnToMainFromVictory2())
+        {
+            if (isTyping)
+            {
+                skipTypingRequested = true;
+            }
+            else
+            {
+                advanceRequested = true;
+            }
+
             return;
         }
 

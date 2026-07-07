@@ -55,6 +55,8 @@ public class InventoryPanelController : MonoBehaviour
     private const string InventoryCloseButtonName = "InventoryCloseButton";
     private const string WorldInfoPanelName = "WorldInfoPanel";
     private const string WorldImageName = "World";
+    private const string InfoImageName = "Image";
+    private const string InfoStatusPanelName = "InfoStatusPanel";
     private const string WordImageName = "Word";
     private const string CardImageName = "Card";
     private const string SaveImageName = "Save";
@@ -143,6 +145,8 @@ public class InventoryPanelController : MonoBehaviour
 
     private GameObject worldInfoPanel;
     private Image worldImage;
+    private Image infoImage;
+    private GameObject infoStatusPanel;
     private RectTransform worldContentRoot;
     private ScrollRect worldContentScroll;
     private int selectedWorldInfoIndex;
@@ -262,6 +266,7 @@ public class InventoryPanelController : MonoBehaviour
         EnsureInventoryCloseButton();
         ApplyFontToExistingTexts();
         SetupInventoryImageEffects();
+        SetupInfoImageInteraction();
         SetupWorldImageInteraction();
         SetupWordImageInteraction();
         SetupCardImageInteraction();
@@ -445,6 +450,12 @@ public class InventoryPanelController : MonoBehaviour
             return;
         }
 
+        if (infoStatusPanel != null && infoStatusPanel.activeInHierarchy)
+        {
+            ClosePanel(infoStatusPanel, null);
+            return;
+        }
+
         if (savePanel != null && savePanel.activeInHierarchy)
         {
             ClosePanel(savePanel, () =>
@@ -506,6 +517,7 @@ public class InventoryPanelController : MonoBehaviour
     private bool IsSubPanelOpen()
     {
         return (glossaryPanel != null && glossaryPanel.activeInHierarchy)
+            || (infoStatusPanel != null && infoStatusPanel.activeInHierarchy)
             || (worldInfoPanel != null && worldInfoPanel.activeInHierarchy)
             || (cardBrowserPanel != null && cardBrowserPanel.activeInHierarchy)
             || (savePanel != null && savePanel.activeInHierarchy)
@@ -517,6 +529,7 @@ public class InventoryPanelController : MonoBehaviour
         if (cardBrowserPanel != null) cardBrowserPanel.SetActive(false);
         if (savePanel != null) savePanel.SetActive(false);
         if (optionPanel != null) optionPanel.SetActive(false);
+        if (infoStatusPanel != null) infoStatusPanel.SetActive(false);
         if (glossaryPanel != null) glossaryPanel.SetActive(false);
         if (worldInfoPanel != null) worldInfoPanel.SetActive(false);
     }
@@ -665,6 +678,27 @@ public class InventoryPanelController : MonoBehaviour
         AddClickEvent(worldImage, ClickWorldImage);
     }
 
+    private void SetupInfoImageInteraction()
+    {
+        infoImage = FindChildImageByName(transform, InfoImageName);
+        if (infoImage == null) return;
+
+        ApplySpriteAlphaHitTest(infoImage);
+
+        Button infoButton = infoImage.GetComponent<Button>();
+        if (infoButton == null)
+        {
+            infoButton = infoImage.gameObject.AddComponent<Button>();
+        }
+
+        infoButton.transition = Selectable.Transition.None;
+        infoButton.targetGraphic = infoImage;
+        infoButton.onClick.RemoveAllListeners();
+        infoButton.onClick.AddListener(ClickInfoImage);
+
+        AddClickEvent(infoImage, ClickInfoImage);
+    }
+
     private void SetupWordImageInteraction()
     {
         wordImage = FindChildImageByName(transform, WordImageName);
@@ -749,6 +783,13 @@ public class InventoryPanelController : MonoBehaviour
         PlayInventoryClickSfx();
         PlayInventoryIconBoing(worldImage);
         OpenWorldInfoPanel();
+    }
+
+    private void ClickInfoImage()
+    {
+        PlayInventoryClickSfx();
+        PlayInventoryIconBoing(infoImage);
+        OpenInfoStatusPanel();
     }
 
     private void ClickWordImage()
@@ -895,6 +936,99 @@ public class InventoryPanelController : MonoBehaviour
         }
 
         return null;
+    }
+
+    private void OpenInfoStatusPanel()
+    {
+        if (IsSubPanelOpen())
+        {
+            return;
+        }
+
+        EnsureInfoStatusPanel();
+        if (infoStatusPanel == null) return;
+
+        infoStatusPanel.SetActive(true);
+        infoStatusPanel.transform.SetAsLastSibling();
+        BringCloseButtonToFront();
+        PlayPanelOpen(infoStatusPanel);
+        ResetInventoryImageHoverColors();
+    }
+
+    private void EnsureInfoStatusPanel()
+    {
+        if (infoStatusPanel != null) return;
+
+        RectTransform panelTransform = transform as RectTransform;
+        if (panelTransform == null) return;
+
+        Transform old = transform.Find(InfoStatusPanelName);
+        if (old != null) Destroy(old.gameObject);
+
+        infoStatusPanel = new GameObject(InfoStatusPanelName, typeof(RectTransform), typeof(Image), typeof(Outline));
+        infoStatusPanel.transform.SetParent(panelTransform, false);
+
+        RectTransform rt = infoStatusPanel.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.anchoredPosition = Vector2.zero;
+        rt.sizeDelta = new Vector2(640f, 420f);
+
+        ApplyDarkPanelStyle(infoStatusPanel);
+        CreatePanelChrome(infoStatusPanel.transform);
+
+        TextMeshProUGUI title = CreateText("InfoStatusTitle", infoStatusPanel.transform, "부위 상태", 34f, TextColor, TextAlignmentOptions.Center);
+        RectTransform titleRt = title.rectTransform;
+        titleRt.anchorMin = new Vector2(0f, 1f);
+        titleRt.anchorMax = new Vector2(1f, 1f);
+        titleRt.pivot = new Vector2(0.5f, 1f);
+        titleRt.offsetMin = new Vector2(36f, -82f);
+        titleRt.offsetMax = new Vector2(-36f, -24f);
+
+        GameObject rowsRoot = CreateRectObject("InfoStatusRows", infoStatusPanel.transform, typeof(VerticalLayoutGroup));
+        RectTransform rowsRt = rowsRoot.GetComponent<RectTransform>();
+        rowsRt.anchorMin = new Vector2(0f, 0f);
+        rowsRt.anchorMax = new Vector2(1f, 1f);
+        rowsRt.offsetMin = new Vector2(64f, 78f);
+        rowsRt.offsetMax = new Vector2(-64f, -112f);
+
+        VerticalLayoutGroup layout = rowsRoot.GetComponent<VerticalLayoutGroup>();
+        layout.spacing = 18f;
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = false;
+
+        CreateInfoStatusRow(rowsRoot.transform, "눈", 2);
+        CreateInfoStatusRow(rowsRoot.transform, "팔", 3);
+        CreateInfoStatusRow(rowsRoot.transform, "다리", 3);
+
+        CreatePanelCloseButton(infoStatusPanel.transform, "InfoStatusCloseButton", CloseTopPanel);
+        EnsurePanelBoing(infoStatusPanel);
+        infoStatusPanel.SetActive(false);
+    }
+
+    private void CreateInfoStatusRow(Transform parent, string bodyPart, int hp)
+    {
+        GameObject row = CreateRectObject("InfoStatus_" + bodyPart, parent, typeof(Image), typeof(Outline), typeof(LayoutElement));
+
+        Image bg = row.GetComponent<Image>();
+        bg.color = Rgba(18, 18, 22, 0.82f);
+        bg.raycastTarget = false;
+
+        Outline outline = row.GetComponent<Outline>();
+        outline.effectColor = Border;
+        outline.effectDistance = new Vector2(1f, -1f);
+
+        LayoutElement layoutElement = row.GetComponent<LayoutElement>();
+        layoutElement.preferredHeight = 70f;
+        layoutElement.minHeight = 70f;
+
+        TextMeshProUGUI label = CreateText("Label", row.transform, $"{bodyPart}: 장착됨 / HP {hp}", 25f, TextColor, TextAlignmentOptions.Left);
+        SetStretch(label.rectTransform, new Vector2(24f, 8f), new Vector2(-24f, -8f));
+        label.textWrappingMode = TextWrappingModes.NoWrap;
+        label.overflowMode = TextOverflowModes.Ellipsis;
     }
 
     private void OpenSavePanel()
@@ -3014,6 +3148,7 @@ public class InventoryPanelController : MonoBehaviour
 
         BringPanelCloseButtonToFront(savePanel);
         BringPanelCloseButtonToFront(cardBrowserPanel);
+        BringPanelCloseButtonToFront(infoStatusPanel);
         BringPanelCloseButtonToFront(glossaryPanel);
         BringPanelCloseButtonToFront(optionPanel);
         BringPanelCloseButtonToFront(worldInfoPanel);
@@ -3942,7 +4077,11 @@ public class InventoryPanelController : MonoBehaviour
         }
 
         image.raycastTarget = true;
-        image.alphaHitTestMinimumThreshold = CanSampleSpriteAlpha(image) ? InventoryAlphaHitThreshold : 0f;
+
+        if (CanSampleSpriteAlpha(image))
+        {
+            image.alphaHitTestMinimumThreshold = InventoryAlphaHitThreshold;
+        }
     }
 
     private bool IsPointerOverOpaqueImagePixel(Image image, Camera eventCamera)

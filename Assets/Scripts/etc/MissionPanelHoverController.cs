@@ -195,14 +195,20 @@ private void OnEnable()
 
     private void ConfigureAlphaHitTest(Image image)
     {
-        if (image == null || image.sprite == null || image.sprite.texture == null)
+        if (!CanSampleSpriteAlpha(image))
         {
             return;
         }
 
-        image.alphaHitTestMinimumThreshold = image.sprite.texture.isReadable
-            ? Mathf.Clamp01(dPanelAlphaHitTestMinimumThreshold)
-            : 0f;
+        image.alphaHitTestMinimumThreshold = Mathf.Clamp01(dPanelAlphaHitTestMinimumThreshold);
+    }
+
+    private bool CanSampleSpriteAlpha(Image image)
+    {
+        return image != null
+            && image.sprite != null
+            && image.sprite.texture != null
+            && image.sprite.texture.isReadable;
     }
 
     private void DisableDPanelRaycasts()

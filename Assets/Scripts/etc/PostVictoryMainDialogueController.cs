@@ -5,6 +5,9 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 [System.Serializable]
 public class PostVictoryDialogueLine
@@ -34,6 +37,7 @@ public class PostVictoryDialogueCanvas
 public class PostVictoryMainDialogueController : MonoBehaviour
 {
     [Header("Dialogue Canvases")]
+    [SerializeField] private GameObject dialogueCanvasPrefab;
     [SerializeField] private PostVictoryDialogueCanvas[] dialogueCanvases;
 
     [Header("Typing")]
@@ -41,6 +45,8 @@ public class PostVictoryMainDialogueController : MonoBehaviour
     [SerializeField] private float lineEndDelay = 0.08f;
     [SerializeField] private float fadeDuration = 0.16f;
     [SerializeField] private float rewardToastDuration = 1.65f;
+    [SerializeField] private float voiceVolume = 1f;
+    [SerializeField] private float mainSceneReadyDelay = 0.18f;
 
     private PostVictoryDialogueCanvas activeCanvas;
     private int lineIndex;
@@ -78,7 +84,7 @@ public class PostVictoryMainDialogueController : MonoBehaviour
         }
 
         controller.EnsureDialogueHierarchy();
-        controller.PlayMission(missionId);
+        controller.StartCoroutine(controller.PlayMissionWhenSceneReady(missionId));
     }
 
     public void EnsureDialogueHierarchy()
@@ -93,10 +99,27 @@ public class PostVictoryMainDialogueController : MonoBehaviour
                 continue;
             }
 
+            if (ShouldReplaceGeneratedCanvas(entry.canvasRoot))
+            {
+                DestroySceneObject(entry.canvasRoot);
+                ClearCanvasReferences(entry);
+            }
+
             if (entry.canvasRoot == null)
             {
                 Transform existing = transform.Find(entry.canvasName);
-                entry.canvasRoot = existing != null ? existing.gameObject : CreateDialogueCanvas(entry.canvasName, entry);
+                entry.canvasRoot = existing != null ? existing.gameObject : null;
+
+                if (ShouldReplaceGeneratedCanvas(entry.canvasRoot))
+                {
+                    DestroySceneObject(entry.canvasRoot);
+                    ClearCanvasReferences(entry);
+                }
+
+                if (entry.canvasRoot == null)
+                {
+                    entry.canvasRoot = CreateDialogueCanvas(entry.canvasName, entry);
+                }
             }
 
             PrepareDialogueCanvas(entry);
@@ -125,6 +148,34 @@ public class PostVictoryMainDialogueController : MonoBehaviour
         }
 
         playRoutine = StartCoroutine(PlayDialogue(targetCanvas));
+    }
+
+    private IEnumerator PlayMissionWhenSceneReady(string missionId)
+    {
+        yield return null;
+        yield return new WaitForEndOfFrame();
+
+        if (SceneManager.GetActiveScene().name == "MainScene")
+        {
+            float timeoutAt = Time.realtimeSinceStartup + 8f;
+            while (Time.realtimeSinceStartup < timeoutAt && !IsMainSceneBackgroundVisible())
+            {
+                yield return null;
+            }
+
+            if (mainSceneReadyDelay > 0f)
+            {
+                yield return new WaitForSecondsRealtime(mainSceneReadyDelay);
+            }
+        }
+
+        PlayMission(missionId);
+    }
+
+    private bool IsMainSceneBackgroundVisible()
+    {
+        GameObject background = GameObject.Find("HouseMasterBackground");
+        return background != null && background.activeInHierarchy;
     }
 
     private static PostVictoryMainDialogueController FindSceneController()
@@ -162,10 +213,6 @@ public class PostVictoryMainDialogueController : MonoBehaviour
 
     private void OnEnable()
     {
-        if (!Application.isPlaying)
-        {
-            EnsureDialogueHierarchy();
-        }
     }
 
     private static void MarkDialogueAsShown(string missionId)
@@ -266,13 +313,30 @@ public class PostVictoryMainDialogueController : MonoBehaviour
     {
         EnsureEventSystem();
 
+        if (dialogueCanvasPrefab != null)
+        {
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                GameObject prefabInstance = PrefabUtility.InstantiatePrefab(dialogueCanvasPrefab, transform) as GameObject;
+                if (prefabInstance != null)
+                {
+                    prefabInstance.name = canvasName;
+                    ConfigureCanvas(prefabInstance);
+                    return prefabInstance;
+                }
+            }
+#endif
+
+            GameObject prefabCanvas = Instantiate(dialogueCanvasPrefab, transform, false);
+            prefabCanvas.name = canvasName;
+            ConfigureCanvas(prefabCanvas);
+            return prefabCanvas;
+        }
+
         GameObject canvasObject = new GameObject(canvasName, typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster), typeof(CanvasGroup));
         canvasObject.transform.SetParent(transform, false);
-
-        Canvas canvas = canvasObject.GetComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.overrideSorting = true;
-        canvas.sortingOrder = 25000;
+        ConfigureCanvas(canvasObject);
 
         CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -340,23 +404,27 @@ public class PostVictoryMainDialogueController : MonoBehaviour
             return;
         }
 
+        ConfigureCanvas(entry.canvasRoot);
+
         if (entry.nameText == null)
         {
-            Transform nameTransform = entry.canvasRoot.transform.Find("DialoguePanel/NamePanel/NameText");
+            Transform nameTransform = FindDescendant(entry.canvasRoot.transform, "NameText");
             entry.nameText = nameTransform != null ? nameTransform.GetComponent<TMP_Text>() : null;
         }
 
         if (entry.dialogueText == null)
         {
-            Transform dialogueTransform = entry.canvasRoot.transform.Find("DialoguePanel/DialogueText");
+            Transform dialogueTransform = FindDescendant(entry.canvasRoot.transform, "DialogueText");
             entry.dialogueText = dialogueTransform != null ? dialogueTransform.GetComponent<TMP_Text>() : null;
         }
 
         if (entry.characterImage == null)
         {
-            Transform characterTransform = entry.canvasRoot.transform.Find("CharacterImage");
+            Transform characterTransform = FindDescendant(entry.canvasRoot.transform, "CharacterImage");
             entry.characterImage = characterTransform != null ? characterTransform.GetComponent<Image>() : null;
         }
+
+        EnsureVoiceSource(entry);
 
         CanvasGroup group = entry.canvasRoot.GetComponent<CanvasGroup>();
         if (group == null)
@@ -489,7 +557,7 @@ public class PostVictoryMainDialogueController : MonoBehaviour
             }
 
             string objectName = child.gameObject.name;
-            if (objectName == "HouseMaster" || objectName == "HouseMasterBackground")
+            if (objectName == "HouseMaster")
             {
                 AddHouseMasterObject(child.gameObject);
             }
@@ -524,6 +592,7 @@ public class PostVictoryMainDialogueController : MonoBehaviour
         {
             canvas.voiceSource.Stop();
             canvas.voiceSource.clip = line.voiceClip;
+            canvas.voiceSource.volume = GameAudioSettings.GetVoiceSourceVolume(voiceVolume);
             if (line.voiceClip != null)
             {
                 canvas.voiceSource.Play();
@@ -708,6 +777,136 @@ public class PostVictoryMainDialogueController : MonoBehaviour
         rectTransform.anchorMax = Vector2.one;
         rectTransform.offsetMin = Vector2.zero;
         rectTransform.offsetMax = Vector2.zero;
+    }
+
+    private void ConfigureCanvas(GameObject canvasObject)
+    {
+        if (canvasObject == null)
+        {
+            return;
+        }
+
+        Canvas canvas = canvasObject.GetComponent<Canvas>();
+        if (canvas != null)
+        {
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = 25000;
+        }
+
+        CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
+        if (scaler != null)
+        {
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.matchWidthOrHeight = 0.5f;
+        }
+    }
+
+    private void EnsureVoiceSource(PostVictoryDialogueCanvas entry)
+    {
+        if (entry == null || entry.canvasRoot == null)
+        {
+            return;
+        }
+
+        if (entry.voiceSource == null)
+        {
+            entry.voiceSource = entry.canvasRoot.GetComponent<AudioSource>();
+        }
+
+        if (entry.voiceSource == null)
+        {
+            entry.voiceSource = entry.canvasRoot.AddComponent<AudioSource>();
+        }
+
+        entry.voiceSource.playOnAwake = false;
+        entry.voiceSource.loop = false;
+        entry.voiceSource.spatialBlend = 0f;
+    }
+
+    private Transform FindDescendant(Transform root, string targetName)
+    {
+        if (root == null)
+        {
+            return null;
+        }
+
+        Transform direct = root.Find(targetName);
+        if (direct != null)
+        {
+            return direct;
+        }
+
+        Transform[] children = root.GetComponentsInChildren<Transform>(true);
+        for (int i = 0; i < children.Length; i++)
+        {
+            if (children[i] != null && children[i].name == targetName)
+            {
+                return children[i];
+            }
+        }
+
+        return null;
+    }
+
+    private bool ShouldReplaceGeneratedCanvas(GameObject canvasRoot)
+    {
+        if (dialogueCanvasPrefab == null || canvasRoot == null)
+        {
+            return false;
+        }
+
+#if UNITY_EDITOR
+        if (!Application.isPlaying && IsPostVictoryCanvasName(canvasRoot.name))
+        {
+            GameObject source = PrefabUtility.GetCorrespondingObjectFromSource(canvasRoot);
+            if (source != dialogueCanvasPrefab)
+            {
+                return true;
+            }
+        }
+#endif
+
+        return canvasRoot.transform.Find("Dim") != null;
+    }
+
+    private bool IsPostVictoryCanvasName(string objectName)
+    {
+        return objectName == "Canvas1_IdapenPostVictory"
+            || objectName == "Canvas2_KarimHasanPostVictory";
+    }
+
+    private void ClearCanvasReferences(PostVictoryDialogueCanvas entry)
+    {
+        if (entry == null)
+        {
+            return;
+        }
+
+        entry.canvasRoot = null;
+        entry.nameText = null;
+        entry.dialogueText = null;
+        entry.characterImage = null;
+        entry.voiceSource = null;
+    }
+
+    private void DestroySceneObject(GameObject target)
+    {
+        if (target == null)
+        {
+            return;
+        }
+
+#if UNITY_EDITOR
+        if (!Application.isPlaying)
+        {
+            DestroyImmediate(target);
+            return;
+        }
+#endif
+
+        Destroy(target);
     }
 
     private void EnsureEventSystem()

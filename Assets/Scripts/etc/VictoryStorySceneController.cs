@@ -5,7 +5,6 @@ using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-[ExecuteAlways]
 public class VictoryStorySceneController : MonoBehaviour
 {
     [SerializeField] private string mainSceneName = "MainScene";
@@ -28,12 +27,18 @@ public class VictoryStorySceneController : MonoBehaviour
 
     private void Awake()
     {
-        BuildScene();
+        if (Application.isPlaying)
+        {
+            BuildScene();
+        }
     }
 
     private void OnEnable()
     {
-        BuildScene();
+        if (Application.isPlaying)
+        {
+            BuildScene();
+        }
     }
 
     private void Start()
@@ -46,7 +51,7 @@ public class VictoryStorySceneController : MonoBehaviour
 
     private void Update()
     {
-        if (!Application.isPlaying)
+        if (!Application.isPlaying || IsIdapenMission())
         {
             return;
         }
@@ -72,10 +77,11 @@ public class VictoryStorySceneController : MonoBehaviour
 
         if (IsIdapenMission())
         {
-            SetCanvasActive(Canvas1Name, false);
+            GameObject canvas1 = SetCanvasActive(Canvas1Name, true);
+            SetIdapenStoryDialogueVisible(canvas1, false);
             SetCanvasActive(Canvas2Name, false);
             SetCanvasActive(Canvas3Name, false);
-            activeVictoryCanvas = null;
+            activeVictoryCanvas = canvas1;
             return;
         }
 
@@ -117,7 +123,7 @@ public class VictoryStorySceneController : MonoBehaviour
         Stretch(background.GetComponent<RectTransform>());
         Image backgroundImage = background.GetComponent<Image>();
         backgroundImage.sprite = idapenBackgroundSprite;
-        backgroundImage.color = Color.white;
+        backgroundImage.color = idapenBackgroundSprite != null ? Color.white : new Color(0.04f, 0.035f, 0.04f, 1f);
         backgroundImage.raycastTarget = false;
         backgroundImage.preserveAspect = false;
 
@@ -131,7 +137,7 @@ public class VictoryStorySceneController : MonoBehaviour
         characterRect.sizeDelta = new Vector2(660f, 900f);
         Image characterImage = character.GetComponent<Image>();
         characterImage.sprite = idapenCharacterSprite;
-        characterImage.color = Color.white;
+        characterImage.color = idapenCharacterSprite != null ? Color.white : new Color(1f, 1f, 1f, 0f);
         characterImage.raycastTarget = false;
         characterImage.preserveAspect = true;
 
@@ -216,6 +222,20 @@ public class VictoryStorySceneController : MonoBehaviour
 
         canvas.gameObject.SetActive(active);
         return canvas.gameObject;
+    }
+
+    private void SetIdapenStoryDialogueVisible(GameObject canvasObject, bool visible)
+    {
+        if (canvasObject == null)
+        {
+            return;
+        }
+
+        Transform panel = canvasObject.transform.Find("DialoguePanel");
+        if (panel != null)
+        {
+            panel.gameObject.SetActive(visible);
+        }
     }
 
     private void CreateStoryCanvas(string canvasName, string title, string body)
