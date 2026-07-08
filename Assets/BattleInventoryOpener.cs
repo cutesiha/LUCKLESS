@@ -48,6 +48,7 @@ public class BattleInventoryOpener : MonoBehaviour
 
         targetImage = GetComponent<Image>();
         targetImage.raycastTarget = true;
+        ApplyAlphaHitTest(targetImage);
         normalColor = targetImage.color;
 
         button.transition = Selectable.Transition.None;
@@ -125,6 +126,16 @@ public class BattleInventoryOpener : MonoBehaviour
         Color hoverColor = Color.Lerp(tintedColor, Color.black, hoverDarkenAmount);
         hoverColor.a = baseColor.a;
         return hoverColor;
+    }
+
+    private void ApplyAlphaHitTest(Image image)
+    {
+        if (image == null || image.sprite == null || image.sprite.texture == null || !image.sprite.texture.isReadable)
+        {
+            return;
+        }
+
+        image.alphaHitTestMinimumThreshold = 0.1f;
     }
 
     private GameObject FindInventoryPanel()

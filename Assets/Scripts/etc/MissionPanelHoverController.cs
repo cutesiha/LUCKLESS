@@ -43,6 +43,10 @@ public class MissionPanelHoverController : MonoBehaviour
     private Color lockedFeedbackBaseColor;
     private bool sceneTransitionStarted;
 
+    private readonly System.Collections.Generic.List<Image> hoverImages = new System.Collections.Generic.List<Image>();
+    private readonly System.Collections.Generic.List<Color> hoverOriginalColors = new System.Collections.Generic.List<Color>();
+    private readonly System.Collections.Generic.List<bool> hoverActiveStates = new System.Collections.Generic.List<bool>();
+
     private void Awake()
     {
         if (dPanel == null)
@@ -67,6 +71,11 @@ public class MissionPanelHoverController : MonoBehaviour
         for (int i = 0; i < images.Length; i++)
         {
             if (images[i] == null || images[i].gameObject == gameObject)
+            {
+                continue;
+            }
+
+            if (IsHoverExcluded(images[i].name))
             {
                 continue;
             }
@@ -123,20 +132,63 @@ private void OnEnable()
     {
         image.raycastTarget = true;
         ConfigureAlphaHitTest(image);
+
         EventTrigger trigger = image.GetComponent<EventTrigger>();
         if (trigger == null)
         {
             trigger = image.gameObject.AddComponent<EventTrigger>();
         }
 
-        Color originalColor = image.color;
         RemovePointerEvents(trigger, false);
-        AddPointerEvent(trigger, EventTriggerType.PointerEnter, () =>
+
+        hoverImages.Add(image);
+        hoverOriginalColors.Add(image.color);
+        hoverActiveStates.Add(false);
+    }
+
+    private void Update()
+    {
+        RefreshHoverColors();
+    }
+
+    private void RefreshHoverColors()
+    {
+        Canvas canvas = GetComponentInParent<Canvas>();
+        Camera eventCamera = canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay
+            ? canvas.worldCamera
+            : null;
+
+        for (int i = 0; i < hoverImages.Count; i++)
         {
-            float blend = IsMissionButton(image.name) ? missionButtonHoverDarkenBlend : grayBlend;
-            image.color = Color.Lerp(originalColor, Color.black, blend);
-        });
-        AddPointerEvent(trigger, EventTriggerType.PointerExit, () => image.color = originalColor);
+            Image image = hoverImages[i];
+            if (image == null || !image.isActiveAndEnabled)
+            {
+                continue;
+            }
+
+            bool wasActive = hoverActiveStates[i];
+            bool isOver = IsPointerOverOpaquePixel(image, eventCamera);
+
+            if (isOver == wasActive)
+            {
+                continue;
+            }
+
+            hoverActiveStates[i] = isOver;
+
+            if (i < hoverOriginalColors.Count)
+            {
+                if (isOver)
+                {
+                    float blend = IsMissionButton(image.name) ? missionButtonHoverDarkenBlend : grayBlend;
+                    image.color = Color.Lerp(hoverOriginalColors[i], Color.black, blend);
+                }
+                else
+                {
+                    image.color = hoverOriginalColors[i];
+                }
+            }
+        }
     }
 
     private void SetupDPanelTrigger(Image image)
@@ -209,6 +261,45 @@ private void OnEnable()
             && image.sprite != null
             && image.sprite.texture != null
             && image.sprite.texture.isReadable;
+    }
+
+    private bool IsPointerOverOpaquePixel(Image image, Camera eventCamera = null)
+    {
+        if (image == null)
+        {
+            return false;
+        }
+
+        if (!RectTransformUtility.RectangleContainsScreenPoint(image.rectTransform, Input.mousePosition, eventCamera))
+        {
+            return false;
+        }
+
+        if (!CanSampleSpriteAlpha(image))
+        {
+            return true;
+        }
+
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            image.rectTransform, Input.mousePosition, eventCamera, out Vector2 localPoint))
+        {
+            return false;
+        }
+
+        Rect rect = image.rectTransform.rect;
+        float normalizedX = Mathf.InverseLerp(rect.xMin, rect.xMax, localPoint.x);
+        float normalizedY = Mathf.InverseLerp(rect.yMin, rect.yMax, localPoint.y);
+
+        if (normalizedX < 0f || normalizedX > 1f || normalizedY < 0f || normalizedY > 1f)
+        {
+            return false;
+        }
+
+        Sprite sprite = image.sprite;
+        Rect spriteRect = sprite.textureRect;
+        int px = Mathf.Clamp(Mathf.FloorToInt(spriteRect.x + normalizedX * spriteRect.width), 0, sprite.texture.width - 1);
+        int py = Mathf.Clamp(Mathf.FloorToInt(spriteRect.y + normalizedY * spriteRect.height), 0, sprite.texture.height - 1);
+        return sprite.texture.GetPixel(px, py).a >= dPanelAlphaHitTestMinimumThreshold;
     }
 
     private void DisableDPanelRaycasts()
@@ -323,6 +414,11 @@ private void OnEnable()
         }
 
         return IsLockedButton(objectName);
+    }
+
+    private bool IsHoverExcluded(string objectName)
+    {
+        return objectName == "Housemaster";
     }
 
     private bool IsMissionButton(string objectName)

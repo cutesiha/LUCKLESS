@@ -3353,7 +3353,7 @@ MonoBehaviour:
   enemyName: "\uCE74\uB9BC \uD558\uC0B0"
   enemyMaxHP: 100
   enemyHP: 100
-  enemyDamage: 5
+  enemyDamage: 7
   speechIdle: "\uC640\uC918\uC11C \uACE0\uB9C8\uC6CC\uC694. \uB355\uBD84\uC5D0 \uC774
     \uBC29 \uC548\uC5D0 \uC788\uB294 \uAC8C \uBB54\uC9C0 \uC9C1\uC811 \uBCF4\uAC8C
     \uB410\uC73C\uB2C8\uAE4C."
@@ -3380,7 +3380,7 @@ MonoBehaviour:
   rewardLux: 0
   turn: 1
   gameOverSceneName: MainScene
-  victorySceneName: Victory2Scene
+  victorySceneName: MainScene
   resultFadeDuration: 0.8
   resultHoldDuration: 2
   missionScoreId: Mission2

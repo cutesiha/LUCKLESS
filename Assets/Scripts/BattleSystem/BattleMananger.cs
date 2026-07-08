@@ -133,7 +133,7 @@ public class BattleManager : MonoBehaviour
     private bool battleEnded = false;
     private bool battleStarted = false;
     [SerializeField] private string gameOverSceneName = "MainScene";
-    [SerializeField] private string victorySceneName = "Victory2Scene";
+    [SerializeField] private string victorySceneName = "MainScene";
     [SerializeField] private float resultFadeDuration = 0.8f;
     [SerializeField] private float resultHoldDuration = 1.1f;
     [SerializeField] private string missionScoreId = BattleScoreStore.DefaultMissionId;
